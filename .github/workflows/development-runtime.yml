@@ -1,0 +1,84 @@
+name: Disposable PHP integration toolchain
+
+on:
+  push:
+    branches: [feature/jcb-mcp-runtime]
+    paths: [.github/workflows/development-runtime.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  toolchain:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: curl, dom, fileinfo, gd, intl, mbstring, mysqli, pdo_mysql, pdo_pgsql, pgsql, simplexml, sodium, xml, xmlreader, xmlwriter, zip
+          tools: composer:v2
+          coverage: none
+      - name: Collect only public runtime binaries and linked libraries for offline integration testing
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -x /usr/lib/postgresql/16/bin/initdb ]; then
+            sudo apt-get update -qq
+            sudo apt-get install -y --no-install-recommends postgresql-16
+          fi
+          work="$(mktemp -d)"
+          runtime="$work/runtime"
+          mkdir -p "$runtime"/{bin,lib,php/bin,php/modules,postgresql/bin,postgresql/lib,postgresql/share}
+          cp -L "$(command -v php)" "$runtime/php/bin/php"
+          cp -L "$(command -v composer)" "$runtime/php/composer.phar"
+          extension_dir="$(php -r 'echo ini_get("extension_dir");')"
+          printf '%s\n' 'date.timezone=UTC' 'memory_limit=512M' 'display_errors=stderr' 'log_errors=0' > "$runtime/php/php.ini"
+          for module in ctype curl dom fileinfo gd iconv intl mbstring mysqlnd mysqli pdo pdo_mysql pdo_pgsql pgsql phar simplexml sodium tokenizer xml xmlreader xmlwriter zip; do
+            if [ -f "$extension_dir/$module.so" ]; then
+              cp -L "$extension_dir/$module.so" "$runtime/php/modules/$module.so"
+              printf 'extension=%s.so\n' "$module" >> "$runtime/php/php.ini"
+            fi
+          done
+          cp -a /usr/lib/postgresql/16/bin/. "$runtime/postgresql/bin/"
+          cp -a /usr/lib/postgresql/16/lib/. "$runtime/postgresql/lib/"
+          cp -a /usr/share/postgresql/16/. "$runtime/postgresql/share/"
+          find "$runtime/postgresql/lib" -type d -name bitcode -prune -exec rm -rf -- {} +
+          while IFS= read -r -d '' binary; do
+            while IFS= read -r library; do
+              case "$(basename "$library")" in
+                libc.so.*|libm.so.*|libpthread.so.*|libdl.so.*|librt.so.*|ld-linux*|libresolv.so.*|libutil.so.*) continue ;;
+              esac
+              [ -f "$library" ] && cp -L "$library" "$runtime/lib/$(basename "$library")"
+            done < <(ldd "$binary" 2>/dev/null | awk '/=> \/[a-zA-Z]/{print $3} /^\s*\/[a-zA-Z]/{print $1}' || true)
+          done < <(find "$runtime/php/bin" "$runtime/php/modules" "$runtime/postgresql/bin" "$runtime/postgresql/lib" -type f \( -name php -o -name '*.so' -o -perm /111 \) -print0)
+          cat > "$runtime/bin/php" <<'BASH'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+          export LD_LIBRARY_PATH="$root/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+          export PHP_INI_SCAN_DIR=''
+          exec "$root/php/bin/php" -c "$root/php/php.ini" -d "extension_dir=$root/php/modules" "$@"
+          BASH
+          cat > "$runtime/bin/composer" <<'BASH'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+          exec "$root/bin/php" "$root/php/composer.phar" "$@"
+          BASH
+          chmod +x "$runtime/bin/php" "$runtime/bin/composer"
+          "$runtime/bin/php" -v
+          "$runtime/bin/php" -m
+          "$runtime/bin/composer" --version
+          LD_LIBRARY_PATH="$runtime/lib" "$runtime/postgresql/bin/postgres" --version
+          printf '%s\n' 'Development-only runtime binaries from the GitHub Ubuntu runner and setup-php.' 'No repository, environment, credentials, database contents or runner configuration is included.' > "$runtime/NOTICE.txt"
+          mkdir -p "$RUNNER_TEMP/integration-toolchain"
+          tar -czf "$RUNNER_TEMP/integration-toolchain/runtime.tar.gz" -C "$work" runtime
+          sha256sum "$RUNNER_TEMP/integration-toolchain/runtime.tar.gz" > "$RUNNER_TEMP/integration-toolchain/runtime.sha256"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: disposable-integration-toolchain
+          path: ${{ runner.temp }}/integration-toolchain/
+          if-no-files-found: error
+          retention-days: 2
