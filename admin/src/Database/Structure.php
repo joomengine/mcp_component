@@ -15,16 +15,11 @@ use InvalidArgumentException;
 /**
  * Portable persistence structure shared by Joomla tables, queries and packaging.
  *
- * @since  0.1.0
+ * @since 0.1.0
  */
 final class Structure
 {
-	/**
-	 * Describe editable configuration entities, not the runtime MCP catalogue.
-	 *
-	 * @return  array<string,array<string,string>>
-	 * @since   0.1.0
-	 */
+	/** @return array<string,array<string,string>> Editable configuration structures, not runtime capabilities. @since 0.1.0 */
 	public static function definitions(): array
 	{
 		return [
@@ -33,8 +28,7 @@ final class Structure
 			'action' => [
 				'provider_id' => 'ref:provider', 'input_schema_id' => 'ref:schema',
 				'output_schema_id' => 'optional:schema', 'description' => 'text',
-				'domain' => 'name', 'toolset' => 'name', 'effect' => 'name', 'risk' => 'name',
-				'definition' => 'json',
+				'domain' => 'name', 'toolset' => 'name', 'effect' => 'name', 'risk' => 'name', 'definition' => 'json',
 			],
 			'binding' => [
 				'provider_id' => 'ref:provider', 'action_id' => 'ref:action',
@@ -62,12 +56,7 @@ final class Structure
 		];
 	}
 
-	/**
-	 * Describe durable principal-bound execution records across PHP workers.
-	 *
-	 * @return  array<string,array<string,string>>
-	 * @since   0.1.0
-	 */
+	/** @return array<string,array<string,string>> Durable principal-bound execution structures. @since 0.1.0 */
 	public static function state(): array
 	{
 		return [
@@ -106,12 +95,7 @@ final class Structure
 		];
 	}
 
-	/**
-	 * Return Joomla's standard editable-row metadata.
-	 *
-	 * @return  array<string,string>
-	 * @since   0.1.0
-	 */
+	/** @return array<string,string> Joomla editable-row metadata and seed ownership markers. @since 0.1.0 */
 	public static function common(): array
 	{
 		return [
@@ -119,18 +103,11 @@ final class Structure
 			'access' => 'access', 'ordering' => 'int', 'checked_out' => 'nullable_int',
 			'checked_out_time' => 'date', 'created' => 'date', 'created_by' => 'int',
 			'modified' => 'date', 'modified_by' => 'int', 'version' => 'version',
-			'params' => 'json', 'seed_revision' => 'hash', 'customized' => 'int',
+			'params' => 'json', 'seed_revision' => 'hash', 'seed_hash' => 'hash', 'customized' => 'int',
 		];
 	}
 
-	/**
-	 * Resolve one reviewed table structure; user-provided identifiers are rejected.
-	 *
-	 * @param   string  $entity  Configuration or execution entity name.
-	 * @return  array<string,string>
-	 * @throws  InvalidArgumentException  For an unknown entity.
-	 * @since   0.1.0
-	 */
+	/** @param string $entity Reviewed entity name. @return array<string,string> Columns and portable types. @throws InvalidArgumentException Unknown entity. @since 0.1.0 */
 	public static function columns(string $entity): array
 	{
 		$definitions = self::definitions();
@@ -150,13 +127,7 @@ final class Structure
 		return ['id' => 'pk'] + $state[$entity];
 	}
 
-	/**
-	 * Return the portable Joomla table placeholder for one reviewed entity.
-	 *
-	 * @param   string  $entity  Entity name.
-	 * @return  string
-	 * @since   0.1.0
-	 */
+	/** @param string $entity Reviewed entity. @return string Portable Joomla table placeholder. @since 0.1.0 */
 	public static function table(string $entity): string
 	{
 		self::columns($entity);
