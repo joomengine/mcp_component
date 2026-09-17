@@ -10,15 +10,23 @@
 use VDM\Component\JoomEngineMcp\Administrator\Database\Structure;
 
 
+require_once dirname(__DIR__) . '/admin/src/Database/Structure.php';
 $root = dirname(__DIR__);
-require_once $root . '/admin/src/Database/Structure.php';
-$upstream = json_decode(file_get_contents($root . '/data/upstream-contracts.json'), true, 64, JSON_THROW_ON_ERROR);
-$native = json_decode(file_get_contents($root . '/data/upstream-native.json'), true, 64, JSON_THROW_ON_ERROR);
+$sourceFile = $root . '/data/upstream-contracts.json';
+$nativeFile = $root . '/data/upstream-native.json';
+
+if (!is_file($sourceFile) || !is_file($nativeFile))
+{
+	throw new RuntimeException('Import the pinned upstream contracts before generating installation data.');
+}
+
+$upstream = json_decode(file_get_contents($sourceFile), true, 128, JSON_THROW_ON_ERROR);
+$native = json_decode(file_get_contents($nativeFile), true, 128, JSON_THROW_ON_ERROR);
 $commit = '2cff50f4f6b440da3c684f9995a77efad32e1a36';
 
 if (($upstream['source']['commit'] ?? null) !== $commit || ($native['source'] ?? null) !== $commit)
 {
-	throw new RuntimeException('Catalogue generation requires the immutable reviewed source.');
+	throw new RuntimeException('Catalogue provenance does not match the reviewed migration source.');
 }
 
 $json = static function (mixed $value): string
@@ -27,185 +35,180 @@ $json = static function (mixed $value): string
 };
 $rows = array_fill_keys(array_keys(Structure::definitions()), []);
 $rows['provider'][] = [
-	'id' => 1, 'name' => 'joomla.core', 'title' => 'Joomla core and JoomEngine MCP',
+	'id' => 1, 'name' => 'joomla.core', 'title' => 'Joomla core and MCP',
 	'extension' => 'com_joomengine_mcp',
 	'description' => 'Reviewed Joomla API, local console and MCP definitions. Extend with separately owned provider records.',
-	'definition' => $json(['sourceRepository' => 'joomengine/joomla-mcp', 'sourceCommit' => $commit, 'minimumJoomla' => '6.1.0', 'maximumJoomlaExclusive' => '7.0.0']),
+	'definition' => $json(['source' => $upstream['source'], 'minimumJoomla' => '6.1.0', 'maximumJoomlaExclusive' => '7.0.0', 'toolsets' => $upstream['toolsets']]),
 ];
 $schemaIds = [];
-$addSchema = static function (array $schema) use (&$schemaIds, &$rows, $json): int
+$addSchema = static function (array $schema) use (&$rows, &$schemaIds, $json): int
 {
-	if (($schema['type'] ?? null) === 'object' && isset($schema['properties']) && $schema['properties'] === [])
+	// Preserve JSON Schema maps as objects even when the PHP decoder returned [].
+	$normalise = static function (mixed $value, ?string $keyword = null) use (&$normalise): mixed
 	{
-		$schema['properties'] = new stdClass();
-	}
+		if (!is_array($value))
+		{
+			return $value;
+		}
 
-	$document = $json($schema);
+		foreach ($value as $key => $child)
+		{
+			$value[$key] = $normalise($child, is_string($key) ? $key : null);
+		}
+
+		if ($value === [] && in_array($keyword, ['properties', 'patternProperties', '$defs', 'definitions', 'dependentSchemas'], true))
+		{
+			return new stdClass();
+		}
+
+		return $value;
+	};
+	$document = $json($normalise($schema));
 	$hash = hash('sha256', $document);
 
 	if (!isset($schemaIds[$hash]))
 	{
-		$id = count($rows['schema']) + 1;
+		$id = count($schemaIds) + 1;
 		$schemaIds[$hash] = $id;
-		$rows['schema'][] = ['id' => $id, 'provider_id' => 1, 'name' => 'schema.' . $hash, 'title' => 'Reusable schema ' . substr($hash, 0, 12), 'document' => $document];
+		$rows['schema'][] = ['id' => $id, 'provider_id' => 1, 'name' => 'schema.' . $hash, 'title' => 'Schema ' . substr($hash, 0, 12), 'document' => $document];
 	}
 
 	return $schemaIds[$hash];
 };
+$genericOutput = $addSchema(['type' => 'object', 'additionalProperties' => true]);
 $api = [];
 
-foreach (array_merge($upstream['catalog']['api']['readActions'], $upstream['catalog']['api']['writeActions']) as $descriptor)
+foreach (array_merge($upstream['catalog']['api']['readActions'], $upstream['catalog']['api']['writeActions']) as $action)
 {
-	if (isset($api[$descriptor['id']]))
-	{
-		throw new RuntimeException('Duplicate source API action.');
-	}
-
-	$api[$descriptor['id']] = $descriptor;
+	$api[$action['id']] = $action;
 }
 
-$cli = [];
+$nativeByName = [];
 
-foreach ($native['actions'] as $entry)
+foreach ($native['actions'] as $action)
 {
-	$cli[$entry['descriptor']['name']] = $entry;
+	$nativeByName[$action['descriptor']['name']] = $action;
 }
 
-$crud = [];
+$companion = [];
 
-foreach ($upstream['crudBases'] as $base)
+foreach ($upstream['catalog']['cli']['companion']['actions'] as $action)
 {
-	$crud[$base['id']] = $base;
+	$companion[$action['id']] = $action;
 }
 
-$gates = [];
+$bases = [];
 
-foreach ($upstream['catalog']['api']['mutationContracts'] as $contract)
+foreach ($upstream['crud'] as $base)
 {
-	if (($contract['status'] ?? '') === 'catalogued-only-source-gated')
-	{
-		$gates[$contract['id']] = $contract['reason'];
-	}
+	$bases[$base['id']] = $base;
 }
 
-foreach ($upstream['catalog']['api']['sourceOnlyBlockedActions'] as $gate)
-{
-	$gates[$gate['id']] = $gate['reason'];
-}
-
-$names = array_values(array_unique(array_merge(array_keys($api), array_keys($cli))));
+$names = array_values(array_unique(array_merge(array_keys($api), array_keys($nativeByName))));
 sort($names, SORT_STRING);
 $parity = [];
+$actionIds = [];
+$gates = $upstream['catalog']['api']['sourceOnlyBlockedActions'];
 
 foreach ($names as $name)
 {
 	$http = $api[$name] ?? null;
-	$local = $cli[$name] ?? null;
-	$isWrite = $http !== null ? $http['effect'] === 'write' : $local['descriptor']['risk'] !== 'read';
-	$domain = $http['domain'] ?? explode('.', $name)[0];
-	$toolset = $http['toolset'] ?? ($domain === 'scheduler' || $domain === 'site' ? 'maintenance.write' : ($isWrite ? 'admin.write' : 'admin.read'));
-	$actionId = count($rows['action']) + 1;
-	$definition = $http ?? $local['descriptor'];
-	unset($definition['inputSchema'], $definition['outputSchema'], $definition['driver']);
-	$inputSchema = $http['inputSchema'] ?? $local['descriptor']['inputSchema'];
-	$outputSchema = $local['descriptor']['outputSchema'] ?? null;
+	$local = $nativeByName[$name] ?? null;
+	$descriptor = $http ?? ($companion[$name] ?? $local['descriptor']);
+	$effect = ($http !== null ? $http['method'] !== 'GET' : $local['descriptor']['risk'] !== 'read') ? 'write' : 'read';
+	$domain = $descriptor['domain'] ?? explode('.', $name)[0];
+	$toolset = $descriptor['toolset'] ?? match ($domain)
+	{
+		'users' => $effect === 'write' ? 'users.admin' : 'users.read',
+		'extensions' => $effect === 'write' ? 'extensions.admin' : 'extensions.read',
+		'configuration' => $effect === 'write' ? 'configuration.write' : 'configuration.read',
+		'content', 'banners', 'contacts', 'newsfeeds' => 'content.' . $effect,
+		'menus', 'modules', 'tags', 'fields', 'templates', 'languages', 'redirects' => 'structure.' . $effect,
+		default => $effect === 'write' ? 'maintenance.admin' : 'maintenance.read',
+	};
+	$schema = $http['inputSchema'] ?? $local['descriptor']['inputSchema'];
+	$metadata = $descriptor;
+	unset($metadata['inputSchema'], $metadata['outputSchema']);
+	$id = count($rows['action']) + 1;
+	$actionIds[$name] = $id;
 	$rows['action'][] = [
-		'id' => $actionId, 'provider_id' => 1, 'name' => $name,
-		'title' => ucwords(str_replace(['.', '_'], ' ', $name)),
-		'description' => $http['description'] ?? $local['descriptor']['description'],
-		'domain' => $domain, 'toolset' => $toolset, 'effect' => $isWrite ? 'write' : 'read',
-		'risk' => $http['risk'] ?? $local['descriptor']['risk'],
-		'input_schema_id' => $addSchema($inputSchema), 'output_schema_id' => null,
-		'definition' => $json($definition),
+		'id' => $id, 'provider_id' => 1, 'name' => $name,
+		'title' => $descriptor['title'] ?? ucwords(str_replace(['.', '-'], ' ', $name)),
+		'description' => $descriptor['description'], 'domain' => $domain, 'toolset' => $toolset,
+		'effect' => $effect, 'risk' => $descriptor['risk'],
+		'input_schema_id' => $addSchema($schema),
+		'output_schema_id' => $local !== null && $http === null ? $addSchema($local['descriptor']['outputSchema']) : $genericOutput,
+		'definition' => $json($metadata + ['sourceGate' => $gates[$name] ?? null]),
 	];
-	$bindings = [];
+	$mapped = ['action' => $name, 'actionId' => $id, 'api' => $http !== null, 'native' => $local !== null, 'stage' => 'inventoried'];
 
 	if ($http !== null)
 	{
-		$operation = $http['operation'] ?? substr($name, (int) strrpos($name, '.') + 1);
-		$baseName = substr($name, 0, (int) strrpos($name, '.'));
-		$base = $crud[$baseName] ?? null;
-		$route = '/' . ltrim($http['routeTemplate'], '/');
+		$baseId = substr($name, 0, (int) strrpos($name, '.'));
+		$base = $bases[$baseId] ?? null;
+		$fixed = array_diff_key($base['controllerDefaults'] ?? [], ['component' => true]);
 		$config = [
-			'method' => $http['method'], 'route' => $route,
-			'route_parameters' => $http['routeParameters'], 'paginated' => $http['paginated'],
-			'body_policy' => $http['bodyPolicy'] ?? 'none', 'operation' => $operation,
-			'body_defaults' => [], 'query_defaults' => [], 'preserve_fields' => [], 'derived_fields' => [],
-			'authentication' => $http['driver']['authentication'] ?? 'joomla-api-token',
-			'response_shape' => $http['driver']['responseShape'] ?? 'json-api',
+			'method' => $http['method'], 'route' => '/' . $http['routeTemplate'],
+			'route_parameters' => $http['routeParameters'], 'paginated' => $http['paginated'] ?? false,
+			'body_policy' => $http['bodyPolicy'] ?? 'none', 'operation' => $http['operation'],
+			'body_defaults' => $fixed, 'query_defaults' => $name === 'menus.administrator.list' ? $fixed : new stdClass(),
+			'preserve_fields' => [], 'derived_fields' => [],
+			'authentication' => $http['driver']['authentication'],
+			'response_shape' => $http['driver']['responseShape'],
+			'source_gate' => $gates[$name] ?? null,
 		];
-
-		if ($base !== null)
-		{
-			$config['body_defaults'] = array_diff_key($base['controllerDefaults'] ?? [], ['component' => true]);
-
-			if (isset($api[$baseName . '.get']))
-			{
-				$config['read_action'] = $baseName . '.get';
-			}
-
-			if (in_array($operation, ['create', 'update'], true) && in_array($baseName, ['menus.site.items', 'menus.administrator.items'], true))
-			{
-				$config['preserve_fields'] = ['menutype', 'type', 'parent_id', 'link', 'params'];
-				$config['derived_fields'] = ['menu_request'];
-			}
-
-			if (in_array($operation, ['create', 'update'], true) && in_array($baseName, ['modules.site', 'modules.administrator'], true))
-			{
-				$config['preserve_fields'] = ['params', 'assigned'];
-				$config['derived_fields'] = ['module_assignment'];
-			}
-		}
-
-		if (in_array($name, ['menus.administrator.items.list', 'menus.administrator.items.get'], true))
-		{
-			$config['query_defaults'] = ['client_id' => 1];
-		}
-
-		if ($name === 'media.files.create')
-		{
-			$config['mutation_rule'] = 'media_create';
-		}
-		elseif ($name === 'media.files.update')
-		{
-			$config['mutation_rule'] = 'media_update';
-		}
-		elseif (str_starts_with($name, 'languages.overrides.') && str_ends_with($name, '.create'))
-		{
-			$config['mutation_rule'] = 'override_create';
-		}
 
 		if ($name === 'configuration.application.get')
 		{
-			$config['select_fields'] = ['sitename', 'offline', 'offline_message', 'display_offline_message', 'offline_image', 'access', 'list_limit', 'feed_limit', 'feed_email', 'MetaDesc', 'MetaKeys', 'MetaTitle', 'MetaAuthor', 'MetaVersion', 'robots', 'sef', 'sef_rewrite', 'sef_suffix', 'unicodeslugs', 'sitename_pagetitles', 'caching', 'cache_handler', 'cachetime', 'cache_platformprefix', 'offset', 'lifetime', 'session_handler', 'shared_session', 'force_ssl', 'gzip', 'error_reporting', 'debug'];
+			$config['select_fields'] = [
+				'sitename', 'offline', 'offline_message', 'display_offline_message', 'debug',
+				'error_reporting', 'force_ssl', 'sef', 'sef_rewrite', 'sef_suffix', 'unicodeslugs',
+				'feed_limit', 'feed_email', 'lifetime', 'session_handler', 'offset', 'mailonline',
+				'mailfrom', 'fromname', 'gzip', 'list_limit',
+			];
 		}
 
-		if (isset($gates[$name]))
+		if (in_array($baseId, ['menus.site-items', 'menus.administrator-items'], true))
 		{
-			$config['source_gate'] = $gates[$name];
+			$config['preserve_fields'] = ['menutype', 'type', 'parent_id', 'link', 'params'];
+			$config['derived_fields'] = ['menu_request'];
 		}
 
-		$id = count($rows['binding']) + 1;
+		if (in_array($baseId, ['modules.site', 'modules.administrator'], true))
+		{
+			$config['preserve_fields'] = ['params', 'assigned'];
+			$config['derived_fields'] = ['module_assignment'];
+		}
+
+		if ($base !== null && $effect === 'write')
+		{
+			$config['read_action'] = $baseId . '.get';
+		}
+
+		$config['mutation_rule'] = match (true)
+		{
+			$name === 'media.files.create' => 'media_create',
+			$name === 'media.files.update' => 'media_update',
+			str_starts_with($name, 'languages.overrides.') && str_ends_with($name, '.create') => 'override_create',
+			default => null,
+		};
 		$rows['binding'][] = [
-			'id' => $id, 'provider_id' => 1, 'action_id' => $actionId, 'name' => $name . '.api',
-			'title' => $name . ' / API', 'track' => 'api', 'handler' => 'api.request',
-			'input_schema_id' => $addSchema($http['inputSchema']), 'output_schema_id' => null,
-			'configuration' => $json($config),
-			'definition' => $json(['source' => $http['source'], 'acl' => $http['acl'], 'required_extensions' => [$http['driver']['plugin'], $http['acl']['component']]]),
+			'id' => count($rows['binding']) + 1, 'provider_id' => 1, 'action_id' => $id,
+			'name' => $name . '.api', 'title' => $name . ' (API)', 'track' => 'api', 'handler' => 'api.request',
+			'input_schema_id' => $addSchema($http['inputSchema']), 'output_schema_id' => $genericOutput,
+			'configuration' => $json($config), 'definition' => $json(['source' => $http['source'], 'acl' => $http['acl'], 'required_extensions' => [$http['driver']['plugin'], $http['acl']['component']]]),
 			'published' => isset($gates[$name]) ? 0 : 1,
 		];
-		$bindings[] = ['id' => $id, 'track' => 'api', 'sourceGate' => $gates[$name] ?? null];
 	}
 
 	if ($local !== null)
 	{
-		$id = count($rows['binding']) + 1;
 		$nativeMetadata = $local['descriptor'];
 		$component = $local['configuration']['entity']['component'] ?? $local['configuration']['component'] ?? null;
 		$nativeMetadata['required_extensions'] = $component === null ? [] : [$component];
 		$verification = [];
 
-		if ($local['handler'] === 'native.core-entity' && !in_array($local['configuration']['operation'], ['get', 'list'], true))
+		if ($local['handler'] === 'native.core-entity' && $local['configuration']['operation'] !== 'get' && $local['configuration']['operation'] !== 'list')
 		{
 			$entity = $local['configuration']['entity'];
 			$verification = ['read_action' => $entity['id'] . '.get', 'operation' => $local['configuration']['operation'],
@@ -214,44 +217,44 @@ foreach ($names as $name)
 
 		unset($nativeMetadata['inputSchema'], $nativeMetadata['outputSchema']);
 		$rows['binding'][] = [
-			'id' => $id, 'provider_id' => 1, 'action_id' => $actionId, 'name' => $name . '.cli',
-			'title' => $name . ' / CLI', 'track' => 'cli', 'handler' => $local['handler'],
+			'id' => count($rows['binding']) + 1, 'provider_id' => 1, 'action_id' => $id,
+			'name' => $name . '.cli', 'title' => $name . ' (CLI)', 'track' => 'cli', 'handler' => $local['handler'],
 			'input_schema_id' => $addSchema($local['descriptor']['inputSchema']),
-			'output_schema_id' => $outputSchema === null ? null : $addSchema($outputSchema),
+			'output_schema_id' => $addSchema($local['descriptor']['outputSchema']),
 			'configuration' => $json((object) $local['configuration']), 'definition' => $json($nativeMetadata),
 			'params' => $json(['verification' => (object) $verification]),
 		];
-		$bindings[] = ['id' => $id, 'track' => 'cli', 'primitive' => $local['handler']];
 	}
 
-	$parity[] = ['name' => $name, 'actionId' => $actionId, 'sourceApi' => $http !== null, 'sourceNative' => $local !== null, 'bindings' => $bindings, 'stage' => 'inventoried'];
+	$parity[] = $mapped;
 }
 
+// This is the one-time migration mapping, not a runtime tool-name switch.
 $toolHandlers = [
 	'joomla_sites_list' => ['site.list', []],
 	'joomla_capabilities' => ['catalog.capabilities', []],
-	'joomla_action_search' => ['catalog.search', []],
+	'joomla_actions_search' => ['catalog.search', []],
 	'joomla_action_describe' => ['catalog.describe', []],
 	'joomla_action_read' => ['action.read', []],
-	'joomla_core_catalogue' => ['catalog.core', []],
+	'joomla_permission_request' => ['permission.request', []],
+	'joomla_permission_approve' => ['permission.approve', []],
+	'joomla_permissions_list' => ['permission.list', []],
+	'joomla_permission_revoke' => ['permission.revoke', []],
+	'joomla_action_write_plan' => ['action.plan', []],
 	'joomla_content_articles_list' => ['action.read', ['action' => 'content.articles.list', 'input_from' => 'arguments', 'tracks' => ['api'], 'query_map' => ['search' => 'filter[search]', 'state' => 'filter[state]', 'featured' => 'filter[featured]', 'category' => 'filter[category]', 'tag' => 'filter[tag]', 'language' => 'filter[language]', 'ordering' => 'list[ordering]', 'direction' => 'list[direction]']]],
 	'joomla_content_article_get' => ['action.read', ['action' => 'content.articles.get', 'input_from' => 'arguments']],
 	'joomla_extensions_list' => ['action.read', ['action' => 'extensions.installed.list', 'input_from' => 'arguments', 'tracks' => ['api'], 'query_map' => ['core' => 'filter[core]', 'status' => 'filter[status]', 'type' => 'filter[type]']]],
-	'joomla_config_application_safe' => ['action.safe_configuration', ['action' => 'configuration.application.get']],
-	'joomla_permission_request' => ['permission.request', []],
-	'joomla_permission_approve' => ['permission.approve', []],
-	'joomla_permission_grants' => ['permission.list', []],
-	'joomla_permission_revoke' => ['permission.revoke', []],
-	'joomla_action_plan' => ['action.plan', []],
-	'joomla_action_apply' => ['action.apply', []],
-	'joomla_content_article_plan' => ['action.plan', ['family' => 'content.articles', 'entity' => true]],
-	'joomla_content_article_apply' => ['action.apply', []],
-	'joomla_cli_list' => ['console.list', ['tracks' => ['cli']]],
-	'joomla_cli_help' => ['console.help', ['tracks' => ['cli']]],
-	'joomla_cli_targets' => ['console.targets', []],
+	'joomla_application_config_get_safe' => ['action.safe_configuration', []],
+	'joomla_cli_commands_list' => ['console.list', ['tracks' => ['cli']]],
+	'joomla_cli_command_help' => ['console.help', ['tracks' => ['cli']]],
+	'joomla_cli_targets' => ['console.targets', ['tracks' => ['cli']]],
 	'joomla_companion_capabilities' => ['console.capabilities', ['tracks' => ['cli']]],
-	'joomla_companion_read' => ['action.read', ['tracks' => ['cli']]],
 	'joomla_cli_inventory' => ['console.inventory', ['tracks' => ['cli']]],
+	'joomla_companion_action_read' => ['action.read', ['tracks' => ['cli'], 'transport' => 'cli']],
+	'joomla_content_article_create_plan' => ['action.plan', ['action' => 'content.articles.create', 'input_from' => 'arguments']],
+	'joomla_content_article_update_plan' => ['action.plan', ['action' => 'content.articles.update', 'input_from' => 'arguments']],
+	'joomla_content_article_delete_plan' => ['action.plan', ['action' => 'content.articles.delete', 'input_from' => 'arguments']],
+	'joomla_write_apply' => ['action.apply', []],
 ];
 
 foreach ($upstream['tools'] as $tool)
