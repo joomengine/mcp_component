@@ -337,6 +337,14 @@ final class Catalogue
 			return false;
 		}
 
+		foreach ($row['definition']['required_extensions'] ?? [] as $extension)
+		{
+			if (!is_string($extension) || !(($this->extensionEnabled)($extension)))
+			{
+				return false;
+			}
+		}
+
 		if (isset($row['handler']) && !(($this->handlerAvailable)($row['entity'], $row['handler'])))
 		{
 			return false;
