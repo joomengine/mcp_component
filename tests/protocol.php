@@ -146,4 +146,66 @@ $check(!$first->exists($uuid), 'Expired session remained valid.');
 $check(count($first->gc()) === 1, 'Expired session was not collected.');
 $check($store->one('session', ['uuid' => $sessionId]) === null, 'Expired session row remains.');
 
+$modernExchange = static function (string $method, array $params = [], array $extraHeaders = []) use ($server, $factory): array
+{
+	$params['_meta'] = ['io.modelcontextprotocol/protocolVersion' => '2026-07-28',
+		'io.modelcontextprotocol/clientCapabilities' => (object) [],
+		'io.modelcontextprotocol/clientInfo' => ['name' => 'modern-php-fixture', 'version' => '1.0.0']];
+	$headers = ['Content-Type' => 'application/json', 'Accept' => 'application/json, text/event-stream', 'Mcp-Method' => $method, 'MCP-Protocol-Version' => '2026-07-28'];
+
+	if (isset($params['name']) || isset($params['uri']))
+	{
+		$headers['Mcp-Name'] = $params['name'] ?? $params['uri'];
+	}
+
+	$headers = array_replace($headers, $extraHeaders);
+	$request = new ServerRequest('POST', 'http://127.0.0.1/mcp', $headers,
+		Json::encode(['jsonrpc' => '2.0', 'id' => 100, 'method' => $method, 'params' => $params]));
+	$response = $server->run(new StreamableHttpTransport($request, $factory, $factory));
+
+	return ['status' => $response->getStatusCode(), 'body' => Json::decode((string) $response->getBody()),
+		'session' => $response->getHeaderLine('Mcp-Session-Id')];
+};
+$modern = $modernExchange('server/discover');
+$check($modern['status'] === 200 && isset($modern['body']['result']['supportedVersions']), 'Modern discovery failed: ' . Json::encode($modern));
+$check($modern['session'] === '' && $store->find('session') === [], 'Modern requests unexpectedly create handshake sessions.');
+$modern = $modernExchange('tools/list');
+$check(isset($modern['body']['result']['tools']), 'Modern tool listing failed: ' . Json::encode($modern));
+$modern = $modernExchange('tools/call', ['name' => 'joomla_sites_list', 'arguments' => (object) []]);
+$check(($modern['body']['result']['structuredContent']['sites'][0]['id'] ?? '') === 'default', 'Modern tool invocation failed: ' . Json::encode($modern));
+$modern = $modernExchange('tools/call', ['name' => 'joomla_sites_list', 'arguments' => (object) []], ['Mcp-Name' => 'different-tool']);
+$check($modern['status'] === 400 && isset($modern['body']['error']), 'Mismatched modern subject header accepted.');
+$modern = $modernExchange('tools/list', [], ['Mcp-Method' => 'tools/call']);
+$check($modern['status'] === 400, 'Mismatched modern method header accepted.');
+$modern = $modernExchange('initialize');
+$check(($modern['body']['error']['code'] ?? null) === -32601, 'Modern era incorrectly accepted the removed initialize method.');
+
+$common = \VDM\Component\JoomEngineMcp\Administrator\Database\Structure::common();
+$record = [];
+
+foreach ($common as $name => $type)
+{
+	$record[$name] = in_array($type, ['int', 'published', 'access', 'version'], true) ? 0 : '';
+}
+
+$record = array_replace($record, ['published' => 1, 'access' => 1, 'version' => 1, 'params' => '{}', 'provider_id' => 1]);
+$schemaId = $store->insert('schema', array_replace($record, ['name' => 'fixture.prompt.arguments', 'title' => 'Prompt arguments', 'document' => Json::encode(['type' => 'object',
+	'properties' => ['subject' => ['type' => 'string', 'maxLength' => 100]], 'required' => ['subject'], 'additionalProperties' => false])]));
+$store->update('schema', ['name' => 'fixture.prompt.arguments', 'title' => 'Prompt arguments'], ['id' => $schemaId]);
+$promptId = $store->insert('prompt', array_replace($record, ['name' => 'fixture_prompt', 'title' => 'Fixture prompt',
+	'input_schema_id' => $schemaId, 'description' => 'Data-only prompt fixture.', 'definition' => '{}',
+	'configuration' => Json::encode(['messages' => [['role' => 'user', 'text' => 'Discuss {{subject}}.']]])]));
+$prompts = $modernExchange('prompts/list');
+$check(in_array('fixture_prompt', array_column($prompts['body']['result']['prompts'], 'name'), true), 'New database prompt was not discovered.');
+$prompt = $modernExchange('prompts/get', ['name' => 'fixture_prompt', 'arguments' => ['subject' => '{{untouched}}']]);
+$check(($prompt['body']['result']['messages'][0]['content']['text'] ?? '') === 'Discuss {{untouched}}.', 'Prompt substitution was recursive or wrong: ' . Json::encode($prompt));
+$resourceId = $store->insert('resource', array_replace($record, ['name' => 'fixture_text', 'title' => 'Fixture resource', 'uri' => 'fixture://text',
+	'is_template' => 0, 'mime_type' => 'text/plain', 'description' => 'Inert content.', 'handler' => 'resource.text',
+	'configuration' => Json::encode(['text' => '<?php echo "not executed";']), 'definition' => '{}']));
+$resource = $modernExchange('resources/read', ['uri' => 'fixture://text']);
+$check(($resource['body']['result']['contents'][0]['text'] ?? '') === '<?php echo "not executed";', 'Stored resource content was not kept inert.');
+$store->update('prompt', ['access' => 99], ['id' => $promptId]);
+$prompts = $modernExchange('prompts/list');
+$check($prompts['body']['result']['prompts'] === [], 'A newly restricted prompt remained discoverable.');
+
 echo Json::encode(['checks' => $checks, 'sdkHttpHandshake' => 'passed', 'databaseRegistry' => 'passed', 'principalBoundSessions' => 'passed', 'liveJoomla' => 'not run by this suite']) . PHP_EOL;
