@@ -12,7 +12,6 @@ namespace VDM\Component\JoomEngineMcp\Administrator\Protocol;
 use Mcp\Schema\Content\PromptMessage;
 use Mcp\Schema\Content\TextContent;
 use Mcp\Schema\Enum\Role;
-use Mcp\Schema\Result\GetPromptResult;
 use Mcp\Server\ClientGateway;
 use Mcp\Server\Handler\PromptHandlerInterface;
 use VDM\Component\JoomEngineMcp\Administrator\Domain\OperationException;
@@ -90,6 +89,6 @@ final class PromptHandler implements PromptHandlerInterface
 			$messages[] = new PromptMessage($role, new TextContent($text));
 		}
 
-		return new GetPromptResult($messages, $row['description']);
+		return $messages;
 	}
 }

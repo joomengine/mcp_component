@@ -54,6 +54,24 @@ final class Catalogue
 	/** @var array<string,array<int,array<string,mixed>>> Current operation's database snapshot. @since 0.1.0 */
 	private array $records = [];
 
+	/** @var array<string,array<string,int>> Stable names indexed within the current snapshot. @since 0.1.0 */
+	private array $names = [];
+
+	/** @var array<int,array<int,array<string,mixed>>> Binding rows grouped by parent action. @since 0.1.0 */
+	private array $actionBindings = [];
+
+	/** @var array<string,bool> Row disclosure decisions for this operation and principal only. @since 0.1.0 */
+	private array $visibility = [];
+
+	/** @var array<int,array<int,array<string,mixed>>> Authorized bindings for this operation. @since 0.1.0 */
+	private array $resolvedBindings = [];
+
+	/** @var array<string,bool> Installed extension results discarded on every refresh. @since 0.1.0 */
+	private array $extensions = [];
+
+	/** @var array<int,bool> Schemas already checked during this operation. @since 0.1.0 */
+	private array $validatedSchemas = [];
+
 	/**
 	 * Inject policy, persistence and registered execution boundaries.
 	 *
@@ -94,6 +112,8 @@ final class Catalogue
 	public function refresh(): void
 	{
 		$records = [];
+		$names = [];
+		$bindings = [];
 
 		foreach (Structure::definitions() as $entity => $columns)
 		{
@@ -127,7 +147,20 @@ final class Catalogue
 
 					$row['entity'] = $entity;
 					$row['asset_name'] = 'com_joomengine_mcp.' . $entity . '.' . (int) $row['id'];
-					$records[$entity][(int) $row['id']] = $row;
+					$id = (int) $row['id'];
+
+					if (isset($names[$entity][$row['name']]))
+					{
+						throw new OperationException('CATALOGUE_INVALID', 'The installed catalogue contains an ambiguous definition name.');
+					}
+
+					$records[$entity][$id] = $row;
+					$names[$entity][$row['name']] = $id;
+
+					if ($entity === 'binding')
+					{
+						$bindings[(int) $row['action_id']][] = $row;
+					}
 				}
 
 				if (count($page) < 1000)
@@ -143,6 +176,12 @@ final class Catalogue
 		}
 
 		$this->records = $records;
+		$this->names = $names;
+		$this->actionBindings = $bindings;
+		$this->visibility = [];
+		$this->resolvedBindings = [];
+		$this->extensions = [];
+		$this->validatedSchemas = [];
 	}
 
 	/**
@@ -165,24 +204,9 @@ final class Catalogue
 
 		foreach ($this->records[$entity] as $row)
 		{
-			if (!$this->visible($row))
+			if (!$this->available($row))
 			{
 				continue;
-			}
-
-			if ($entity === 'action' && $this->bindings((int) $row['id']) === [])
-			{
-				continue;
-			}
-
-			if ($entity === 'tool')
-			{
-				$fixedAction = $row['configuration']['action'] ?? null;
-
-				if (is_string($fixedAction) && !$this->hasAction($fixedAction))
-				{
-					continue;
-				}
 			}
 
 			$result[] = $this->joinProvider($row);
@@ -206,12 +230,13 @@ final class Catalogue
 	 */
 	public function get(string $entity, string|int $identifier): array
 	{
-		foreach ($this->all($entity) as $row)
+		$this->ensureLoaded();
+		$id = is_int($identifier) ? $identifier : ($this->names[$entity][$identifier] ?? 0);
+		$row = $this->records[$entity][$id] ?? null;
+
+		if ($row !== null && $this->available($row))
 		{
-			if ((is_int($identifier) && (int) $row['id'] === $identifier) || (is_string($identifier) && $row['name'] === $identifier))
-			{
-				return $row;
-			}
+			return $this->joinProvider($row);
 		}
 
 		throw new OperationException('DEFINITION_UNAVAILABLE', 'The requested MCP definition is unavailable.');
@@ -269,7 +294,11 @@ final class Catalogue
 			throw new OperationException('DEFINITION_UNAVAILABLE', 'The requested MCP definition is unavailable.');
 		}
 
-		$this->schemas->document($row['document']);
+		if (!isset($this->validatedSchemas[$id]))
+		{
+			$this->schemas->document($row['document']);
+			$this->validatedSchemas[$id] = true;
+		}
 
 		return $row['document'];
 	}
@@ -290,35 +319,66 @@ final class Catalogue
 	/** @param int $actionId Parent action ID. @return array<int,array<string,mixed>> Visible bindings for this track. @since 0.1.0 */
 	private function bindings(int $actionId): array
 	{
+		if (array_key_exists($actionId, $this->resolvedBindings))
+		{
+			return $this->resolvedBindings[$actionId];
+		}
+
 		$result = [];
 
-		foreach ($this->records['binding'] as $row)
+		foreach ($this->actionBindings[$actionId] ?? [] as $row)
 		{
-			if ((int) $row['action_id'] === $actionId && $row['track'] === $this->principal->getTrack() && $this->visible($row))
+			if ($row['track'] === $this->principal->getTrack() && $this->visible($row))
 			{
 				$result[] = $this->joinProvider($row);
 			}
 		}
 
-		return $result;
+		return $this->resolvedBindings[$actionId] = $result;
 	}
 
 	/** @param string $name Action name. @return bool Whether this connection can discover the action. @since 0.1.0 */
 	private function hasAction(string $name): bool
 	{
-		foreach ($this->records['action'] as $row)
+		$id = $this->names['action'][$name] ?? 0;
+		$row = $this->records['action'][$id] ?? null;
+
+		return $row !== null && $this->visible($row) && $this->bindings($id) !== [];
+	}
+
+	/** @param array<string,mixed> $row Snapshot row. @return bool Shared list and direct-lookup availability predicate. @since 0.1.0 */
+	private function available(array $row): bool
+	{
+		if (!$this->visible($row))
 		{
-			if ($row['name'] === $name && $this->visible($row) && $this->bindings((int) $row['id']) !== [])
-			{
-				return true;
-			}
+			return false;
 		}
 
-		return false;
+		if ($row['entity'] === 'action' && $this->bindings((int) $row['id']) === [])
+		{
+			return false;
+		}
+
+		$fixed = $row['entity'] === 'tool' ? ($row['configuration']['action'] ?? null) : null;
+
+		return !is_string($fixed) || $this->hasAction($fixed);
+	}
+
+	/** @param array<string,mixed> $row Snapshot row. @return bool Current-operation disclosure decision. @since 0.1.0 */
+	private function visible(array $row): bool
+	{
+		$key = $row['entity'] . ':' . (int) $row['id'];
+
+		if (!array_key_exists($key, $this->visibility))
+		{
+			$this->visibility[$key] = $this->evaluateVisibility($row);
+		}
+
+		return $this->visibility[$key];
 	}
 
 	/** @param array<string,mixed> $row Database row. @return bool Whether policy, dependencies and handler permit disclosure. @since 0.1.0 */
-	private function visible(array $row): bool
+	private function evaluateVisibility(array $row): bool
 	{
 		$provider = $row['entity'] === 'provider' ? $row : ($this->records['provider'][(int) ($row['provider_id'] ?? 0)] ?? null);
 
@@ -332,14 +392,14 @@ final class Catalogue
 
 		if (version_compare($version, $metadata['minimumJoomla'] ?? '6.1.0', '<')
 			|| version_compare($version, $metadata['maximumJoomlaExclusive'] ?? '7.0.0', '>=')
-			|| !(($this->extensionEnabled)((string) $provider['extension'])))
+			|| !$this->extensionAvailable((string) $provider['extension']))
 		{
 			return false;
 		}
 
 		foreach ($row['definition']['required_extensions'] ?? [] as $extension)
 		{
-			if (!is_string($extension) || !(($this->extensionEnabled)($extension)))
+			if (!is_string($extension) || !$this->extensionAvailable($extension))
 			{
 				return false;
 			}
@@ -369,6 +429,17 @@ final class Catalogue
 		}
 
 		return true;
+	}
+
+	/** @param string $extension Declared Joomla dependency. @return bool Fresh per-operation installed state. @since 0.1.0 */
+	private function extensionAvailable(string $extension): bool
+	{
+		if (!array_key_exists($extension, $this->extensions))
+		{
+			$this->extensions[$extension] = ($this->extensionEnabled)($extension);
+		}
+
+		return $this->extensions[$extension];
 	}
 
 	/** @param array<string,mixed> $row Database row. @return array<string,mixed> Row with provider policy. @since 0.1.0 */
