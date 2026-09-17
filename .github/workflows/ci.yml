@@ -1,0 +1,65 @@
+name: PHP contracts and migration evidence
+
+on:
+  pull_request:
+  push:
+    branches: [main, feature/jcb-mcp-runtime]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: php-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.3', '8.4']
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: curl, json, mbstring, zip
+          tools: composer:v2
+          coverage: none
+      - name: Validate Composer metadata
+        run: composer validate --no-check-publish
+      - name: Install PHP dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+      - name: PHP syntax
+        run: find . -type d \( -name vendor -o -name .git -o -name .reference -o -name build \) -prune -o -type f -name '*.php' -print0 | xargs -0 -r -n1 php -l
+      - name: Behavioural contracts
+        run: php tests/run.php
+      - name: Check out immutable migration reference
+        if: matrix.php == '8.3'
+        uses: actions/checkout@v7
+        with:
+          repository: joomengine/joomla-mcp
+          ref: 2cff50f4f6b440da3c684f9995a77efad32e1a36
+          path: .reference/joomla-mcp
+          persist-credentials: false
+      - name: Preserve reproducible development evidence
+        if: matrix.php == '8.3'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build
+          git -C .reference/joomla-mcp rev-parse HEAD > build/source-commit.txt
+          tar --exclude-vcs --exclude='./build' -czf build/development-snapshot.tar.gz .
+          sha256sum build/development-snapshot.tar.gz > build/development-snapshot.sha256
+      - name: Upload migration evidence (not a production package)
+        if: matrix.php == '8.3'
+        uses: actions/upload-artifact@v7
+        with:
+          name: development-snapshot
+          path: build/
+          if-no-files-found: error
+          retention-days: 7
