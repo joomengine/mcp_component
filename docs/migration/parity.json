@@ -1,0 +1,2043 @@
+{
+    "source": "2cff50f4f6b440da3c684f9995a77efad32e1a36",
+    "tools": [
+        "joomla_sites_list",
+        "joomla_capabilities",
+        "joomla_actions_search",
+        "joomla_action_describe",
+        "joomla_action_read",
+        "joomla_permission_request",
+        "joomla_permission_approve",
+        "joomla_permissions_list",
+        "joomla_permission_revoke",
+        "joomla_action_write_plan",
+        "joomla_content_articles_list",
+        "joomla_content_article_get",
+        "joomla_extensions_list",
+        "joomla_application_config_get_safe",
+        "joomla_cli_commands_list",
+        "joomla_cli_command_help",
+        "joomla_cli_targets",
+        "joomla_companion_capabilities",
+        "joomla_cli_inventory",
+        "joomla_companion_action_read",
+        "joomla_content_article_create_plan",
+        "joomla_content_article_update_plan",
+        "joomla_content_article_delete_plan",
+        "joomla_write_apply"
+    ],
+    "actions": [
+        {
+            "action": "banners.banner-history.delete",
+            "actionId": 1,
+            "api": true,
+            "native": false,
+            "stage": "inventoried"
+        },
+        {
+            "action": "banners.banner-history.keep",
+            "actionId": 2,
+            "api": true,
+            "native": false,
+            "stage": "inventoried"
+        },
+        {
+            "action": "banners.banner-history.list",
+            "actionId": 3,
+            "api": true,
+            "native": false,
+            "stage": "inventoried"
+        },
+        {
+            "action": "banners.banners.create",
+            "actionId": 4,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "banners.banners.delete",
+            "actionId": 5,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "banners.banners.get",
+            "actionId": 6,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "banners.banners.list",
+            "actionId": 7,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "banners.banners.state",
+            "actionId": 8,
+            "api": false,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "banners.banners.update",
+            "actionId": 9,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "banners.categories.create",
+            "actionId": 10,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "banners.categories.delete",
+            "actionId": 11,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "banners.categories.get",
+            "actionId": 12,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "banners.categories.list",
+            "actionId": 13,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "banners.categories.state",
+            "actionId": 14,
+            "api": false,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "banners.categories.update",
+            "actionId": 15,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "banners.clients.create",
+            "actionId": 16,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "banners.clients.delete",
+            "actionId": 17,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "banners.clients.get",
+            "actionId": 18,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "banners.clients.list",
+            "actionId": 19,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "banners.clients.state",
+            "actionId": 20,
+            "api": false,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "banners.clients.update",
+            "actionId": 21,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "cache.clean",
+            "actionId": 22,
+            "api": false,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "cache.expired.purge",
+            "actionId": 23,
+            "api": false,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "cache.groups.list",
+            "actionId": 24,
+            "api": false,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "configuration.application.get",
+            "actionId": 25,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "configuration.application.update",
+            "actionId": 26,
+            "api": true,
+            "native": false,
+            "stage": "inventoried"
+        },
+        {
+            "action": "configuration.component.get",
+            "actionId": 27,
+            "api": true,
+            "native": false,
+            "stage": "inventoried"
+        },
+        {
+            "action": "configuration.component.update",
+            "actionId": 28,
+            "api": true,
+            "native": false,
+            "stage": "inventoried"
+        },
+        {
+            "action": "configuration.get_safe",
+            "actionId": 29,
+            "api": false,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "contacts.categories.create",
+            "actionId": 30,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "contacts.categories.delete",
+            "actionId": 31,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "contacts.categories.get",
+            "actionId": 32,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "contacts.categories.list",
+            "actionId": 33,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "contacts.categories.state",
+            "actionId": 34,
+            "api": false,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "contacts.categories.update",
+            "actionId": 35,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "contacts.contact-history.delete",
+            "actionId": 36,
+            "api": true,
+            "native": false,
+            "stage": "inventoried"
+        },
+        {
+            "action": "contacts.contact-history.keep",
+            "actionId": 37,
+            "api": true,
+            "native": false,
+            "stage": "inventoried"
+        },
+        {
+            "action": "contacts.contact-history.list",
+            "actionId": 38,
+            "api": true,
+            "native": false,
+            "stage": "inventoried"
+        },
+        {
+            "action": "contacts.contacts.create",
+            "actionId": 39,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "contacts.contacts.delete",
+            "actionId": 40,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "contacts.contacts.get",
+            "actionId": 41,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "contacts.contacts.list",
+            "actionId": 42,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "contacts.contacts.state",
+            "actionId": 43,
+            "api": false,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "contacts.contacts.update",
+            "actionId": 44,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "contacts.form.submit",
+            "actionId": 45,
+            "api": true,
+            "native": false,
+            "stage": "inventoried"
+        },
+        {
+            "action": "content.article-history.delete",
+            "actionId": 46,
+            "api": true,
+            "native": false,
+            "stage": "inventoried"
+        },
+        {
+            "action": "content.article-history.keep",
+            "actionId": 47,
+            "api": true,
+            "native": false,
+            "stage": "inventoried"
+        },
+        {
+            "action": "content.article-history.list",
+            "actionId": 48,
+            "api": true,
+            "native": false,
+            "stage": "inventoried"
+        },
+        {
+            "action": "content.articles.create",
+            "actionId": 49,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "content.articles.delete",
+            "actionId": 50,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "content.articles.get",
+            "actionId": 51,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "content.articles.list",
+            "actionId": 52,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "content.articles.state",
+            "actionId": 53,
+            "api": false,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "content.articles.update",
+            "actionId": 54,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "content.categories.create",
+            "actionId": 55,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "content.categories.delete",
+            "actionId": 56,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "content.categories.get",
+            "actionId": 57,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "content.categories.list",
+            "actionId": 58,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "content.categories.state",
+            "actionId": 59,
+            "api": false,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "content.categories.update",
+            "actionId": 60,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "core.update.status",
+            "actionId": 61,
+            "api": false,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "extensions.discovered.list",
+            "actionId": 62,
+            "api": false,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "extensions.discovered.refresh",
+            "actionId": 63,
+            "api": false,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "extensions.installed.list",
+            "actionId": 64,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "extensions.list",
+            "actionId": 65,
+            "api": false,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "extensions.state.set",
+            "actionId": 66,
+            "api": false,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "extensions.update-sites.list",
+            "actionId": 67,
+            "api": false,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "extensions.update-sites.state.set",
+            "actionId": 68,
+            "api": false,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "extensions.updates.list",
+            "actionId": 69,
+            "api": false,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "extensions.updates.refresh",
+            "actionId": 70,
+            "api": false,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "field-groups.contact-categories.create",
+            "actionId": 71,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "field-groups.contact-categories.delete",
+            "actionId": 72,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "field-groups.contact-categories.get",
+            "actionId": 73,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "field-groups.contact-categories.list",
+            "actionId": 74,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "field-groups.contact-categories.state",
+            "actionId": 75,
+            "api": false,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "field-groups.contact-categories.update",
+            "actionId": 76,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "field-groups.contact-mail.create",
+            "actionId": 77,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "field-groups.contact-mail.delete",
+            "actionId": 78,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "field-groups.contact-mail.get",
+            "actionId": 79,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "field-groups.contact-mail.list",
+            "actionId": 80,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "field-groups.contact-mail.state",
+            "actionId": 81,
+            "api": false,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "field-groups.contact-mail.update",
+            "actionId": 82,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "field-groups.contact.create",
+            "actionId": 83,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "field-groups.contact.delete",
+            "actionId": 84,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "field-groups.contact.get",
+            "actionId": 85,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "field-groups.contact.list",
+            "actionId": 86,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "field-groups.contact.state",
+            "actionId": 87,
+            "api": false,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "field-groups.contact.update",
+            "actionId": 88,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "field-groups.content-articles.create",
+            "actionId": 89,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "field-groups.content-articles.delete",
+            "actionId": 90,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "field-groups.content-articles.get",
+            "actionId": 91,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "field-groups.content-articles.list",
+            "actionId": 92,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "field-groups.content-articles.state",
+            "actionId": 93,
+            "api": false,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "field-groups.content-articles.update",
+            "actionId": 94,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "field-groups.content-categories.create",
+            "actionId": 95,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "field-groups.content-categories.delete",
+            "actionId": 96,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "field-groups.content-categories.get",
+            "actionId": 97,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "field-groups.content-categories.list",
+            "actionId": 98,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "field-groups.content-categories.state",
+            "actionId": 99,
+            "api": false,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "field-groups.content-categories.update",
+            "actionId": 100,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "field-groups.users.create",
+            "actionId": 101,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "field-groups.users.delete",
+            "actionId": 102,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "field-groups.users.get",
+            "actionId": 103,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "field-groups.users.list",
+            "actionId": 104,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "field-groups.users.state",
+            "actionId": 105,
+            "api": false,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "field-groups.users.update",
+            "actionId": 106,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "fields.contact-categories.create",
+            "actionId": 107,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "fields.contact-categories.delete",
+            "actionId": 108,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "fields.contact-categories.get",
+            "actionId": 109,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "fields.contact-categories.list",
+            "actionId": 110,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "fields.contact-categories.state",
+            "actionId": 111,
+            "api": false,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "fields.contact-categories.update",
+            "actionId": 112,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "fields.contact-mail.create",
+            "actionId": 113,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "fields.contact-mail.delete",
+            "actionId": 114,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "fields.contact-mail.get",
+            "actionId": 115,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "fields.contact-mail.list",
+            "actionId": 116,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "fields.contact-mail.state",
+            "actionId": 117,
+            "api": false,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "fields.contact-mail.update",
+            "actionId": 118,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "fields.contact.create",
+            "actionId": 119,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "fields.contact.delete",
+            "actionId": 120,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "fields.contact.get",
+            "actionId": 121,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "fields.contact.list",
+            "actionId": 122,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "fields.contact.state",
+            "actionId": 123,
+            "api": false,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "fields.contact.update",
+            "actionId": 124,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "fields.content-articles.create",
+            "actionId": 125,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "fields.content-articles.delete",
+            "actionId": 126,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "fields.content-articles.get",
+            "actionId": 127,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "fields.content-articles.list",
+            "actionId": 128,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "fields.content-articles.state",
+            "actionId": 129,
+            "api": false,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "fields.content-articles.update",
+            "actionId": 130,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "fields.content-categories.create",
+            "actionId": 131,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "fields.content-categories.delete",
+            "actionId": 132,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "fields.content-categories.get",
+            "actionId": 133,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "fields.content-categories.list",
+            "actionId": 134,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "fields.content-categories.state",
+            "actionId": 135,
+            "api": false,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "fields.content-categories.update",
+            "actionId": 136,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "fields.users.create",
+            "actionId": 137,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "fields.users.delete",
+            "actionId": 138,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "fields.users.get",
+            "actionId": 139,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "fields.users.list",
+            "actionId": 140,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "fields.users.state",
+            "actionId": 141,
+            "api": false,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "fields.users.update",
+            "actionId": 142,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "joomla-update.finalize",
+            "actionId": 143,
+            "api": true,
+            "native": false,
+            "stage": "inventoried"
+        },
+        {
+            "action": "joomla-update.healthcheck",
+            "actionId": 144,
+            "api": true,
+            "native": false,
+            "stage": "inventoried"
+        },
+        {
+            "action": "joomla-update.notification.failed",
+            "actionId": 145,
+            "api": true,
+            "native": false,
+            "stage": "inventoried"
+        },
+        {
+            "action": "joomla-update.notification.success",
+            "actionId": 146,
+            "api": true,
+            "native": false,
+            "stage": "inventoried"
+        },
+        {
+            "action": "joomla-update.prepare",
+            "actionId": 147,
+            "api": true,
+            "native": false,
+            "stage": "inventoried"
+        },
+        {
+            "action": "joomla-update.status",
+            "actionId": 148,
+            "api": true,
+            "native": false,
+            "stage": "inventoried"
+        },
+        {
+            "action": "languages.content.create",
+            "actionId": 149,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "languages.content.delete",
+            "actionId": 150,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "languages.content.get",
+            "actionId": 151,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "languages.content.list",
+            "actionId": 152,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "languages.content.state",
+            "actionId": 153,
+            "api": false,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "languages.content.update",
+            "actionId": 154,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "languages.overrides.administrator.create",
+            "actionId": 155,
+            "api": true,
+            "native": false,
+            "stage": "inventoried"
+        },
+        {
+            "action": "languages.overrides.administrator.delete",
+            "actionId": 156,
+            "api": true,
+            "native": false,
+            "stage": "inventoried"
+        },
+        {
+            "action": "languages.overrides.administrator.get",
+            "actionId": 157,
+            "api": true,
+            "native": false,
+            "stage": "inventoried"
+        },
+        {
+            "action": "languages.overrides.administrator.list",
+            "actionId": 158,
+            "api": true,
+            "native": false,
+            "stage": "inventoried"
+        },
+        {
+            "action": "languages.overrides.administrator.update",
+            "actionId": 159,
+            "api": true,
+            "native": false,
+            "stage": "inventoried"
+        },
+        {
+            "action": "languages.overrides.refresh",
+            "actionId": 160,
+            "api": true,
+            "native": false,
+            "stage": "inventoried"
+        },
+        {
+            "action": "languages.overrides.search",
+            "actionId": 161,
+            "api": true,
+            "native": false,
+            "stage": "inventoried"
+        },
+        {
+            "action": "languages.overrides.site.create",
+            "actionId": 162,
+            "api": true,
+            "native": false,
+            "stage": "inventoried"
+        },
+        {
+            "action": "languages.overrides.site.delete",
+            "actionId": 163,
+            "api": true,
+            "native": false,
+            "stage": "inventoried"
+        },
+        {
+            "action": "languages.overrides.site.get",
+            "actionId": 164,
+            "api": true,
+            "native": false,
+            "stage": "inventoried"
+        },
+        {
+            "action": "languages.overrides.site.list",
+            "actionId": 165,
+            "api": true,
+            "native": false,
+            "stage": "inventoried"
+        },
+        {
+            "action": "languages.overrides.site.update",
+            "actionId": 166,
+            "api": true,
+            "native": false,
+            "stage": "inventoried"
+        },
+        {
+            "action": "languages.packages.install",
+            "actionId": 167,
+            "api": true,
+            "native": false,
+            "stage": "inventoried"
+        },
+        {
+            "action": "languages.packages.list",
+            "actionId": 168,
+            "api": true,
+            "native": false,
+            "stage": "inventoried"
+        },
+        {
+            "action": "media.adapters.get",
+            "actionId": 169,
+            "api": true,
+            "native": false,
+            "stage": "inventoried"
+        },
+        {
+            "action": "media.adapters.list",
+            "actionId": 170,
+            "api": true,
+            "native": false,
+            "stage": "inventoried"
+        },
+        {
+            "action": "media.directory.list",
+            "actionId": 171,
+            "api": true,
+            "native": false,
+            "stage": "inventoried"
+        },
+        {
+            "action": "media.files.create",
+            "actionId": 172,
+            "api": true,
+            "native": false,
+            "stage": "inventoried"
+        },
+        {
+            "action": "media.files.delete",
+            "actionId": 173,
+            "api": true,
+            "native": false,
+            "stage": "inventoried"
+        },
+        {
+            "action": "media.files.get",
+            "actionId": 174,
+            "api": true,
+            "native": false,
+            "stage": "inventoried"
+        },
+        {
+            "action": "media.files.list",
+            "actionId": 175,
+            "api": true,
+            "native": false,
+            "stage": "inventoried"
+        },
+        {
+            "action": "media.files.update",
+            "actionId": 176,
+            "api": true,
+            "native": false,
+            "stage": "inventoried"
+        },
+        {
+            "action": "menus.administrator-item-types.list",
+            "actionId": 177,
+            "api": true,
+            "native": false,
+            "stage": "inventoried"
+        },
+        {
+            "action": "menus.administrator-items.create",
+            "actionId": 178,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "menus.administrator-items.delete",
+            "actionId": 179,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "menus.administrator-items.get",
+            "actionId": 180,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "menus.administrator-items.list",
+            "actionId": 181,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "menus.administrator-items.state",
+            "actionId": 182,
+            "api": false,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "menus.administrator-items.update",
+            "actionId": 183,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "menus.administrator.create",
+            "actionId": 184,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "menus.administrator.delete",
+            "actionId": 185,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "menus.administrator.get",
+            "actionId": 186,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "menus.administrator.list",
+            "actionId": 187,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "menus.administrator.update",
+            "actionId": 188,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "menus.site-item-types.list",
+            "actionId": 189,
+            "api": true,
+            "native": false,
+            "stage": "inventoried"
+        },
+        {
+            "action": "menus.site-items.create",
+            "actionId": 190,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "menus.site-items.delete",
+            "actionId": 191,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "menus.site-items.get",
+            "actionId": 192,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "menus.site-items.list",
+            "actionId": 193,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "menus.site-items.state",
+            "actionId": 194,
+            "api": false,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "menus.site-items.update",
+            "actionId": 195,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "menus.site.create",
+            "actionId": 196,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "menus.site.delete",
+            "actionId": 197,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "menus.site.get",
+            "actionId": 198,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "menus.site.list",
+            "actionId": 199,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "menus.site.update",
+            "actionId": 200,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "messages.messages.create",
+            "actionId": 201,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "messages.messages.delete",
+            "actionId": 202,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "messages.messages.get",
+            "actionId": 203,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "messages.messages.list",
+            "actionId": 204,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "messages.messages.update",
+            "actionId": 205,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "modules.administrator-types.list",
+            "actionId": 206,
+            "api": true,
+            "native": false,
+            "stage": "inventoried"
+        },
+        {
+            "action": "modules.administrator.create",
+            "actionId": 207,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "modules.administrator.delete",
+            "actionId": 208,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "modules.administrator.get",
+            "actionId": 209,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "modules.administrator.list",
+            "actionId": 210,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "modules.administrator.state",
+            "actionId": 211,
+            "api": false,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "modules.administrator.update",
+            "actionId": 212,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "modules.site-types.list",
+            "actionId": 213,
+            "api": true,
+            "native": false,
+            "stage": "inventoried"
+        },
+        {
+            "action": "modules.site.create",
+            "actionId": 214,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "modules.site.delete",
+            "actionId": 215,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "modules.site.get",
+            "actionId": 216,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "modules.site.list",
+            "actionId": 217,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "modules.site.state",
+            "actionId": 218,
+            "api": false,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "modules.site.update",
+            "actionId": 219,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "newsfeeds.categories.create",
+            "actionId": 220,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "newsfeeds.categories.delete",
+            "actionId": 221,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "newsfeeds.categories.get",
+            "actionId": 222,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "newsfeeds.categories.list",
+            "actionId": 223,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "newsfeeds.categories.state",
+            "actionId": 224,
+            "api": false,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "newsfeeds.categories.update",
+            "actionId": 225,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "newsfeeds.feeds.create",
+            "actionId": 226,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "newsfeeds.feeds.delete",
+            "actionId": 227,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "newsfeeds.feeds.get",
+            "actionId": 228,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "newsfeeds.feeds.list",
+            "actionId": 229,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "newsfeeds.feeds.state",
+            "actionId": 230,
+            "api": false,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "newsfeeds.feeds.update",
+            "actionId": 231,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "plugins.plugins.get",
+            "actionId": 232,
+            "api": true,
+            "native": false,
+            "stage": "inventoried"
+        },
+        {
+            "action": "plugins.plugins.list",
+            "actionId": 233,
+            "api": true,
+            "native": false,
+            "stage": "inventoried"
+        },
+        {
+            "action": "plugins.plugins.update",
+            "actionId": 234,
+            "api": true,
+            "native": false,
+            "stage": "inventoried"
+        },
+        {
+            "action": "privacy.consents.get",
+            "actionId": 235,
+            "api": true,
+            "native": false,
+            "stage": "inventoried"
+        },
+        {
+            "action": "privacy.consents.list",
+            "actionId": 236,
+            "api": true,
+            "native": false,
+            "stage": "inventoried"
+        },
+        {
+            "action": "privacy.requests.create",
+            "actionId": 237,
+            "api": true,
+            "native": false,
+            "stage": "inventoried"
+        },
+        {
+            "action": "privacy.requests.export",
+            "actionId": 238,
+            "api": true,
+            "native": false,
+            "stage": "inventoried"
+        },
+        {
+            "action": "privacy.requests.get",
+            "actionId": 239,
+            "api": true,
+            "native": false,
+            "stage": "inventoried"
+        },
+        {
+            "action": "privacy.requests.list",
+            "actionId": 240,
+            "api": true,
+            "native": false,
+            "stage": "inventoried"
+        },
+        {
+            "action": "redirects.redirects.create",
+            "actionId": 241,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "redirects.redirects.delete",
+            "actionId": 242,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "redirects.redirects.get",
+            "actionId": 243,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "redirects.redirects.list",
+            "actionId": 244,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "redirects.redirects.state",
+            "actionId": 245,
+            "api": false,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "redirects.redirects.update",
+            "actionId": 246,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "scheduler.tasks.list",
+            "actionId": 247,
+            "api": false,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "scheduler.tasks.run",
+            "actionId": 248,
+            "api": false,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "scheduler.tasks.state.set",
+            "actionId": 249,
+            "api": false,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "sessions.data.gc",
+            "actionId": 250,
+            "api": false,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "sessions.metadata.gc",
+            "actionId": 251,
+            "api": false,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "site.state.get",
+            "actionId": 252,
+            "api": false,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "site.state.set",
+            "actionId": 253,
+            "api": false,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "system.info",
+            "actionId": 254,
+            "api": false,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "tags.tags.create",
+            "actionId": 255,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "tags.tags.delete",
+            "actionId": 256,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "tags.tags.get",
+            "actionId": 257,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "tags.tags.list",
+            "actionId": 258,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "tags.tags.state",
+            "actionId": 259,
+            "api": false,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "tags.tags.update",
+            "actionId": 260,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "templates.administrator-styles.create",
+            "actionId": 261,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "templates.administrator-styles.delete",
+            "actionId": 262,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "templates.administrator-styles.get",
+            "actionId": 263,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "templates.administrator-styles.list",
+            "actionId": 264,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "templates.administrator-styles.update",
+            "actionId": 265,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "templates.site-styles.create",
+            "actionId": 266,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "templates.site-styles.delete",
+            "actionId": 267,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "templates.site-styles.get",
+            "actionId": 268,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "templates.site-styles.list",
+            "actionId": 269,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "templates.site-styles.update",
+            "actionId": 270,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "users.groups.create",
+            "actionId": 271,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "users.groups.delete",
+            "actionId": 272,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "users.groups.get",
+            "actionId": 273,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "users.groups.list",
+            "actionId": 274,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "users.groups.update",
+            "actionId": 275,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "users.levels.create",
+            "actionId": 276,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "users.levels.delete",
+            "actionId": 277,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "users.levels.get",
+            "actionId": 278,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "users.levels.list",
+            "actionId": 279,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "users.levels.update",
+            "actionId": 280,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "users.users.create",
+            "actionId": 281,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "users.users.delete",
+            "actionId": 282,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "users.users.get",
+            "actionId": 283,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "users.users.list",
+            "actionId": 284,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        },
+        {
+            "action": "users.users.update",
+            "actionId": 285,
+            "api": true,
+            "native": true,
+            "stage": "inventoried"
+        }
+    ],
+    "sourceOnlyGates": {
+        "configuration.component.get": "Raw component configuration can contain extension secrets and has no reviewed component-specific output allowlist.",
+        "configuration.component.update": "Component configuration is defined by each runtime config.xml form; execution requires runtime schema discovery and secret classification.",
+        "languages.packages.install": "Joomla registers languages.install, but the Joomla 6.1 API LanguagesController has no install task or task alias.",
+        "languages.overrides.site.update": "Joomla 6.1 routes the string override constant through ApiController::edit(), which coerces id to integer and prevents the registered PATCH route from resolving.",
+        "languages.overrides.administrator.update": "Joomla 6.1 routes the string override constant through ApiController::edit(), which coerces id to integer and prevents the registered PATCH route from resolving."
+    },
+    "counts": {
+        "provider": 1,
+        "schema": 407,
+        "action": 285,
+        "binding": 467,
+        "tool": 24,
+        "resource": 1,
+        "prompt": 0,
+        "target": 38
+    }
+}
