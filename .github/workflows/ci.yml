@@ -27,7 +27,7 @@ jobs:
       - uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
-          extensions: curl, json, mbstring, zip
+          extensions: curl, json, mbstring, sodium, zip
           tools: composer:v2
           coverage: none
       - name: Validate Composer metadata
@@ -36,30 +36,30 @@ jobs:
         run: composer install --no-interaction --prefer-dist --no-progress
       - name: PHP syntax
         run: find . -type d \( -name vendor -o -name .git -o -name .reference -o -name build \) -prune -o -type f -name '*.php' -print0 | xargs -0 -r -n1 php -l
-      - name: Behavioural contracts
-        run: php tests/run.php
-      - name: Check out immutable migration reference
-        if: matrix.php == '8.3'
-        uses: actions/checkout@v7
-        with:
-          repository: joomengine/joomla-mcp
-          ref: 2cff50f4f6b440da3c684f9995a77efad32e1a36
-          path: .reference/joomla-mcp
-          persist-credentials: false
-      - name: Preserve reproducible development evidence
-        if: matrix.php == '8.3'
-        shell: bash
+      - name: Verify source-pinned seed reproducibility
+        run: |
+          set -euo pipefail
+          php tools/generate-catalogue.php
+          git diff --exit-code -- admin/sql data/catalogue-seed.json docs/migration/parity.json
+      - name: Behavioural and source-parity contracts
+        run: |
+          set -euo pipefail
+          mkdir -p build/evidence
+          for suite in run catalogue execution actions native/run; do
+            php "tests/$suite.php" | tee "build/evidence/${suite//\//-}.log"
+          done
+      - name: Preserve the tested PHP runtime for reproducible investigation
+        if: always() && matrix.php == '8.3'
         run: |
           set -euo pipefail
           mkdir -p build
-          git -C .reference/joomla-mcp rev-parse HEAD > build/source-commit.txt
-          tar --exclude-vcs --exclude='./build' -czf build/development-snapshot.tar.gz .
-          sha256sum build/development-snapshot.tar.gz > build/development-snapshot.sha256
-      - name: Upload migration evidence (not a production package)
-        if: matrix.php == '8.3'
-        uses: actions/upload-artifact@v7
+          git rev-parse HEAD > build/tested-commit.txt
+          tar --exclude-vcs --exclude='./build' --exclude='./.reference' -czf build/tested-php-runtime.tar.gz .
+          sha256sum build/tested-php-runtime.tar.gz > build/tested-php-runtime.sha256
+      - uses: actions/upload-artifact@v7
+        if: always()
         with:
-          name: development-snapshot
+          name: php-evidence-${{ matrix.php }}
           path: build/
           if-no-files-found: error
           retention-days: 7
