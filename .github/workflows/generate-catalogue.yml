@@ -1,0 +1,51 @@
+name: Generate reviewed Joomla installation catalogue
+
+on:
+  push:
+    branches: [feature/jcb-mcp-runtime]
+    paths:
+      - tools/generate-catalogue.php
+      - admin/src/Database/Structure.php
+      - .github/workflows/generate-catalogue.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: generate-joomla-mcp-catalogue
+  cancel-in-progress: false
+
+jobs:
+  generate:
+    if: github.repository == 'joomengine/mcp_component' && github.ref == 'refs/heads/feature/jcb-mcp-runtime'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: true
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+      - name: Generate portable SQL and the complete source-parity map
+        run: |
+          set -euo pipefail
+          php -l tools/generate-catalogue.php
+          php tools/generate-catalogue.php
+          git diff --check
+      - name: Commit only generated catalogue files to the existing PR branch
+        run: |
+          set -euo pipefail
+          git add -- admin/sql data/catalogue-seed.json docs/migration/parity.json
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'build: generate portable install SQL and the complete database capability graph'
+          git push origin HEAD:refs/heads/feature/jcb-mcp-runtime
