@@ -101,7 +101,7 @@ $http = new class implements ClientInterface
 		{
 			return new Response(500, [], 'private database failure');
 		}
-		return new Response(200, [], Json::encode(['data' => ['id' => (string) $id, 'attributes' => $this->items[$id]]));
+		return new Response(200, [], Json::encode(['data' => ['id' => (string) $id, 'attributes' => $this->items[$id]]]));
 	}
 };
 $seed = Json::decode(file_get_contents(dirname(__DIR__) . '/data/catalogue-seed.json'))['entities'];
