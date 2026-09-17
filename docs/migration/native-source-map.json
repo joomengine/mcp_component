@@ -1,0 +1,242 @@
+[
+    {
+        "source": "companion/plugin/src/Joomla/JoomlaActionRegistryFactory.php",
+        "sourceSha256": "14bb9c0c12c0744c0b2d5e6a1fdf77aba678d0e90e5d1fd847237134f7e23fb7",
+        "target": "tests/native/Reference/Joomla/JoomlaActionRegistryFactory.php",
+        "targetSha256": "3649349f233c086c91c5f894a83ab609b635d37d62934f406ed163c21b8b4bbe"
+    },
+    {
+        "source": "companion/plugin/src/Joomla/JoomlaNativeOperations.php",
+        "sourceSha256": "088c1a0844d11f14fd63ad477991dab474d407b7b97f67c353e8785f79c157bb",
+        "target": "admin/src/Native/Joomla/JoomlaNativeOperations.php",
+        "targetSha256": "57f932ea6b52db423a4ba6f6534a6f2711fee20184c69ec3355231352fa29a5d"
+    },
+    {
+        "source": "companion/plugin/src/Joomla/JoomlaModelProvider.php",
+        "sourceSha256": "7e30d6d1bc84e16cba2e4d27042d755ff3b706d36d25e65bd58a568e55f80110",
+        "target": "admin/src/Native/Joomla/JoomlaModelProvider.php",
+        "targetSha256": "f7943654fa6183c3d0d9ebb8f7d29b4f8b92ba1252d9aad3edab088af1ad408c"
+    },
+    {
+        "source": "companion/plugin/src/Joomla/JoomlaCapabilityResolver.php",
+        "sourceSha256": "e2fb36aece1f91113ccf0c531174ece8eabfa91698fbe2b7feed1b7642d6b5a8",
+        "target": "admin/src/Native/Joomla/JoomlaCapabilityResolver.php",
+        "targetSha256": "17031026e76986defa4ae5270d847cb1a91d24c110f3811600624a56b69314af"
+    },
+    {
+        "source": "companion/plugin/src/Joomla/CoreEntityCatalogue.php",
+        "sourceSha256": "748aac6ebe705aa00f178f4f36ee43c6f14b86400748fe2ba3dfbe43858e8ef2",
+        "target": "tests/native/Reference/Joomla/CoreEntityCatalogue.php",
+        "targetSha256": "976089437c1a327da659a3d898a32a049b11c2d5de60b7c9dbf7ecb176554697"
+    },
+    {
+        "source": "companion/plugin/src/Command/SelfTestCommand.php",
+        "sourceSha256": "86b0bc556df34866b943e1aef3f983005c92c2bb926354667e80e6a80d60a4fd",
+        "target": "admin/src/Native/Command/SelfTestCommand.php",
+        "targetSha256": "af63356bdb562c6a9961197c8903ccc135f0277a36170c8fd4e77dcf9661b940"
+    },
+    {
+        "source": "companion/plugin/src/Command/CliInventoryCommand.php",
+        "sourceSha256": "8483d11e5e73b059beeec7ed2cb9b0a5f1afd7156ef01057746ea12946216c0f",
+        "target": "admin/src/Native/Command/CliInventoryCommand.php",
+        "targetSha256": "cd2911bd2a4aeda27086a48dbb19f4d6c2d19ccd725836b823c05071f09f52b3"
+    },
+    {
+        "source": "companion/plugin/src/Command/DescribeCommand.php",
+        "sourceSha256": "e6b1aa6d37a44a2332277afea755cb9cda6e49a7ce446e876b341c06052a95a4",
+        "target": "admin/src/Native/Command/DescribeCommand.php",
+        "targetSha256": "e96193e287c6f429681908b22a0e86548a4f6617dc5408b2061dcb2723ca1856"
+    },
+    {
+        "source": "companion/plugin/src/Command/DispatchCommand.php",
+        "sourceSha256": "06023442d9dd5145a3203e369c5513210c50605ec1f5006ae7b7ae34c218a887",
+        "target": "admin/src/Native/Command/DispatchCommand.php",
+        "targetSha256": "a5969371d5cbdc8974ac67c23e8ac55fc2276da2cda73e3cb68101a2201c9efd"
+    },
+    {
+        "source": "companion/plugin/src/Domain/ActionRegistry.php",
+        "sourceSha256": "8b3394b8a645cf3605b05b9bc03eb703ca91514954683926dcabeab6ce9ef0e3",
+        "target": "admin/src/Native/Domain/ActionRegistry.php",
+        "targetSha256": "6bd89e7fa107d5c83e34d2346e078c96c9da28882ce289d74b39a02fba728193"
+    },
+    {
+        "source": "companion/plugin/src/Domain/ActionException.php",
+        "sourceSha256": "6d2683b2816c03cb139717c3545ee995d67a49e2c05e7515c5c54572eec5e696",
+        "target": "admin/src/Native/Domain/ActionException.php",
+        "targetSha256": "dbdb89a02dcb2a457e2716c633868c9d7a23b83098220af83d6f113f59563677"
+    },
+    {
+        "source": "companion/plugin/src/Domain/CoreEntityDefinition.php",
+        "sourceSha256": "ce668ee93388040b41adcd3ae31229bc2a03303aad3b910c49eeba9dcc5f1cd1",
+        "target": "admin/src/Native/Domain/CoreEntityDefinition.php",
+        "targetSha256": "9be9d8e58f89388ecacc3a99a0ca188936f284372d841e1a370c76a88d9e9c3c"
+    },
+    {
+        "source": "companion/plugin/src/Domain/Input.php",
+        "sourceSha256": "b114e0a807c0444636b1658b8d760d7b4b79a3b04ebd022980cfc173ce387f15",
+        "target": "admin/src/Native/Domain/Input.php",
+        "targetSha256": "f2768a285152b4f504d4ed5f7f504f01c1f1cd2f007010e5b90f29c142cb5c65"
+    },
+    {
+        "source": "companion/plugin/src/Domain/ActionDescriptor.php",
+        "sourceSha256": "fe8576e98ddf6ce7e6acc4dd0bcc5289431d395560b430e302ad5ad8a0572940",
+        "target": "admin/src/Native/Domain/ActionDescriptor.php",
+        "targetSha256": "59556958b27058281b545f6993973b98c782153328486c6f847faa308d0d19da"
+    },
+    {
+        "source": "companion/plugin/src/Protocol/DispatchService.php",
+        "sourceSha256": "b20f42f643dd95a1dfa87872a9375592f9e44dfcc0a506976f5dd1f78dcbb259",
+        "target": "admin/src/Native/Protocol/DispatchService.php",
+        "targetSha256": "5955550b23c01eeac83903f3588a3468e99993f4a41faa2c92ed207e2fae8a38"
+    },
+    {
+        "source": "companion/plugin/src/Protocol/DescriptionService.php",
+        "sourceSha256": "2c0a1688c41cfba34865805edf803f0309f9be144efc721c64297b90ffe789e3",
+        "target": "admin/src/Native/Protocol/DescriptionService.php",
+        "targetSha256": "590015ed890e238a6b06d67d6c3e96377a8c0cc536b347208cf8833c422a0a90"
+    },
+    {
+        "source": "companion/plugin/src/Protocol/RequestDecoder.php",
+        "sourceSha256": "67ba7093225ea01c9eb099caaffd4bc67968610191fe4228146ba88b1fbd01c8",
+        "target": "admin/src/Native/Protocol/RequestDecoder.php",
+        "targetSha256": "f2a0cd88399058a3a0a4a4b5fb6d2e3291ed2c02f783f3764633ee3dc34311d0"
+    },
+    {
+        "source": "companion/plugin/src/Protocol/SelfTestService.php",
+        "sourceSha256": "3f299a5703a5d15f9cac80d031cb9587755bb8b81b6e8f10c6bca068a5804860",
+        "target": "admin/src/Native/Protocol/SelfTestService.php",
+        "targetSha256": "8c2c4a7380df1938687a30de3f33896552cc7d04c206bb636a85e2784f8bae61"
+    },
+    {
+        "source": "companion/plugin/src/Contract/NativeOperationsInterface.php",
+        "sourceSha256": "86bd028d39625c08d5f60c3dbcd74e64d8a7db742ef17e8391dd388214f8ea5c",
+        "target": "admin/src/Native/Contract/NativeOperationsInterface.php",
+        "targetSha256": "f8c5da430b4880d7dc8e122e62bf76fbf24b50c54a820f9e81e67bcfbef1173a"
+    },
+    {
+        "source": "companion/plugin/src/Contract/ModelProviderInterface.php",
+        "sourceSha256": "8dc55cb3ea6f0df90ba0b94b9e3a25d44f92048d5607cf641bbb548fe3c2a6e5",
+        "target": "admin/src/Native/Contract/ModelProviderInterface.php",
+        "targetSha256": "8a6f673ba085636b96a639d1a42259e5bb3a193afb68fc3c3234b6c08953e668"
+    },
+    {
+        "source": "companion/plugin/src/Contract/ActionInterface.php",
+        "sourceSha256": "9bb64f0381bf0d75115f420b0a15c3d3836c05fa72eb455c40cef766796a89c8",
+        "target": "admin/src/Native/Contract/ActionInterface.php",
+        "targetSha256": "0e662f5582df8110a43de43a732e909e21a2153b2e176ba64126f326db7cf6e1"
+    },
+    {
+        "source": "companion/plugin/src/Contract/CapabilityResolverInterface.php",
+        "sourceSha256": "3cc421efecdfdeebe5205e08d15e55b39187bea0f81a254d742d153bde3c7429",
+        "target": "admin/src/Native/Contract/CapabilityResolverInterface.php",
+        "targetSha256": "e7494c6f04525cfba8256dca8e25985962c11ba714eb26341ab495ad28a58b85"
+    },
+    {
+        "source": "companion/plugin/src/Action/SchedulerTaskAction.php",
+        "sourceSha256": "c60c5976fdfda4c34e136aeb25a769cd0f56b1b7f3f56fdd7d3ef646ac6d10ae",
+        "target": "admin/src/Native/Action/SchedulerTaskAction.php",
+        "targetSha256": "9155bef99daf54ace8590049f8a275eec4caeaaaabfaf5d19a724115a4312690"
+    },
+    {
+        "source": "companion/plugin/src/Action/PurgeExpiredCacheAction.php",
+        "sourceSha256": "51d77e84b128866d1abd1cd809e740023e85faff46069743cef6777b517ca775",
+        "target": "admin/src/Native/Action/PurgeExpiredCacheAction.php",
+        "targetSha256": "9e7f0f7d6463c2a72d2b29f0f5abac206c8a17c0f92ad7beb1e1ed86eed8e2aa"
+    },
+    {
+        "source": "companion/plugin/src/Action/SafeConfigurationAction.php",
+        "sourceSha256": "bb7266e6b14a17563332e053f2f69a9e621f102983bb1ed59c631b726322f274",
+        "target": "admin/src/Native/Action/SafeConfigurationAction.php",
+        "targetSha256": "3395bcd8ec10d6980a5b1f1aa7d7f8de5268df26b22b2c6b27190e59444aab15"
+    },
+    {
+        "source": "companion/plugin/src/Action/RefreshExtensionUpdatesAction.php",
+        "sourceSha256": "6e6b4326682e85722b7da7fe3ecb2fa6fcb768589742705844ea07c2d0510aef",
+        "target": "admin/src/Native/Action/RefreshExtensionUpdatesAction.php",
+        "targetSha256": "8a29cad19216e83ec7efe290a4f9d49cab0fdefd5d572390b12871e48b1171a2"
+    },
+    {
+        "source": "companion/plugin/src/Action/SiteStateAction.php",
+        "sourceSha256": "b34b1b3fcda2958ec394940fcf9b59c05fb46b8109ba1d0aee542586f6d198b7",
+        "target": "admin/src/Native/Action/SiteStateAction.php",
+        "targetSha256": "c7b763cacf1ce65cd7181cb7f3a9cedfd1d881d65ec32afb99aa93743895d753"
+    },
+    {
+        "source": "companion/plugin/src/Action/SystemInfoAction.php",
+        "sourceSha256": "ddb3ed7c33f716969c8cb6f5121963ff2cbfd8206feaa9e2d95cdffe1350781f",
+        "target": "admin/src/Native/Action/SystemInfoAction.php",
+        "targetSha256": "c42ba52c22a3ee3ac257ebaeb2a6006872a72f2135c1a7b718e2e5f57a4c7260"
+    },
+    {
+        "source": "companion/plugin/src/Action/RefreshExtensionDiscoveryAction.php",
+        "sourceSha256": "a31f2798fd1d8e813fd2c6b0ccd4330663b27e633c813c280902f23133e13a05",
+        "target": "admin/src/Native/Action/RefreshExtensionDiscoveryAction.php",
+        "targetSha256": "e6ae05002beca2c94b156ffd19726404a1db18c56a3c93f1afdca520b14cb64e"
+    },
+    {
+        "source": "companion/plugin/src/Action/ListArticlesAction.php",
+        "sourceSha256": "e7efbaffdcc27ef11a423365b57aef8e5d09da37e492c0a98ddc3542d7ce1cf3",
+        "target": "admin/src/Native/Action/ListArticlesAction.php",
+        "targetSha256": "29b20ccfdbc84651c669845a5dc565cb1a2f521a2a1a4cd2b55c0bf2acbe48d7"
+    },
+    {
+        "source": "companion/plugin/src/Action/GetArticleAction.php",
+        "sourceSha256": "6eaf63b54f10beb22667b254b26f92f31fbb7b56cf6c8b62bf818af842a7cee1",
+        "target": "admin/src/Native/Action/GetArticleAction.php",
+        "targetSha256": "b1d7666fd46503b9b4815acf6da87215efb942c9da03f59f08c42b5662f3a293"
+    },
+    {
+        "source": "companion/plugin/src/Action/FixedModelListAction.php",
+        "sourceSha256": "0695e16ccbacf3b1a7c5d02167da958b798f107dbe34c7da804063254ca47650",
+        "target": "admin/src/Native/Action/FixedModelListAction.php",
+        "targetSha256": "96319da360bbd42432e9c3d80caa0263cf11aabbfe892fc5d07d74fd54224235"
+    },
+    {
+        "source": "companion/plugin/src/Action/ListExtensionsAction.php",
+        "sourceSha256": "fc366f14dace720ecab4994b86d7fd1f1621ce82ae18ee4565dad7154a5d5e08",
+        "target": "admin/src/Native/Action/ListExtensionsAction.php",
+        "targetSha256": "087f0eaf73faf6954cf62d8a47e13ea84bed305414164c8278c2f8f6111b1e26"
+    },
+    {
+        "source": "companion/plugin/src/Action/CoreEntityAction.php",
+        "sourceSha256": "045c352b2a1cad22dcc037e4e611930afa78626e57c64dceab7284237f184474",
+        "target": "admin/src/Native/Action/CoreEntityAction.php",
+        "targetSha256": "e4c7da7dd907e1485af9eb4443b8aa6af28612e5650ae3853e9d204e06f0698f"
+    },
+    {
+        "source": "companion/plugin/src/Action/CoreUpdateStatusAction.php",
+        "sourceSha256": "8ca5a3fa45363c3459017862be62d0d2b3d612b4e6a048a71783b6f731692e2c",
+        "target": "admin/src/Native/Action/CoreUpdateStatusAction.php",
+        "targetSha256": "e7c7bdbe375687c521f1a4892ebbda2753aea88396c524273c2569815278f4ab"
+    },
+    {
+        "source": "companion/plugin/src/Action/SessionGarbageCollectionAction.php",
+        "sourceSha256": "6f023ebbd3a345ebba106751a5c75d3b55d2b6f9dd79e0a7f2422ac6e1c49547",
+        "target": "admin/src/Native/Action/SessionGarbageCollectionAction.php",
+        "targetSha256": "55d75bc7a0274f2fc7b4381a871e2e5d688810b1c7c213214608a0b5617586d4"
+    },
+    {
+        "source": "companion/plugin/src/Action/FixedModelStateAction.php",
+        "sourceSha256": "eeb1cf72ee5754f112440b7f642f8909446c33033cffa074b4108b6e28441b26",
+        "target": "admin/src/Native/Action/FixedModelStateAction.php",
+        "targetSha256": "72b89cb14c85eb33442940b4a9396df1dcc1ea87d61e15655853da19b85c49f3"
+    },
+    {
+        "source": "companion/plugin/src/Action/CleanCacheAction.php",
+        "sourceSha256": "b0acab7d7726fb10093d869379544974e9320432a19059dfdbd6ab888f30f23f",
+        "target": "admin/src/Native/Action/CleanCacheAction.php",
+        "targetSha256": "9352e64271c6d7e28000fbbdfe26849dc3ad9185d88fab3a020f5a6858eb4664"
+    },
+    {
+        "source": "companion/tests/run.php",
+        "sourceSha256": "65afa803b87bbf22f2b813c2f2493dea51b245d75172b014ed6b8948e04cd242",
+        "target": "tests/native/run.php",
+        "targetSha256": "7fdf348c83dcbd316997118fd5024931612e89c1a700e2211b53421998c080af"
+    },
+    {
+        "source": "companion/tests/bootstrap.php",
+        "sourceSha256": "51c26d4d5ad695745cf92553c00ca2267f096197b1789cdb6d485456f6297def",
+        "target": "tests/native/bootstrap.php",
+        "targetSha256": "8249e1e20b611a46d6374525db9f45c98fe5f7341bd1b1b9b951af9e03d24d7d"
+    }
+]
