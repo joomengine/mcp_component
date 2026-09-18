@@ -120,7 +120,31 @@ final class McpController extends BaseController implements RuntimeAwareInterfac
 			throw new RuntimeException('The actual request Host header is required.', 403);
 		}
 
-		$raw = $this->input->getMethod() === 'POST' ? (string) $this->input->getRaw() : '';
+		$raw = '';
+
+		if ($this->input->getMethod() === 'POST')
+		{
+			$stream = fopen('php://input', 'rb');
+
+			if (!is_resource($stream))
+			{
+				throw new RuntimeException('The MCP request body could not be read.', 400);
+			}
+
+			try
+			{
+				$raw = stream_get_contents($stream, $settings->get('max_request_bytes') + 1);
+			}
+			finally
+			{
+				fclose($stream);
+			}
+
+			if (!is_string($raw))
+			{
+				throw new RuntimeException('The MCP request body could not be read.', 400);
+			}
+		}
 
 		if (strlen($raw) > $settings->get('max_request_bytes'))
 		{
