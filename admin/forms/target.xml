@@ -13,7 +13,7 @@
   <fieldset name="details" label="COM_JOOMENGINE_MCP_DETAILS">
     <field name="provider_id" label="COM_JOOMENGINE_MCP_FIELD_PROVIDER_ID" type="definitionreference" entity="provider" filter="uint" required="true" />
     <field name="command" label="COM_JOOMENGINE_MCP_FIELD_COMMAND" type="text" maxlength="191" filter="string" />
-    <field name="risk" label="COM_JOOMENGINE_MCP_FIELD_RISK" type="list" filter="string"><option value="read">read</option><option value="write">write</option><option value="high">high</option></field>
+    <field name="risk" label="COM_JOOMENGINE_MCP_FIELD_RISK" type="list" filter="string"><option value="read">read</option><option value="sensitive-read">sensitive-read</option><option value="write">write</option><option value="destructive">destructive</option><option value="high">high</option><option value="discovery">discovery</option></field>
     <field name="status" label="COM_JOOMENGINE_MCP_FIELD_STATUS" type="text" maxlength="191" filter="string" />
     <field name="description" label="COM_JOOMENGINE_MCP_FIELD_DESCRIPTION" type="textarea" rows="5" filter="string" />
     <field name="definition" label="COM_JOOMENGINE_MCP_FIELD_DEFINITION" type="textarea" rows="12" cols="80" class="font-monospace" filter="raw" validate="jsonobject" default="{}" description="COM_JOOMENGINE_MCP_JSON_HELP" />
