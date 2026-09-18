@@ -345,14 +345,13 @@ foreach (['mysql', 'postgresql'] as $driver)
 			return (string) $value;
 		}
 
+		// Joomla PgsqlDriver sets standard_conforming_strings=off. Explicit E literals
+		// and escaped backslashes preserve JSON regex/source bytes in either PG mode.
 		$text = str_replace("'", "''", (string) $value);
 
-		if ($driver === 'mysql')
-		{
-			$text = str_replace('\\', '\\\\', $text);
-		}
+		$text = str_replace('\\', '\\\\', $text);
 
-		return "'" . $text . "'";
+		return ($driver === 'postgresql' ? "E'" : "'") . $text . "'";
 	};
 	$ddlType = static function (string $type) use ($driver): string
 	{

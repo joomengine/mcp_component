@@ -188,6 +188,19 @@ final class RuntimeFactory
 		return new RequestRuntime(new ServerFactory($definitions, $sessions, $settings), $tools, $actions, $catalogue, $settings);
 	}
 
+	/**
+	 * Compose administrator operations without requiring an API-token identity.
+	 *
+	 * @param CMSApplicationInterface $application Native Joomla application.
+	 * @return \VDM\Component\JoomEngineMcp\Administrator\Administration\Operations
+	 * @since 0.1.0
+	 */
+	public function administration(CMSApplicationInterface $application): \VDM\Component\JoomEngineMcp\Administrator\Administration\Operations
+	{
+		return new \VDM\Component\JoomEngineMcp\Administrator\Administration\Operations(
+			new JoomlaStore($this->database), new Envelope((string) $application->get('secret'))
+		);
+	}
 	/** @return string Existing native Joomla Update token; never generate or return it to a client. @since 0.1.0 */
 	private function updateToken(): string
 	{

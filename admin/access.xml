@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?><access component="com_joomengine_mcp">
+  <section name="component">
+    <action name="core.admin" title="JACTION_ADMIN" />
+    <action name="core.options" title="JACTION_OPTIONS" />
+    <action name="core.manage" title="JACTION_MANAGE" />
+    <action name="mcp.access" title="COM_JOOMENGINE_MCP_MCP_ACCESS" />
+    <action name="mcp.approve" title="COM_JOOMENGINE_MCP_MCP_APPROVE" />
+    <action name="mcp.audit" title="COM_JOOMENGINE_MCP_MCP_AUDIT" />
+    <action name="mcp.grants" title="COM_JOOMENGINE_MCP_MCP_GRANTS" />
+    <action name="mcp.reconcile" title="COM_JOOMENGINE_MCP_MCP_RECONCILE" />
+    <action name="core.create" title="JACTION_CREATE" />
+    <action name="core.edit" title="JACTION_EDIT" />
+    <action name="core.edit.state" title="JACTION_EDITSTATE" />
+    <action name="core.delete" title="JACTION_DELETE" />
+    <action name="mcp.execute" title="COM_JOOMENGINE_MCP_MCP_EXECUTE" />
+    <action name="mcp.write" title="COM_JOOMENGINE_MCP_MCP_WRITE" />
+  </section>
+  <section name="provider">
+    <action name="core.create" title="JACTION_CREATE" />
+    <action name="core.edit" title="JACTION_EDIT" />
+    <action name="core.edit.state" title="JACTION_EDITSTATE" />
+    <action name="core.delete" title="JACTION_DELETE" />
+    <action name="mcp.execute" title="COM_JOOMENGINE_MCP_MCP_EXECUTE" />
+    <action name="mcp.write" title="COM_JOOMENGINE_MCP_MCP_WRITE" />
+  </section>
+  <section name="schema">
+    <action name="core.create" title="JACTION_CREATE" />
+    <action name="core.edit" title="JACTION_EDIT" />
+    <action name="core.edit.state" title="JACTION_EDITSTATE" />
+    <action name="core.delete" title="JACTION_DELETE" />
+    <action name="mcp.execute" title="COM_JOOMENGINE_MCP_MCP_EXECUTE" />
+    <action name="mcp.write" title="COM_JOOMENGINE_MCP_MCP_WRITE" />
+  </section>
+  <section name="action">
+    <action name="core.create" title="JACTION_CREATE" />
+    <action name="core.edit" title="JACTION_EDIT" />
+    <action name="core.edit.state" title="JACTION_EDITSTATE" />
+    <action name="core.delete" title="JACTION_DELETE" />
+    <action name="mcp.execute" title="COM_JOOMENGINE_MCP_MCP_EXECUTE" />
+    <action name="mcp.write" title="COM_JOOMENGINE_MCP_MCP_WRITE" />
+  </section>
+  <section name="binding">
+    <action name="core.create" title="JACTION_CREATE" />
+    <action name="core.edit" title="JACTION_EDIT" />
+    <action name="core.edit.state" title="JACTION_EDITSTATE" />
+    <action name="core.delete" title="JACTION_DELETE" />
+    <action name="mcp.execute" title="COM_JOOMENGINE_MCP_MCP_EXECUTE" />
+    <action name="mcp.write" title="COM_JOOMENGINE_MCP_MCP_WRITE" />
+  </section>
+  <section name="tool">
+    <action name="core.create" title="JACTION_CREATE" />
+    <action name="core.edit" title="JACTION_EDIT" />
+    <action name="core.edit.state" title="JACTION_EDITSTATE" />
+    <action name="core.delete" title="JACTION_DELETE" />
+    <action name="mcp.execute" title="COM_JOOMENGINE_MCP_MCP_EXECUTE" />
+    <action name="mcp.write" title="COM_JOOMENGINE_MCP_MCP_WRITE" />
+  </section>
+  <section name="resource">
+    <action name="core.create" title="JACTION_CREATE" />
+    <action name="core.edit" title="JACTION_EDIT" />
+    <action name="core.edit.state" title="JACTION_EDITSTATE" />
+    <action name="core.delete" title="JACTION_DELETE" />
+    <action name="mcp.execute" title="COM_JOOMENGINE_MCP_MCP_EXECUTE" />
+    <action name="mcp.write" title="COM_JOOMENGINE_MCP_MCP_WRITE" />
+  </section>
+  <section name="prompt">
+    <action name="core.create" title="JACTION_CREATE" />
+    <action name="core.edit" title="JACTION_EDIT" />
+    <action name="core.edit.state" title="JACTION_EDITSTATE" />
+    <action name="core.delete" title="JACTION_DELETE" />
+    <action name="mcp.execute" title="COM_JOOMENGINE_MCP_MCP_EXECUTE" />
+    <action name="mcp.write" title="COM_JOOMENGINE_MCP_MCP_WRITE" />
+  </section>
+  <section name="target">
+    <action name="core.create" title="JACTION_CREATE" />
+    <action name="core.edit" title="JACTION_EDIT" />
+    <action name="core.edit.state" title="JACTION_EDITSTATE" />
+    <action name="core.delete" title="JACTION_DELETE" />
+    <action name="mcp.execute" title="COM_JOOMENGINE_MCP_MCP_EXECUTE" />
+    <action name="mcp.write" title="COM_JOOMENGINE_MCP_MCP_WRITE" />
+  </section>
+</access>

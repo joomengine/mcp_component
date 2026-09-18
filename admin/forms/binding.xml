@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<form addfieldprefix="VDM\Component\JoomEngineMcp\Administrator\Field" addruleprefix="VDM\Component\JoomEngineMcp\Administrator\Rule">
+  <fieldset name="definition" label="COM_JOOMENGINE_MCP_DEFINITION">
+    <field name="id" type="hidden" filter="uint" default="0" />
+    <field name="asset_id" type="hidden" filter="unset" />
+    <field name="version" type="hidden" filter="uint" default="1" />
+    <field name="name" type="text" label="COM_JOOMENGINE_MCP_FIELD_NAME" description="COM_JOOMENGINE_MCP_IDENTIFIER_HELP" required="true" maxlength="191" filter="string" />
+    <field name="title" type="text" label="COM_JOOMENGINE_MCP_FIELD_TITLE" required="true" maxlength="191" filter="string" />
+    <field name="published" type="list" label="JSTATUS" default="0" filter="integer"><option value="1">JPUBLISHED</option><option value="0">JUNPUBLISHED</option><option value="2">JARCHIVED</option><option value="-2">JTRASHED</option></field>
+    <field name="access" type="accesslevel" label="JFIELD_ACCESS_LABEL" default="1" filter="uint" />
+    <field name="ordering" type="number" label="JFIELD_ORDERING_LABEL" default="0" filter="integer" />
+  </fieldset>
+  <fieldset name="details" label="COM_JOOMENGINE_MCP_DETAILS">
+    <field name="provider_id" label="COM_JOOMENGINE_MCP_FIELD_PROVIDER_ID" type="definitionreference" entity="provider" filter="uint" required="true" />
+    <field name="action_id" label="COM_JOOMENGINE_MCP_FIELD_ACTION_ID" type="definitionreference" entity="action" filter="uint" required="true" />
+    <field name="input_schema_id" label="COM_JOOMENGINE_MCP_FIELD_INPUT_SCHEMA_ID" type="definitionreference" entity="schema" filter="uint" required="true" />
+    <field name="output_schema_id" label="COM_JOOMENGINE_MCP_FIELD_OUTPUT_SCHEMA_ID" type="definitionreference" entity="schema" filter="uint" required="false" />
+    <field name="track" label="COM_JOOMENGINE_MCP_FIELD_TRACK" type="list" filter="string"><option value="api">api</option><option value="cli">cli</option></field>
+    <field name="handler" label="COM_JOOMENGINE_MCP_FIELD_HANDLER" type="text" maxlength="191" filter="string" />
+    <field name="configuration" label="COM_JOOMENGINE_MCP_FIELD_CONFIGURATION" type="textarea" rows="12" cols="80" class="font-monospace" filter="raw" validate="jsonobject" default="{}" description="COM_JOOMENGINE_MCP_JSON_HELP" />
+    <field name="definition" label="COM_JOOMENGINE_MCP_FIELD_DEFINITION" type="textarea" rows="12" cols="80" class="font-monospace" filter="raw" validate="jsonobject" default="{}" description="COM_JOOMENGINE_MCP_JSON_HELP" />
+    <field name="params" type="textarea" label="COM_JOOMENGINE_MCP_FIELD_PARAMS" rows="8" class="font-monospace" filter="raw" validate="jsonobject" default="{}" />
+  </fieldset>
+  <fieldset name="permissions" label="JCONFIG_PERMISSIONS_LABEL">
+    <field name="rules" type="rules" label="JCONFIG_PERMISSIONS_LABEL" filter="rules" validate="rules" component="com_joomengine_mcp" section="binding" />
+  </fieldset>
+</form>

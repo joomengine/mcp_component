@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<config addruleprefix="VDM\Component\JoomEngineMcp\Administrator\Rule">
+  <fieldset name="runtime" label="COM_JOOMENGINE_MCP_OPTIONS_RUNTIME">
+    <field name="api_base" type="url" label="COM_JOOMENGINE_MCP_API_BASE" description="COM_JOOMENGINE_MCP_API_BASE_DESC" filter="string" required="true" relative="false" />
+    <field name="site_alias" type="text" label="COM_JOOMENGINE_MCP_SITE_ALIAS" default="default" maxlength="64" filter="cmd" />
+    <field name="allowed_origins" type="textarea" label="COM_JOOMENGINE_MCP_ALLOWED_ORIGINS" description="COM_JOOMENGINE_MCP_ALLOWED_ORIGINS_DESC" rows="4" filter="string" />
+    <field name="timeout" type="number" label="COM_JOOMENGINE_MCP_TIMEOUT" min="1" max="120" default="30" filter="uint" />
+    <field name="max_request_bytes" type="number" label="COM_JOOMENGINE_MCP_MAX_REQUEST_BYTES" min="1024" max="4194304" default="1048576" filter="uint" />
+    <field name="max_result_bytes" type="number" label="COM_JOOMENGINE_MCP_MAX_RESULT_BYTES" min="1024" max="16777216" default="8388608" filter="uint" />
+    <field name="max_list_limit" type="number" label="COM_JOOMENGINE_MCP_MAX_LIST_LIMIT" min="1" max="500" default="100" filter="uint" />
+    <field name="plan_ttl" type="number" label="COM_JOOMENGINE_MCP_PLAN_TTL" min="30" max="3600" default="300" filter="uint" />
+    <field name="request_ttl" type="number" label="COM_JOOMENGINE_MCP_REQUEST_TTL" min="30" max="3600" default="600" filter="uint" />
+    <field name="session_ttl" type="number" label="COM_JOOMENGINE_MCP_SESSION_TTL" min="60" max="86400" default="3600" filter="uint" />
+    <field name="allow_indefinite" type="radio" layout="joomla.form.field.radio.switcher" label="COM_JOOMENGINE_MCP_ALLOW_INDEFINITE" default="0" filter="boolean"><option value="0">JNO</option><option value="1">JYES</option></field>
+  </fieldset>
+  <fieldset name="permissions" label="JCONFIG_PERMISSIONS_LABEL">
+    <field name="rules" type="rules" label="JCONFIG_PERMISSIONS_LABEL" filter="rules" validate="rules" component="com_joomengine_mcp" section="component" />
+  </fieldset>
+</config>
