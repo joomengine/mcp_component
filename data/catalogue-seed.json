@@ -1614,9 +1614,9 @@
             {
                 "id": 73,
                 "provider_id": 1,
-                "name": "schema.f139da2a95f0258fd445556d18653898bd54b6d6cd34ce736df817e7a6203eec",
-                "title": "Schema f139da2a95f0",
-                "document": "{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"integer\",\"minimum\":1},\"data\":{\"type\":\"object\",\"properties\":{\"contact_name\":{\"type\":\"string\",\"maxLength\":255},\"contact_email\":{\"type\":\"string\",\"minLength\":3,\"maxLength\":320,\"pattern\":\"^[^\\\\s@]+@[^\\\\s@]+\\\\.[^\\\\s@]+$\"},\"contact_subject\":{\"type\":\"string\",\"maxLength\":998},\"contact_message\":{\"type\":\"string\",\"maxLength\":1000000},\"contact_email_copy\":{\"enum\":[false,true,0,1]},\"captcha\":[]},\"required\":[\"contact_name\",\"contact_email\",\"contact_subject\",\"contact_message\"],\"additionalProperties\":true,\"description\":\"Core contact fields plus runtime captcha/custom fields validated by Joomla contact plugins.\"}},\"required\":[\"id\",\"data\"],\"additionalProperties\":false}",
+                "name": "schema.f6a955537c147b64bdd6ec948106147604b4623a34e061fd8a4872562a2916a5",
+                "title": "Schema f6a955537c14",
+                "document": "{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"integer\",\"minimum\":1},\"data\":{\"type\":\"object\",\"properties\":{\"contact_name\":{\"type\":\"string\",\"maxLength\":255},\"contact_email\":{\"type\":\"string\",\"minLength\":3,\"maxLength\":320,\"pattern\":\"^[^\\\\s@]+@[^\\\\s@]+\\\\.[^\\\\s@]+$\"},\"contact_subject\":{\"type\":\"string\",\"maxLength\":998},\"contact_message\":{\"type\":\"string\",\"maxLength\":1000000},\"contact_email_copy\":{\"enum\":[false,true,0,1]},\"captcha\":{}},\"required\":[\"contact_name\",\"contact_email\",\"contact_subject\",\"contact_message\"],\"additionalProperties\":true,\"description\":\"Core contact fields plus runtime captcha/custom fields validated by Joomla contact plugins.\"}},\"required\":[\"id\",\"data\"],\"additionalProperties\":false}",
                 "asset_id": 0,
                 "published": 1,
                 "access": 1,
@@ -1630,7 +1630,7 @@
                 "version": 1,
                 "params": "{}",
                 "seed_revision": "2cff50f4f6b440da3c684f9995a77efad32e1a36",
-                "seed_hash": "b85c5d3e2cdffd25e95470de967fc436ba2e71fadf227a80079d7f61c0b1068e",
+                "seed_hash": "154502956d774607c79549d8cf50ed8797dfbb06f62ec6eb2a97915a84b00123",
                 "customized": 0
             },
             {
@@ -8654,9 +8654,9 @@
             {
                 "id": 393,
                 "provider_id": 1,
-                "name": "schema.3584a1ea2369086301e658011c0aaeecc3be2cdeab28bea921f6737453abda65",
-                "title": "Schema 3584a1ea2369",
-                "document": "{\"type\":\"object\",\"properties\":{\"site\":{\"description\":\"Configured site alias; omit for the default site.\",\"type\":\"string\",\"minLength\":1},\"action\":{\"type\":\"string\",\"minLength\":3,\"maxLength\":160},\"input\":{\"default\":[],\"type\":\"object\",\"propertyNames\":{\"type\":\"string\"},\"additionalProperties\":{\"anyOf\":[{\"type\":\"string\"},{\"type\":\"number\"},{\"type\":\"boolean\"},{\"type\":\"null\"}]}},\"transport\":{\"default\":\"auto\",\"type\":\"string\",\"enum\":[\"auto\",\"api\",\"cli\"]}},\"required\":[\"action\"],\"$schema\":\"http://json-schema.org/draft-07/schema#\"}",
+                "name": "schema.727c55e51fb830f1d3e705de9b0062e89e3f38dc0a95cd51a73d767e0217f3cc",
+                "title": "Schema 727c55e51fb8",
+                "document": "{\"type\":\"object\",\"properties\":{\"site\":{\"description\":\"Configured site alias; omit for the default site.\",\"type\":\"string\",\"minLength\":1},\"action\":{\"type\":\"string\",\"minLength\":3,\"maxLength\":160},\"input\":{\"default\":{},\"type\":\"object\",\"propertyNames\":{\"type\":\"string\"},\"additionalProperties\":{\"anyOf\":[{\"type\":\"string\"},{\"type\":\"number\"},{\"type\":\"boolean\"},{\"type\":\"null\"}]}},\"transport\":{\"default\":\"auto\",\"type\":\"string\",\"enum\":[\"auto\",\"api\",\"cli\"]}},\"required\":[\"action\"],\"$schema\":\"http://json-schema.org/draft-07/schema#\"}",
                 "asset_id": 0,
                 "published": 1,
                 "access": 1,
@@ -8670,7 +8670,7 @@
                 "version": 1,
                 "params": "{}",
                 "seed_revision": "2cff50f4f6b440da3c684f9995a77efad32e1a36",
-                "seed_hash": "af21197e6c91966671b253abea3da3ab017c28bcbfe4f3ee04d669ac8b086421",
+                "seed_hash": "d2697dfaa7d3c200433a4989599db91a25014720c0086eeefe22a3f5d5103ac0",
                 "customized": 0
             },
             {
@@ -8742,9 +8742,9 @@
             {
                 "id": 397,
                 "provider_id": 1,
-                "name": "schema.d99377468d8fceb82f1772869e5ea7b7f764edda38d5135c74ec996eadc8c7b7",
-                "title": "Schema d99377468d8f",
-                "document": "{\"type\":\"object\",\"properties\":{\"site\":{\"description\":\"Configured site alias; omit for the default site.\",\"type\":\"string\",\"minLength\":1},\"action\":{\"type\":\"string\",\"minLength\":3,\"maxLength\":160},\"input\":{\"default\":[],\"type\":\"object\",\"propertyNames\":{\"type\":\"string\"},\"additionalProperties\":[]},\"transport\":{\"default\":\"auto\",\"type\":\"string\",\"enum\":[\"auto\",\"api\",\"cli\"]},\"idempotencyKey\":{\"type\":\"string\",\"format\":\"uuid\",\"pattern\":\"^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$\"},\"dryRun\":{\"default\":false,\"type\":\"boolean\"}},\"required\":[\"action\",\"idempotencyKey\"],\"$schema\":\"http://json-schema.org/draft-07/schema#\"}",
+                "name": "schema.8d72814f85b7e3d66a4d7841082807b71a212fcad24a0e13902b252e38260a1a",
+                "title": "Schema 8d72814f85b7",
+                "document": "{\"type\":\"object\",\"properties\":{\"site\":{\"description\":\"Configured site alias; omit for the default site.\",\"type\":\"string\",\"minLength\":1},\"action\":{\"type\":\"string\",\"minLength\":3,\"maxLength\":160},\"input\":{\"default\":{},\"type\":\"object\",\"propertyNames\":{\"type\":\"string\"},\"additionalProperties\":{}},\"transport\":{\"default\":\"auto\",\"type\":\"string\",\"enum\":[\"auto\",\"api\",\"cli\"]},\"idempotencyKey\":{\"type\":\"string\",\"format\":\"uuid\",\"pattern\":\"^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$\"},\"dryRun\":{\"default\":false,\"type\":\"boolean\"}},\"required\":[\"action\",\"idempotencyKey\"],\"$schema\":\"http://json-schema.org/draft-07/schema#\"}",
                 "asset_id": 0,
                 "published": 1,
                 "access": 1,
@@ -8758,7 +8758,7 @@
                 "version": 1,
                 "params": "{}",
                 "seed_revision": "2cff50f4f6b440da3c684f9995a77efad32e1a36",
-                "seed_hash": "62f8344c7727f82d13a2b3413013d9bb3db507d6981baea44aedaeccf8999b9d",
+                "seed_hash": "6eeb5d076b48a68d04d8143d6f36f592eb7413bec62d5d7486d2f6f6d7c04361",
                 "customized": 0
             },
             {
@@ -8874,9 +8874,9 @@
             {
                 "id": 403,
                 "provider_id": 1,
-                "name": "schema.b5375a16c562ba7cf9dca51b3500feb7e0515521e3ec3c02ba72de80512243bf",
-                "title": "Schema b5375a16c562",
-                "document": "{\"type\":\"object\",\"properties\":{\"site\":{\"description\":\"Configured site alias; omit for the default site.\",\"type\":\"string\",\"minLength\":1},\"action\":{\"type\":\"string\",\"minLength\":3,\"maxLength\":160},\"input\":{\"default\":[],\"type\":\"object\",\"propertyNames\":{\"type\":\"string\"},\"additionalProperties\":{\"anyOf\":[{\"type\":\"string\"},{\"type\":\"number\"},{\"type\":\"boolean\"},{\"type\":\"null\"}]}}},\"required\":[\"action\"],\"$schema\":\"http://json-schema.org/draft-07/schema#\"}",
+                "name": "schema.25e17d979a34ad34bf1f3946bda7b92bb040d688b6817024fd923b48051918a4",
+                "title": "Schema 25e17d979a34",
+                "document": "{\"type\":\"object\",\"properties\":{\"site\":{\"description\":\"Configured site alias; omit for the default site.\",\"type\":\"string\",\"minLength\":1},\"action\":{\"type\":\"string\",\"minLength\":3,\"maxLength\":160},\"input\":{\"default\":{},\"type\":\"object\",\"propertyNames\":{\"type\":\"string\"},\"additionalProperties\":{\"anyOf\":[{\"type\":\"string\"},{\"type\":\"number\"},{\"type\":\"boolean\"},{\"type\":\"null\"}]}}},\"required\":[\"action\"],\"$schema\":\"http://json-schema.org/draft-07/schema#\"}",
                 "asset_id": 0,
                 "published": 1,
                 "access": 1,
@@ -8890,7 +8890,7 @@
                 "version": 1,
                 "params": "{}",
                 "seed_revision": "2cff50f4f6b440da3c684f9995a77efad32e1a36",
-                "seed_hash": "029959d9fb1ac24d80501d3b7531c7c292495c85e560d06e6af51bfb234c67fa",
+                "seed_hash": "41fc89a099d30da8466db0a8fc0bc465e7d04bf7a5561fe8178832c1fc04ef10",
                 "customized": 0
             },
             {
