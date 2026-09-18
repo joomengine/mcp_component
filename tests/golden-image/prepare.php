@@ -18,8 +18,7 @@ $user = $container->get(UserFactoryInterface::class)->loadUserByUsername('mcp_te
 if ((int) $user->id === 0)
 {
 	$user = new User();
-
-	if (!$user->bind([
+	$data = [
 		'name' => 'MCP Test Administrator',
 		'username' => 'mcp_test_admin',
 		'email' => 'mcp-fixture@example.test',
@@ -27,7 +26,9 @@ if ((int) $user->id === 0)
 		'password2' => 'Disposable!McpFixture321',
 		'groups' => [8],
 		'block' => 0,
-	]) || !$user->save())
+	];
+
+	if (!$user->bind($data) || !$user->save())
 	{
 		throw new RuntimeException('The disposable golden-image administrator could not be created.');
 	}
