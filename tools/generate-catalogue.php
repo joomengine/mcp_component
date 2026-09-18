@@ -22,6 +22,36 @@ if (!is_file($sourceFile) || !is_file($nativeFile))
 
 $upstream = json_decode(file_get_contents($sourceFile), true, 128, JSON_THROW_ON_ERROR);
 $native = json_decode(file_get_contents($nativeFile), true, 128, JSON_THROW_ON_ERROR);
+// Decode schema subtrees without associative conversion. An empty schema {}
+// means "any JSON value", whereas [] is invalid; defaults also retain their
+// original object/list distinction. Keep the surrounding migration maps arrays.
+$upstreamObjects = json_decode(file_get_contents($sourceFile), false, 128, JSON_THROW_ON_ERROR);
+$nativeObjects = json_decode(file_get_contents($nativeFile), false, 128, JSON_THROW_ON_ERROR);
+foreach (['readActions', 'writeActions'] as $kind)
+{
+	foreach ($upstreamObjects->catalog->api->{$kind} as $index => $action)
+	{
+		$upstream['catalog']['api'][$kind][$index]['inputSchema'] = $action->inputSchema;
+	}
+}
+foreach ($upstreamObjects->tools as $index => $tool)
+{
+	foreach (['inputSchema', 'outputSchema'] as $field)
+	{
+		if (isset($tool->{$field}))
+		{
+			$upstream['tools'][$index][$field] = $tool->{$field};
+		}
+	}
+}
+foreach ($nativeObjects->actions as $index => $action)
+{
+	foreach (['inputSchema', 'outputSchema'] as $field)
+	{
+		$native['actions'][$index]['descriptor'][$field] = $action->descriptor->{$field};
+	}
+}
+unset($upstreamObjects, $nativeObjects);
 $commit = '2cff50f4f6b440da3c684f9995a77efad32e1a36';
 
 if (($upstream['source']['commit'] ?? null) !== $commit || ($native['source'] ?? null) !== $commit)
@@ -41,11 +71,21 @@ $rows['provider'][] = [
 	'definition' => $json(['source' => $upstream['source'], 'minimumJoomla' => '6.1.0', 'maximumJoomlaExclusive' => '7.0.0', 'toolsets' => $upstream['toolsets']]),
 ];
 $schemaIds = [];
-$addSchema = static function (array $schema) use (&$rows, &$schemaIds, $json): int
+$addSchema = static function (array|stdClass $schema) use (&$rows, &$schemaIds, $json): int
 {
 	// Preserve JSON Schema maps as objects even when the PHP decoder returned [].
 	$normalise = static function (mixed $value, ?string $keyword = null) use (&$normalise): mixed
 	{
+		if ($value instanceof stdClass)
+		{
+			foreach ($value as $key => $child)
+			{
+				$value->{$key} = $normalise($child, $key);
+			}
+
+			return $value;
+		}
+
 		if (!is_array($value))
 		{
 			return $value;
