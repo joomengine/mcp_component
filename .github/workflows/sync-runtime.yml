@@ -43,6 +43,7 @@ jobs:
           gzip --decompress --stdout "$RUNNER_TEMP/component-source.patch.gz" > "$RUNNER_TEMP/component-source.patch"
           git apply --check "$RUNNER_TEMP/component-source.patch"
           git apply --index "$RUNNER_TEMP/component-source.patch"
+          php -r '$p="tools/generate-catalogue.php"; file_put_contents($p,str_replace("\\t\t// Joomla", "\t\t// Joomla",file_get_contents($p)));'
       - name: Materialize the concrete Joomla MVC source and portable installation data
         run: |
           set -euo pipefail
