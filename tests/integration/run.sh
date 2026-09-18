@@ -53,7 +53,7 @@ for attempt in $(seq 1 50); do
   if curl --silent --output /dev/null "$MCP_TEST_BASE_URL/api/index.php"; then break; fi
   sleep 0.2
 done
-for suite in installation administration http catalogue-mcp acl-mcp browser; do
+for suite in installation administration http catalogue-mcp acl-mcp stdio browser; do
   php "$root/tests/integration/$suite.php" | tee "$root/build/evidence/live-$suite.log"
 done
 export MCP_TEST_LIFECYCLE_FILE="$work/lifecycle.json"
