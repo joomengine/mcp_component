@@ -1,0 +1,80 @@
+name: Installed Joomla component
+
+on:
+  pull_request:
+  push:
+    branches: [main, feature/jcb-mcp-runtime]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: installed-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  installed:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.3', '8.4']
+        database: [pgsql, mysqli]
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: mcp_fixture
+          POSTGRES_USER: mcp_test
+          POSTGRES_PASSWORD: disposable-test-password
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U mcp_test -d mcp_fixture"
+          --health-interval 5s --health-timeout 5s --health-retries 15
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_DATABASE: mcp_fixture
+          MYSQL_USER: mcp_test
+          MYSQL_PASSWORD: disposable-test-password
+          MYSQL_ROOT_PASSWORD: disposable-root-password
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd "mysqladmin ping -h localhost -pdisposable-root-password"
+          --health-interval 5s --health-timeout 5s --health-retries 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: curl, dom, fileinfo, intl, json, mbstring, mysqli, pdo_mysql, pgsql, pdo_pgsql, simplexml, sodium, xml, zip
+          tools: composer:v2
+          coverage: none
+      - name: Build a complete distributable with its PHP dependencies
+        run: bash tools/build.sh
+      - name: Validate packaged files and native manifests
+        run: php tests/package.php
+      - name: Install, execute real HTTP and administrator operations, then upgrade
+        env:
+          MCP_TEST_ALLOW_DESTRUCTIVE: '1'
+          JOOMLA_ROOT: ${{ runner.temp }}/joomla
+          MCP_TEST_DB_TYPE: ${{ matrix.database }}
+          MCP_TEST_DB_HOST: ${{ matrix.database == 'pgsql' && '127.0.0.1:5432' || '127.0.0.1:3306' }}
+          MCP_TEST_DB_USER: mcp_test
+          MCP_TEST_DB_PASS: disposable-test-password
+          MCP_TEST_DB_NAME: mcp_fixture
+        run: bash tests/integration/run.sh
+      - name: Preserve redacted evidence and the development package
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: installed-${{ matrix.database }}-php-${{ matrix.php }}
+          path: |
+            build/evidence/
+            build/com_joomengine_mcp-*.zip
+            build/com_joomengine_mcp-*.zip.sha256
+          if-no-files-found: error
+          retention-days: 7
