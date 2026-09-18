@@ -45,7 +45,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p build/evidence
-          for suite in run catalogue execution actions protocol http native/run; do
+          for suite in run catalogue execution actions protocol http ownership native/run; do
             php "tests/$suite.php" | tee "build/evidence/${suite//\//-}.log"
           done
       - name: Preserve the tested PHP runtime for reproducible investigation

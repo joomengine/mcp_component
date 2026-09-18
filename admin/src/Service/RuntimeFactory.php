@@ -26,6 +26,7 @@ use VDM\Component\JoomEngineMcp\Administrator\Handler\ApiHandler;
 use VDM\Component\JoomEngineMcp\Administrator\Handler\ApiRequestBuilder;
 use VDM\Component\JoomEngineMcp\Administrator\Handler\NativeFactory;
 use VDM\Component\JoomEngineMcp\Administrator\Handler\NativeHandler;
+use VDM\Component\JoomEngineMcp\Administrator\Http\CurlClient;
 use VDM\Component\JoomEngineMcp\Administrator\Native\Joomla\JoomlaModelProvider;
 use VDM\Component\JoomEngineMcp\Administrator\Native\Joomla\JoomlaNativeOperations;
 use VDM\Component\JoomEngineMcp\Administrator\Protocol\DatabaseRegistry;
@@ -41,7 +42,6 @@ use VDM\Component\JoomEngineMcp\Administrator\Security\SchemaValidator;
 use VDM\Component\JoomEngineMcp\Administrator\State\Audit;
 use VDM\Component\JoomEngineMcp\Administrator\State\Executions;
 use VDM\Component\JoomEngineMcp\Administrator\State\Permissions;
-use VDM\Joomla\Mcp\Http\CurlClient;
 
 
 /**

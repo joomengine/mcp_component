@@ -1,27 +1,31 @@
 # Migration plan and acceptance
 
-Source baseline: `joomengine/joomla-mcp@2cff50f4f6b440da3c684f9995a77efad32e1a36`. Do not modify that repository. Preserve contracts and notices from the PHP companion and TypeScript server, not only their README summaries.
+Preserve `joomengine/joomla-mcp@2cff50f4f6b440da3c684f9995a77efad32e1a36` contracts and notices. The source repo is unchanged. The 18 September 2026 scope adds complete JCB API/CLI integration and separates the external client into `joomengine/mcp_client`.
 
-## Ordered implementation increments
+## Server workstreams
 
-1. Documentation: objective, exact names, architecture, database graph, security boundaries, source pin, JCB layout, acceptance and resumable status. This precedes runtime commits.
-2. Runtime foundations: typed contracts, Joomla DI composition, principal boundary, database repository, schema/binding validation, protocol dispatch and unit tests. Start executable code immediately after documentation.
-3. Catalogue migration: inventory every source tool/resource/prompt/action and wire schema; convert repetitive declarations to portable install SQL; record source file/symbol and target record/handler for each item. Compare exact names, schemas, effects, capability/compatibility conditions and documented unsupported cases.
-4. Execution: migrate audited native companion handlers and API adapters; preserve Joomla model events/filtering, preflight, input normalization, error/partial-apply diagnostics and read-back. Complete API/CLI track parity rather than a generic CRUD approximation.
-5. Safety state: durable plans, principal-bound explicit permissions, one-operation/30-minute/indefinite grants where allowed, revocation, stale-plan detection, shared locking/idempotency, audit redaction, verification and recovery contracts.
-6. HTTP component: Joomla-authenticated route glue, JSON-RPC controller, tested protocol/version/notification handling, content/size/origin checks, token-safe forwarding and ACL-filtered discovery/calls. Preserve supported resources/prompts and capability reporting.
-7. Administrator MVC: component configuration, provider/schema/action/binding/resource/prompt CRUD, XML forms/subforms, filters, row access/assets, CSRF/checkout, audit/execution inspection and grant revocation.
-8. Console plugin: move original plugin with exact new namespace/name, retain compatibility aliases where justified, add direct PHP MCP stdio serving, and use shared component services with a non-forgeable local trusted context. Test every legacy CLI entry point.
-9. Composer client: PHP-only remote client and stdio bridge, multi-site/connection configuration, token injection, protocol negotiation, bounded I/O/timeouts, structured errors, examples and tests. No embedded server catalogue or local Joomla dependency for remote clients.
-10. Installation/distribution: complete manifests, installer preflight, versioned MySQL/PostgreSQL SQL, dependency shipping, update/changelog XML, `.octojpack`, reproducible component/plugin/package archives and secure release automation. Feed entries only follow actual published assets.
-11. Verification: source parity, schema/style/unit/security/transport tests, disposable Joomla install/update/uninstall, real token and ACL matrix, API and CLI CRUD with post-write reads and cleanup, concurrency/recovery, client bridging and package smoke tests. Fix failures on the same branches.
+1. Preserve exact identities, ownership, JCB-aligned layout, source pins and resumable status. Read integrations/JCB.md before designing new handlers or seeds.
+2. Complete typed Joomla DI, authority boundaries, database repositories, schema/binding validation and protocol dispatch. Existing foundations are implemented; do not restart them unnecessarily.
+3. Preserve every original tool/resource/prompt/action, schema/effect/compatibility condition and supported API/CLI behaviour. Retain source-to-target parity evidence, not just totals.
+4. Complete API and native handlers with Joomla model events/filtering, typed input, preflight, honest errors/partial effects and persisted read-back. Do not substitute generic SQL or mock success for native behaviour.
+5. Complete durable principal-bound grants (once, 30 minutes, permitted indefinite), expiry/revocation, signed/encrypted one-shot plans, stale-state checks, atomic idempotency/locks, audit, verification and reconciliation.
+6. Complete installed HTTP endpoint authentication/routing/configuration, version/framing/notification/origin/content/size validation, safe token forwarding and consistent ACL discovery/calls. The server-side controller/SDK composition is already committed; installation verification remains required.
+7. Complete administrator MVC/XML forms/subforms and configuration/access files for all definition entities plus audit/execution/job views, grant revocation and recovery. Use Joomla native ACL, CSRF, assets and checkout.
+8. Complete console installation and original legacy-command compatibility plus direct local PHP MCP stdio. Extend shared handlers/targets for actual registered JCB commands without shadowing or duplicating JCB's command plugin.
+9. Complete component manifest/installer, versioned MySQL/PostgreSQL SQL, dependency shipping, customization-preserving seed upgrades, update/changelog metadata, .octojpack and reproducible component/plugin/package archives. Installer infrastructure is now present; that is not complete package certification.
+10. Implement all JCB API routes and CLI families through the database-driven integration: source/runtime inventory, definition/schema mapping, entity API operations, package get/init/pull/push/reset, compiler flags/targets/install, jobs/artifacts and native verification. The full scoped backlog is in integrations/JCB.md; no part is an optional post-core enhancement.
+11. Run disposable Joomla core/JCB installation, update/uninstall, true HTTP-token and ACL matrix, real API/CLI writes/read-back/cleanup, dependency/missing-extension cases, long-job concurrency/cancellation/recovery and package interoperability. Fix failures on these same branches.
 
-## Evidence contract
+## Separate client handoff
 
-For each feature distinguish: inventoried, mapped, implemented, unit-tested, live-tested. Each source item has its own record; counts alone are not evidence. Report real failures and skips with reasons. Live scenarios use actual valid fixtures and verify persisted records through Joomla, not only a returned success flag. Do not leave test data behind. Tests must exercise denied discovery, denied direct invocation, removed group membership, changed view levels, revoked grants, cross-user plans, malformed protocol, injection attempts, stale plans and ambiguous writes.
+All external Composer-client/remote-stdio implementation now belongs to `joomengine/mcp_client`. The component owns a stable authenticated wire contract, not client source or a client executable. Coordinate site/subdirectory URL, tokens, SDK revisions, discovery, grants and JCB jobs through CLIENT-HANDOFF.md. The owner permits the server to finish before final client certification. The client must discover new JCB definitions without embedding a catalogue.
 
-The upstream server's SaaS integration ports, multi-site handling, optional HTTP authentication, approvals, auditing and compatibility behaviours must be inventoried explicitly. Where hosting inside Joomla replaces a boundary (for example Joomla token authentication replacing a standalone edge authenticator), record the intentional replacement and its compatibility implications. No silently lost feature.
+## Evidence and completion
 
-## Completion
+Each source capability is inventoried, mapped, implemented, unit-tested and live-tested separately. A declared row or an absent upstream handler silently skipped by JCB is not an implementation pass. API-generator support is not proof of an installed route; a package entity map is not proof of registered commands.
 
-Both PRs remain drafts while any implemented-upstream feature is unported or required runtime evidence is missing. Mark ready for review only after the implementation is complete and required verification has passed; humans review then. Never make progress depend on a human proving runtime that the implementation/tests can prove. Conversely, unavailable infrastructure is not evidence of a pass. The status file must give exact remaining tasks so the same branches can be resumed without reconstructing the plan.
+Tests use valid actual fixtures and verify persisted records/artifacts, not a returned success flag. Exercise denied discovery and direct invocation, group/view-level differences, revocation, cross-principal plans, changed catalogue/options, malformed input, stale plans, partial effects and ambiguous writes. Clean up data. Distinguish core-only fixtures from JCB-present acceptance.
+
+Inventory upstream SaaS integration ports, multisite configuration, edge authentication, approvals/auditing and compatibility. Where Joomla replaces a standalone boundary, document the replacement and compatibility consequences; no silently lost feature.
+
+Both server PRs stay drafts until required server implementation, full Joomla/JCB coverage and acceptance pass. Missing infrastructure is not a pass and humans need not prove functionality that automated fixtures can prove. External client completion is tracked independently, with shared interoperability evidence. Never claim production readiness from source counts, syntax or isolated doubles.

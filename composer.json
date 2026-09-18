@@ -1,6 +1,6 @@
 {
-  "name": "joomengine/mcp",
-  "description": "Database-driven Joomla MCP component and PHP client bridge",
+  "name": "joomengine/mcp-component",
+  "description": "Database-driven Joomla MCP server component and shared local console runtime",
   "type": "library",
   "license": "GPL-3.0-or-later",
   "require": {
@@ -17,8 +17,7 @@
     "psr-4": {
       "VDM\\Component\\JoomEngineMcp\\Administrator\\": "admin/src/",
       "VDM\\Component\\JoomEngineMcp\\Api\\": "api/src/",
-      "VDM\\Component\\JoomEngineMcp\\Site\\": "site/src/",
-      "VDM\\Joomla\\Mcp\\": "libraries/src/"
+      "VDM\\Component\\JoomEngineMcp\\Site\\": "site/src/"
     }
   },
   "scripts": {
