@@ -1,0 +1,43 @@
+name: Disposable MySQL fixture toolchain
+
+on:
+  push:
+    branches: [feature/jcb-mcp-runtime]
+    paths: [.github/workflows/local-mysql-fixture.yml]
+
+permissions:
+  contents: read
+
+jobs:
+  fixture:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Preserve only public binaries and runtime resources, never runner databases or configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! command -v mysqld >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y --no-install-recommends mysql-server-core-8.0 mysql-client-core-8.0
+          fi
+          work="$RUNNER_TEMP/mysql-runtime"
+          mkdir -p "$work"/{bin,lib,share/mysql} "$RUNNER_TEMP/mysql-evidence"
+          cp -L "$(command -v mysqld)" "$work/bin/mysqld"
+          for name in mysql mysqladmin; do cp -L "$(command -v "$name")" "$work/bin/$name"; done
+          if [ -d /usr/lib/mysql/plugin ]; then cp -a /usr/lib/mysql/plugin "$work/lib/"; fi
+          cp -a /usr/share/mysql/. "$work/share/mysql/"
+          while IFS= read -r -d '' binary; do
+            while IFS= read -r library; do
+              case "$(basename "$library")" in libc.so.*|libm.so.*|libpthread.so.*|libdl.so.*|librt.so.*|ld-linux*|libresolv.so.*|libutil.so.*) continue ;; esac
+              [ -f "$library" ] && cp -L "$library" "$work/lib/$(basename "$library")"
+            done < <(ldd "$binary" 2>/dev/null | awk '/=> \/[a-zA-Z]/{print $3}' || true)
+          done < <(find "$work/bin" "$work/lib" -type f \( -perm /111 -o -name '*.so' \) -print0)
+          tar -czf "$RUNNER_TEMP/mysql-evidence/mysql-runtime.tar.gz" -C "$RUNNER_TEMP" mysql-runtime
+          sha256sum "$RUNNER_TEMP/mysql-evidence/mysql-runtime.tar.gz" > "$RUNNER_TEMP/mysql-evidence/SHA256SUMS"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: disposable-mysql-runtime
+          path: ${{ runner.temp }}/mysql-evidence/
+          retention-days: 2
+          if-no-files-found: error

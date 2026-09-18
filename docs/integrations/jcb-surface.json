@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Required JCB integration planning inventory; not an executable seed catalogue",
+  "runtimeEnabled": false,
+  "integrationRequired": true,
+  "providerExtension": "com_componentbuilder",
+  "sources": {
+    "implementation": {
+      "repository": "extension-builder/joomla",
+      "commit": "5ee658dd07eb749dca43ed4722f6cca7eb8208cf"
+    },
+    "cliDocumentation": {
+      "repository": "joomengine/jcb-documentation",
+      "commit": "ecd3670232d344295fc4f673b2d3dc40a64b3bf6",
+      "path": "english/CLI-Command-Suite.md",
+      "blob": "c42920c37387d5cfd5b0a72a25a40a2a28e38618"
+    },
+    "entityMap": {
+      "path": "libraries/vendor_jcb/VDM.Joomla/src/Componentbuilder/Factory.php",
+      "blob": "57c0d74fe0e6a023384ccb02f4ff823ae9334a43"
+    },
+    "compiler": {
+      "path": "libraries/vendor_jcb/VDM.Joomla/src/Componentbuilder/Console/Compiler.php",
+      "blob": "d74151e3c4627dae7dc65ed2cad45e1cf600847a"
+    },
+    "packageArchitecture": "docs/architecture/package-distribution.md",
+    "apiGeneration": "docs/architecture/api-generation.md"
+  },
+  "api": {
+    "required": true,
+    "status": "actual-installed-route-inventory-required",
+    "routes": [],
+    "note": "The pinned implementation root has API-generation code but no installed API tree or JCB API webservices registration. Obtain the actual distribution/plugin/controller inventory; do not infer paths from entity names or claim JCB has no API."
+  },
+  "cli": {
+    "required": true,
+    "status": "documented-families-inspected-installed-registration-required",
+    "documentedCompileCommand": "componentbuilder:compile:component",
+    "documentedPackageFamilies": ["get", "init", "pull", "push", "reset"],
+    "registrationPlugin": "ComponentBuilderCommands",
+    "commands": [],
+    "note": "Enumerate actual installed names, aliases, InputDefinitions and implementations. Factory entities are not evidence that every family/entity pair is registered. Additional real commands are in scope.",
+    "compilerOptions": ["component", "components", "components-file", "options", "backup", "repository", "add-placeholders", "debug-line-nr", "minify", "powers", "joomla-version", "powers-repository", "indentation-value", "add-build-date", "build-date", "install"],
+    "targetJoomlaMajors": [3, 4, 5, 6]
+  },
+  "factoryEntityCount": 45,
+  "factoryEntities": [
+    "joomla_component", "component_admin_views", "component_custom_admin_views", "component_site_views",
+    "component_router", "component_config", "component_placeholders", "component_updates",
+    "component_files_folders", "component_custom_admin_menus", "component_dashboard", "component_modules", "component_plugins",
+    "joomla_module", "joomla_module_updates", "joomla_module_files_folders_urls",
+    "joomla_plugin", "joomla_plugin_group", "joomla_plugin_updates", "joomla_plugin_files_folders_urls",
+    "admin_view", "admin_fields", "admin_fields_relations", "admin_fields_conditions", "admin_custom_tabs",
+    "custom_admin_view", "site_view", "template", "layout", "dynamic_get", "custom_code", "field", "validation_rule",
+    "fieldtype", "library", "library_config", "library_files_folders_urls", "class_method", "class_property", "class_extends",
+    "placeholder", "power", "joomla_power", "repository", "snippet"
+  ],
+  "specializedFactoryEntities": ["fieldtype", "power", "joomla_power", "repository", "snippet"],
+  "assetQueuePseudoEntities": ["File", "Folder"],
+  "requiredWorkstreams": [
+    {"id": "installed-api-inventory", "status": "pending"},
+    {"id": "installed-cli-inventory", "status": "pending"},
+    {"id": "database-provider-schema-action-binding-seeds", "status": "pending"},
+    {"id": "complete-api-entity-and-special-actions", "status": "pending"},
+    {"id": "complete-package-cli-families", "status": "pending"},
+    {"id": "compiler-options-targets-install-and-verification", "status": "pending"},
+    {"id": "durable-jobs-artifacts-cancellation-reconciliation", "status": "pending"},
+    {"id": "console-native-registration-and-state-isolation", "status": "pending"},
+    {"id": "administrator-lifecycle-and-seed-upgrades", "status": "pending"},
+    {"id": "live-core-and-jcb-parity-acceptance", "status": "pending"},
+    {"id": "standalone-client-interoperability", "status": "pending", "owner": "joomengine/mcp_client"}
+  ]
+}

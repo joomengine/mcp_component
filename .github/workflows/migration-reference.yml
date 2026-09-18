@@ -1,0 +1,78 @@
+name: Immutable migration contract export
+
+on:
+  push:
+    branches: [feature/jcb-mcp-runtime]
+    paths:
+      - .github/workflows/migration-reference.yml
+      - tools/migration/export-upstream.mjs
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  reference:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v7
+        with:
+          repository: joomengine/joomla-mcp
+          ref: 2cff50f4f6b440da3c684f9995a77efad32e1a36
+          path: .reference/joomla-mcp
+          persist-credentials: false
+      - uses: actions/checkout@v7
+        with:
+          repository: joomengine/Joomla-Component-Builder
+          ref: 6.x
+          path: .reference/jcb
+          persist-credentials: false
+          sparse-checkout: |
+            .octojpack
+            componentbuilder.xml
+            script.php
+            admin/services
+            admin/src/Extension
+            admin/src/Controller/Joomla_componentController.php
+            admin/src/Controller/Joomla_componentsController.php
+            admin/src/Model/Joomla_componentModel.php
+            admin/src/Model/Joomla_componentsModel.php
+            admin/src/View/Joomla_component
+            admin/src/View/Joomla_components
+            admin/src/Table/Joomla_componentTable.php
+            admin/forms/joomla_component.xml
+            admin/forms/filter_joomla_components.xml
+            admin/tmpl/joomla_component
+            admin/tmpl/joomla_components
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Export original contracts without invoking Joomla operations
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm --prefix .reference/joomla-mcp ci --ignore-scripts --no-audit
+          npm --prefix .reference/joomla-mcp run build
+          mkdir -p build/reference
+          node tools/migration/export-upstream.mjs .reference/joomla-mcp build/reference/contracts.json
+      - name: Obtain checksummed Joomla runtime for integration development
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 --proto '=https' --tlsv1.2 \
+            https://github.com/joomla/joomla-cms/releases/download/6.1.3/Joomla_6.1.3-Stable-Full_Package.tar.gz \
+            -o build/reference/joomla-6.1.3.tar.gz
+          echo '184f8c582cde5981693de7c28547c6e834c48c50cb377c7b8421bbfd33bbdf6f  build/reference/joomla-6.1.3.tar.gz' | sha256sum --check
+          git -C .reference/jcb rev-parse HEAD > build/reference/jcb-commit.txt
+          tar --exclude-vcs -czf build/reference/jcb-layout.tar.gz -C .reference/jcb .
+      - uses: actions/upload-artifact@v7
+        with:
+          name: immutable-migration-reference
+          path: build/reference/
+          if-no-files-found: error
+          retention-days: 7

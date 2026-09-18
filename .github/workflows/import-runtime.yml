@@ -1,0 +1,82 @@
+name: Import pinned PHP runtime and catalogue
+
+on:
+  push:
+    branches: [feature/jcb-mcp-runtime]
+    paths:
+      - .github/workflows/import-runtime.yml
+      - tools/migration/import-native.php
+      - tools/migration/align-native-tests.php
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: import-pinned-runtime
+  cancel-in-progress: false
+
+jobs:
+  import:
+    if: github.repository == 'joomengine/mcp_component' && github.ref == 'refs/heads/feature/jcb-mcp-runtime'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: true
+      - name: Check whether the one-time import was already committed
+        id: state
+        shell: bash
+        run: |
+          set -euo pipefail
+          if test -f data/upstream-native.json; then
+            echo 'needed=false' >> "$GITHUB_OUTPUT"
+          else
+            echo 'needed=true' >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v7
+        if: steps.state.outputs.needed == 'true'
+        with:
+          repository: joomengine/joomla-mcp
+          ref: 2cff50f4f6b440da3c684f9995a77efad32e1a36
+          path: .reference/joomla-mcp
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        if: steps.state.outputs.needed == 'true'
+        with:
+          node-version: 22
+      - uses: shivammathur/setup-php@v2
+        if: steps.state.outputs.needed == 'true'
+        with:
+          php-version: '8.3'
+          extensions: json, mbstring
+          coverage: none
+      - name: Export and migrate the immutable source without invoking Joomla actions
+        if: steps.state.outputs.needed == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C .reference/joomla-mcp rev-parse HEAD)" = 2cff50f4f6b440da3c684f9995a77efad32e1a36
+          npm --prefix .reference/joomla-mcp ci --ignore-scripts --no-audit
+          npm --prefix .reference/joomla-mcp run build
+          mkdir -p data
+          node tools/migration/export-upstream.mjs .reference/joomla-mcp data/upstream-contracts.json
+          php tools/migration/import-native.php .reference/joomla-mcp .
+          php tools/migration/align-native-tests.php
+          find admin/src/Native tests/native -type f -name '*.php' -print0 | xargs -0 -n1 php -l
+          php tests/native/run.php
+          git diff --check
+      - name: Commit the verified import to this existing PR branch only
+        if: steps.state.outputs.needed == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add -- admin/src/Native tests/native data/upstream-contracts.json data/upstream-native.json docs/migration/native-source-map.json LICENSES/joomla-mcp.txt
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'feat: migrate pinned native PHP handlers, behavioural tests and full action contracts'
+          git push origin HEAD:refs/heads/feature/jcb-mcp-runtime

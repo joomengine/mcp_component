@@ -1,0 +1,25 @@
+# Same Joomla/JCB image used by extension-builder/joomla's golden-master harness.
+# This isolated stack is destructive test infrastructure, never production config.
+services:
+  joomla:
+    image: octoleo/joomengine:6.1.6-php8.4-apache
+    environment:
+      JOOMLA_DB_HOST: mariadb:3306
+      JOOMLA_DB_USER: joomengine
+      JOOMLA_DB_NAME: joomengine
+      JOOMLA_DB_PASSWORD: disposable-golden-password
+    depends_on:
+      mariadb:
+        condition: service_healthy
+  mariadb:
+    image: mariadb:11.4
+    environment:
+      MARIADB_USER: joomengine
+      MARIADB_DATABASE: joomengine
+      MARIADB_PASSWORD: disposable-golden-password
+      MARIADB_ROOT_PASSWORD: disposable-golden-root-password
+    healthcheck:
+      test: [CMD, healthcheck.sh, --connect, --innodb_initialized]
+      interval: 5s
+      timeout: 5s
+      retries: 30
