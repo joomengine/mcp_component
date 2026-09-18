@@ -52,6 +52,7 @@ final class SeedUpdater
 		return $this->store->transaction(function () use ($seed): array
 		{
 			$map = [];
+			$managedProviders = [];
 			$counts = ['added' => 0, 'updated' => 0, 'preserved' => 0, 'retired' => 0];
 
 			foreach (Structure::definitions() as $entity => $columns)
@@ -85,6 +86,10 @@ final class SeedUpdater
 					if ($current === null)
 					{
 						$map[$entity][$sourceId] = $this->store->insert($entity, $record);
+						if ($entity === 'provider')
+						{
+							$managedProviders[$map[$entity][$sourceId]] = true;
+						}
 						$counts['added']++;
 						continue;
 					}
@@ -95,6 +100,10 @@ final class SeedUpdater
 					}
 
 					$map[$entity][$sourceId] = (int) $current['id'];
+					if ($entity === 'provider')
+					{
+						$managedProviders[(int) $current['id']] = true;
+					}
 
 					if ((int) $current['customized'] !== 0 || !hash_equals($current['seed_hash'], self::hash($entity, $current)))
 					{
@@ -114,7 +123,10 @@ final class SeedUpdater
 
 					$record['version'] = (int) $current['version'] + 1;
 					$record['modified'] = gmdate('Y-m-d H:i:s');
-					$this->store->update($entity, $record, ['id' => (int) $current['id'], 'version' => (int) $current['version']]);
+					if ($this->store->update($entity, $record, ['id' => (int) $current['id'], 'version' => (int) $current['version']]) !== 1)
+					{
+						throw new RuntimeException('A catalogue definition changed during its seed upgrade. Retry the installation.');
+					}
 					$counts['updated']++;
 				}
 
@@ -124,12 +136,19 @@ final class SeedUpdater
 
 					foreach ($page as $current)
 					{
-						if (!isset($names[$current['name']]) && $current['seed_revision'] !== '' && (int) $current['customized'] === 0
+						// A component upgrade cannot retire records owned by another extension.
+						$managed = $entity === 'provider' ? isset($managedProviders[(int) $current['id']])
+							: isset($managedProviders[(int) $current['provider_id']]);
+						if ($managed && !isset($names[$current['name']]) && $current['seed_revision'] !== '' && (int) $current['customized'] === 0
 							&& (int) $current['published'] === 1 && hash_equals($current['seed_hash'], self::hash($entity, $current)))
 						{
 							$current['published'] = 0;
-							$this->store->update($entity, ['published' => 0, 'seed_revision' => $seed['source'],
-								'seed_hash' => self::hash($entity, $current), 'version' => (int) $current['version'] + 1], ['id' => (int) $current['id']]);
+							if ($this->store->update($entity, ['published' => 0, 'seed_revision' => $seed['source'],
+								'seed_hash' => self::hash($entity, $current), 'version' => (int) $current['version'] + 1],
+								['id' => (int) $current['id'], 'version' => (int) $current['version']]) !== 1)
+							{
+								throw new RuntimeException('A catalogue definition changed during retirement. Retry the installation.');
+							}
 							$counts['retired']++;
 						}
 					}

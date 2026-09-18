@@ -53,10 +53,14 @@ for attempt in $(seq 1 50); do
   if curl --silent --output /dev/null "$MCP_TEST_BASE_URL/api/index.php"; then break; fi
   sleep 0.2
 done
-for suite in installation administration http browser; do
+for suite in installation administration http catalogue-mcp acl-mcp browser; do
   php "$root/tests/integration/$suite.php" | tee "$root/build/evidence/live-$suite.log"
 done
+export MCP_TEST_LIFECYCLE_FILE="$work/lifecycle.json"
+php "$root/tests/integration/lifecycle.php" prepare | tee "$root/build/evidence/live-upgrade-prepare.log"
 # Upgrading the same package must retain definitions and operator configuration.
 php "$JOOMLA_ROOT/cli/joomla.php" extension:install --path="$root/build/com_joomengine_mcp-$version.zip" --no-interaction --no-ansi \
   | tee "$root/build/evidence/upgrade-component.log"
-php "$root/tests/integration/installation.php" | tee "$root/build/evidence/live-upgrade.log"
+php "$root/tests/integration/lifecycle.php" verify | tee "$root/build/evidence/live-upgrade.log"
+php "$root/tests/integration/installation.php" | tee "$root/build/evidence/live-upgrade-seed.log"
+php "$root/tests/integration/lifecycle.php" uninstall | tee "$root/build/evidence/live-uninstall.log"
