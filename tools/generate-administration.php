@@ -171,7 +171,7 @@ foreach (Structure::definitions() as $entity => $fields)
 		}
 		elseif (in_array($name, ['effect', 'track', 'is_template', 'risk'], true))
 		{
-			$options = match ($name) { 'effect' => ['read', 'write'], 'track' => ['api', 'cli'], 'risk' => ['read', 'write', 'high'], default => ['0', '1'] };
+			$options = match ($name) { 'effect' => ['read', 'write'], 'track' => ['api', 'cli'], 'risk' => ['read', 'sensitive-read', 'write', 'destructive', 'high', 'discovery'], default => ['0', '1'] };
 			$form .= "    <field $attributes type=\"list\" filter=\"string\">";
 			foreach ($options as $option)
 			{

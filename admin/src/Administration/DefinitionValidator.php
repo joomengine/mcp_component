@@ -158,6 +158,26 @@ final class DefinitionValidator
 			throw new InvalidArgumentException('An action effect must be read or write.');
 		}
 
+		if (isset($record['risk']) && !in_array($record['risk'], ['read', 'sensitive-read', 'write', 'destructive', 'high', 'discovery'], true))
+		{
+			throw new InvalidArgumentException('Select a supported operation risk.');
+		}
+
+		if ($entity === 'resource' && !in_array($record['is_template'] ?? 0, [0, 1, '0', '1'], true))
+		{
+			throw new InvalidArgumentException('A resource template flag must be zero or one.');
+		}
+
+		if (isset($record['provider_id'], $record['id']) && (int) $record['id'] > 0)
+		{
+			$old = $this->store->one($entity, ['id' => (int) $record['id']]);
+
+			if ($old !== null && (int) $old['provider_id'] !== (int) $record['provider_id'])
+			{
+				$this->requireUnreferenced($entity, (int) $record['id']);
+			}
+		}
+
 		if (isset($record['handler']) && preg_match('/\A[a-z][a-z0-9_.-]{1,127}\z/D', $record['handler']) !== 1)
 		{
 			throw new InvalidArgumentException('Select a valid registered handler key, not a class or executable path.');
@@ -243,7 +263,7 @@ final class DefinitionValidator
 		if ($handler === 'api.request')
 		{
 			if (!in_array($config['method'] ?? '', ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'], true)
-				|| preg_match('/\A\/v[1-9][0-9]*\/(?:[A-Za-z0-9_-]+|:[A-Za-z][A-Za-z0-9_]*)(?:\/(?:[A-Za-z0-9_-]+|:[A-Za-z][A-Za-z0-9_]*))*\z/D', $config['route'] ?? '') !== 1)
+				|| preg_match('/\A\/v[1-9][0-9]*\/(?:[A-Za-z0-9_-]+|:[A-Za-z][A-Za-z0-9_]*)(?:\/(?:[A-Za-z0-9_-]+|:[A-Za-z][A-Za-z0-9_]*))*\/?\z/D', $config['route'] ?? '') !== 1)
 			{
 				throw new InvalidArgumentException('An API binding needs a supported method and canonical relative versioned route.');
 			}

@@ -36,7 +36,7 @@ final class ApiRequestBuilder
 
 		if (!in_array($method, ['GET', 'POST', 'PATCH', 'PUT', 'DELETE'], true)
 			|| !is_string($route) || strlen($route) > 2048
-			|| preg_match('/\A\/v[1-9][0-9]*\/(?:[A-Za-z0-9_-]+|:[A-Za-z][A-Za-z0-9_]*)(?:\/(?:[A-Za-z0-9_-]+|:[A-Za-z][A-Za-z0-9_]*))*\z/D', $route) !== 1)
+			|| preg_match('/\A\/v[1-9][0-9]*\/(?:[A-Za-z0-9_-]+|:[A-Za-z][A-Za-z0-9_]*)(?:\/(?:[A-Za-z0-9_-]+|:[A-Za-z][A-Za-z0-9_]*))*\/?\z/D', $route) !== 1)
 		{
 			throw new OperationException('BINDING_INVALID', 'A canonical relative Joomla API binding is required.');
 		}
