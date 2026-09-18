@@ -1,0 +1,10 @@
+{
+  "$schema": "https://developer.joomla.org/schemas/json-schema/web_assets.json",
+  "name": "com_joomengine_mcp",
+  "version": "0.1.0",
+  "description": "JoomEngine MCP administrator assets",
+  "license": "GPL-3.0-or-later",
+  "assets": [
+    {"name": "com_joomengine_mcp.edit", "type": "script", "uri": "com_joomengine_mcp/admin-edit.js", "dependencies": ["core", "form.validate"], "attributes": {"defer": true}}
+  ]
+}

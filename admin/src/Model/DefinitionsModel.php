@@ -26,6 +26,9 @@ use VDM\Component\JoomEngineMcp\Administrator\Database\Structure;
  */
 abstract class DefinitionsModel extends ListModel
 {
+	/** @var string Exact extension element; the namespace intentionally has a different spelling. @since 0.1.0 */
+	protected $option = 'com_joomengine_mcp';
+
 	/** @var string Concrete definition type. @since 0.1.0 */
 	protected const ENTITY = '';
 

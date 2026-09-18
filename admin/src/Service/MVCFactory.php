@@ -12,6 +12,7 @@ namespace VDM\Component\JoomEngineMcp\Administrator\Service;
 use Joomla\CMS\Application\CMSApplicationInterface;
 use Joomla\CMS\MVC\Factory\MVCFactory as JoomlaMVCFactory;
 use Joomla\Input\Input;
+use VDM\Component\JoomEngineMcp\Administrator\Controller\OperationsController;
 use VDM\Component\JoomEngineMcp\Administrator\Contract\RuntimeAwareInterface;
 
 
@@ -38,7 +39,14 @@ final class MVCFactory extends JoomlaMVCFactory
 	/** @inheritDoc */
 	public function createController($name, $prefix, array $config, CMSApplicationInterface $app, Input $input)
 	{
-		return $this->inject(parent::createController($name, $prefix, $config, $app, $input));
+		$controller = $this->inject(parent::createController($name, $prefix, $config, $app, $input));
+
+		if ($controller instanceof OperationsController)
+		{
+			$controller->setOperations($this->runtime->administration($app));
+		}
+
+		return $controller;
 	}
 
 	/** @inheritDoc */
