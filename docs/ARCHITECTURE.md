@@ -1,54 +1,59 @@
 # Architecture — JoomEngine MCP
 
-## Scope and identities
+## Scope, identities and ownership
 
-The component is `com_joomengine_mcp` with base namespace `VDM\Component\JoomEngineMcp`. Joomla maps administrator, site and API code to `Administrator`, `Site` and `Api` namespace suffixes. The separate console plugin is `plg_console_joomengine_mcp`, namespace `VDM\Plugin\Console\JoomEngineMcp`. The Composer distribution belongs to this repository and exposes an independent PHP client/stdio bridge; it must not duplicate the server's catalogue or business rules.
+`com_joomengine_mcp` uses `VDM\Component\JoomEngineMcp` with Joomla's Administrator, Site and Api suffixes. `plg_console_joomengine_mcp` uses `VDM\Plugin\Console\JoomEngineMcp` in `joomengine/mcp_plugin`. This repository owns the installed server and its Composer-managed server dependencies only. External PHP client/remote stdio work belongs to `joomengine/mcp_client`; see CLIENT-HANDOFF.md.
 
-Joomla 6's supported contracts are authoritative. Repository placement follows JCB's `6.x` component project: `joomengine_mcp.xml`, `Joomengine_mcpInstallerScript.php`, `admin/`, `api/`, `site/`, `media/`, root changelog and update-server metadata. Administrator code uses `src/Controller`, `src/Model`, `src/View`, `src/Table`, `forms`, `tmpl`, `layouts`, `language`, `services/provider.php`, `access.xml`, `config.xml` and versioned SQL. The API has its own controller/dispatcher composition rather than bypassing Joomla with a root PHP endpoint. This is hand-authored JCB-aligned source, not an imported JCB blueprint.
+The delivery target includes all preserved Joomla core MCP capabilities **and the complete JCB API and CLI surface**. Read integrations/JCB.md for the source-pinned integration and remaining inventory/implementation work. JCB is optional on a particular installation, but its full support is mandatory for completion of this project.
+
+Joomla 6 contracts are authoritative. Repository placement follows JCB: root `joomengine_mcp.xml`, installer, `admin/`, `api/`, `site/`, `media/`, changelog/update metadata and `.octojpack`. Administrator code uses native MVCFactory, src/Controller/Model/View/Table, forms, tmpl, layouts, language, services/provider.php, access.xml/config.xml and versioned SQL. This is hand-authored JCB-aligned source, not an imported blueprint.
 
 ## HTTP path
 
-AI client → Joomla API entry point → API authentication plugins → authenticated Joomla identity → non-public MCP route → component controller → transport validation → protocol engine → database catalogue → authorizer → registered action binding → Joomla API/native services → verification/audit → JSON-RPC response.
+AI/MCP client → Joomla API entry point → Joomla API-token authentication → non-public MCP route → component controller/transport boundary → protocol engine → database catalogue/authorizer → reviewed action binding → Joomla/JCB API or explicitly authorized native service → verification/audit → JSON-RPC response.
 
-Joomla registers API routes through a webservices plugin. A minimal `webservices/joomengine_mcp` routing extension is therefore bundled in the component distribution; it is distinct from the console plugin. It contains routing glue only. The installation/package must install and enable this glue atomically and remove it safely on uninstall. Do not claim that a component's API folder alone registers a route.
+Joomla route registration requires a webservices plugin. Minimal `webservices/joomengine_mcp` glue is bundled with the component and is distinct from the console plugin. Install/enable it through the native installer, preserve operator state on updates and remove only owned glue on uninstall. An API directory alone does not register routes.
 
-HTTP authentication reuses Joomla's API-token machinery, not a second user/password database. Both `Authorization: Bearer` and Joomla's supported token header must be tested against the real API-authentication plugin. A configured static Joomla-token transport is not an OAuth authorization server. Clients requiring OAuth discovery need a separately documented standards-compliant authorization integration; do not publish fake OAuth metadata.
+Reuse Joomla token authentication, not a second credential store. Verify both supported Joomla token header forms against the installed API authentication plugin. Static token authentication is not OAuth discovery; do not advertise an OAuth authorization server that is not implemented.
 
-The installed site's canonical API origin is server configuration, not request input. Any same-site API forwarding preserves the authenticated token, allows only validated relative registered routes, verifies TLS, refuses redirects and bounds bytes/time. It must not forward tokens to arbitrary hosts or redirect targets. Native services use the same authenticated identity and Joomla ACL. Do not turn HTTP requests into privileged local CLI calls.
+Outbound API calls use a server-configured canonical same-site origin, reviewed relative routes, bounded bytes/time, verified TLS and no redirects. They preserve the caller's token and target ACL. This server-only HTTP adapter belongs in admin/src/Http, not an external client library. HTTP requests cannot invoke the trusted local CLI context. Any future HTTP exposure of a CLI-only JCB operation needs an explicit reviewed, ACL-enforcing service/job boundary, not a console bypass.
 
 ## Trusted console path
 
-Joomla console application → `VDM\Plugin\Console\JoomEngineMcp` → CLI-only composition root → shared component catalogue/engine → registered native/stock-console handlers.
+Joomla console application → console plugin → CLI-only composition root → shared database catalogue/engine → reviewed Joomla/JCB native or registered-console adapter.
 
-Owning the server is the explicit authority boundary requested by the project owner. Local CLI does not require a Joomla API token or row viewing permission. It still validates input, bounds execution, records provenance and retains action/verification/recovery semantics. The privileged context cannot be constructed from remote request fields. API and CLI tracks are separate from wire transports: a local PHP client may speak stdio while connecting to the ACL-restricted HTTP server, and remains restricted.
+The owner explicitly defines server possession as the local authority boundary. No API token or row viewing permission is needed locally, but input/schema validation, bounded execution, provenance, grants/action semantics, verification and recovery remain. HTTP data cannot construct that authority. Wire transport and execution authority are different concepts: a remote stdio bridge is still an HTTP-token-restricted client.
 
-## Database-defined capabilities
+JCB command registration must remain owned by its installed console plugin. The MCP adapter discovers and invokes exact reviewed command objects with typed arguments after registration is complete, preserving names, stdout/stderr and exit/result semantics. Definitions and handlers remain shared with the component; do not duplicate the JCB catalogue in the console plugin.
 
-Providers own namespaced records. Published action, schema, binding, resource and prompt records are queried from the database. A registry of reviewed DI handler services implements reusable primitives. Action rows supply names/descriptions, input/output schemas, effects, risk, examples, permissions and compatibility. Binding rows supply the supported track and constrained mapping to Joomla APIs/native models. Shared schemas and provider relationships remove repetitive declarations.
+## Database-defined capabilities and JCB
 
-New third-party extensions normally install provider/action/binding/schema rows. Their schema and bindings pass the same validation as administrator edits. Where a genuinely new primitive is needed, an extension registers a service implementing the handler contract under an explicit key; rows reference that key. Never instantiate an arbitrary class named by a row or evaluate row content.
+Published provider, schema, action, binding, tool, resource, prompt and CLI-target records define discovery. Explicit DI services implement reusable primitives. Action/binding records carry schemas, effects, permissions, compatibility and mappings; no row can instantiate arbitrary code. Existing primitives enable extension by validated rows. New primitives require reviewed handler services before corresponding rows can become executable.
 
-Discovery, search, describe and call all use the same authorization predicate. `access` is a Joomla view-level ID; view levels resolve groups through Joomla. Each editable definition also has an `asset_id` for action permissions. Publication, provider state, compatibility, track availability and target ACL are independent predicates. Visibility alone does not authorize mutation.
+The JCB provider uses `com_componentbuilder` dependency/version metadata and stable source identities. Reuse schemas and binding mechanics across actual routes and registered command families. Do not generate routes from table names or a get/init/pull/push/reset Cartesian product from the package entity map. Source inventory, runtime availability and tested support are separate. Missing/disabled JCB hides its runnable definitions without harming Joomla core.
 
-## Protocol and state
+Viewing levels resolve groups through Joomla; each editable row has an asset_id. Provider state, record publication, authorized view levels, asset/action ACL, handler availability, target ACL, version compatibility and track are independent checks. Apply the same predicate to discovery/search/describe/direct calls and recheck at execution.
 
-Pin advertised MCP protocol versions to tested implementations. The July 2026 specification changed HTTP initialization/session behaviour; older and newer modes must not be mixed. Stateless JSON-response Streamable HTTP is acceptable where specified; optional SSE, notifications, resource subscriptions or async tasks must only be advertised if implemented and tested. Stdio is newline-delimited JSON-RPC and stdout must contain no Joomla banners, PHP notices or logs.
+## Protocol, durable state and long-running work
 
-Cross-request plans, grants, replay protection, idempotency, locks and audit belong in durable database records. They must survive multiple PHP workers and cannot be process-local arrays. Re-authorize at execution time. Bind approvals to identity, action, canonical validated input, catalogue revision and expiry. Claim one-shot state atomically. An ambiguous write outcome must be retained for reconciliation rather than blindly retried. Verified partial effects must be reported honestly.
+Advertise only protocol revisions/features actually implemented and tested. The existing PHP SDK integration supports multiple protocol eras; do not mix legacy session/initialize requirements with the stateless revision. Optional SSE subscriptions, notifications and tasks must not be advertised merely because a dependency offers them. Stdio stdout contains only protocol frames.
+
+Plans, grants, idempotency, locks and audit persist in the database across PHP workers. Approvals bind principal, action, canonical validated input, definition revision and expiry. Atomically claim one-shot state, re-authorize before execution and preserve ambiguous/partial effects for reconciliation instead of replaying writes.
+
+JCB compilation and dependency synchronization may exceed one HTTP exchange. Implement durable owned jobs, worker/lease state, bounded progress, cancellation acknowledgement, artifact identifiers/hashes and reconciliation as described in integrations/JCB.md. A timed-out client connection is neither a cancelled compiler nor a rollback. Freeze effective compiler options/environment inputs in the plan; ensure fresh or correctly reset JCB mutable containers per operation.
 
 ## Administrator experience
 
-Provide singular edit and plural list screens for providers, actions, schemas, bindings, resources and prompts, with Joomla XML forms, relation fields/subforms, filtering, ordering, publication, access, assets, validation and checkout. Provide appropriate read-only audit and execution views plus grant revocation. Keep reusable logic outside generated-style controllers and avoid storing executable administrator-provided code. Use Joomla language keys and Web Asset Manager for assets.
+Native singular edit/plural list screens cover providers, schemas, actions, bindings, tools, resources, prompts and CLI targets, including relationships/subforms, filtering, ordering, publication, access/assets, validation and checkout. Provide audit/execution/job inspection, grant revocation and uncertain-execution reconciliation. Keep reusable logic out of generated-style controllers and use native language/Web Asset Manager conventions.
 
-## Distribution and compatibility
+JCB source-code fields remain permitted inert definition data under appropriate permissions. They are not executable MCP dispatch strings. Compiling/installing extensions or running JCB hooks is a separate high-risk permission and confirmation boundary.
 
-Build three kinds of artifacts: standalone component distribution (including required HTTP glue/dependencies), standalone console plugin, and a combined Joomla package. Supply Composer autoload/bin metadata, installer preflight, MySQL/MariaDB and PostgreSQL schema/update paths, changelog, update server, checksums and `.octojpack`. Update feeds remain empty until real archives are published. Pin component/plugin versions together for reproducible package assembly. Keep source licences/notices.
+## Distribution and references
 
-## References
+Build standalone component (with routing glue/dependencies), standalone console plugin, and combined Joomla package; external client packaging is independent in mcp_client. Supply native installer preflight, MySQL/MariaDB and PostgreSQL schema/update paths, customization-preserving seed upgrades, changelog/update metadata, checksums and .octojpack. No feed entry points to an unpublished asset. Pin component/plugin versions together and retain licences.
 
-- Original source: https://github.com/joomengine/joomla-mcp/tree/2cff50f4f6b440da3c684f9995a77efad32e1a36
-- Joomla component reference: https://github.com/joomengine/Joomla-Component-Builder/tree/6.x
+- Original MCP: https://github.com/joomengine/joomla-mcp/tree/2cff50f4f6b440da3c684f9995a77efad32e1a36
+- Joomla/JCB layout: https://github.com/joomengine/Joomla-Component-Builder/tree/6.x
+- JCB required integration: https://github.com/extension-builder/joomla/tree/5ee658dd07eb749dca43ed4722f6cca7eb8208cf
+- CLI documentation: https://github.com/joomengine/jcb-documentation/blob/ecd3670232d344295fc4f673b2d3dc40a64b3bf6/english/CLI-Command-Suite.md
 - PHP style: https://github.com/extension-builder/joomla/blob/main/docs/development/php-code-style.md
-- Packaging reference: https://github.com/joomengine/Joomla-Component-Builder/blob/6.x/.octojpack
-- Joomla webservices: https://manual.joomla.org/docs/general-concepts/webservices/
-- MCP HTTP revisions: https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/streamable-http

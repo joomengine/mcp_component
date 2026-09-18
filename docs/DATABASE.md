@@ -1,38 +1,36 @@
 # Database and extension contract
 
-All tables use Joomla's `#__joomengine_mcp_` prefix. Portable application queries use Joomla DatabaseInterface and bound parameters. Installation and updates provide database-specific DDL. Do not rely on MySQL-specific upsert or JSON operators in shared runtime code.
+Tables use `#__joomengine_mcp_`. Shared queries use Joomla DatabaseInterface and bound parameters; database-specific DDL supplies MySQL/MariaDB and PostgreSQL installation/update paths. The current executable structure is `admin/src/Database/Structure.php`; this document distinguishes existing entities from proposed JCB long-job additions.
 
 ## Configuration graph
 
-| Entity | Relationships and role |
+| Entity | Relationships and responsibility |
 | --- | --- |
-| provider | Unique code; extension identifier; enabled/published state; compatibility/version; provenance and seed revision. Parent for namespaced definitions. |
-| schema | Provider FK; stable code; validated JSON Schema document; schema dialect and revision. Reused by action input/output and resource content. |
-| action | Provider FK; unique protocol/action name; title/description/help/examples; input/output schema FKs; read/write effect, risk and required permission; published/access/asset metadata. |
-| binding | Action FK; API or CLI track; registered handler key; declarative route/model/parameter/result mapping; compatibility and priority. No PHP/SQL/shell source. |
-| resource | Provider FK; unique URI or template; description/MIME; schema/action reference; published/access/asset metadata. |
-| prompt | Provider FK; unique name; argument schema; message templates/subform; published/access/asset metadata. Templates are inert data, not executable code. |
+| provider | Stable name, extension dependency, description, compatibility/provenance definition and publication/access/asset metadata |
+| schema | Provider reference and reusable JSON Schema document |
+| action | Provider and input/output schema references, semantic name, description/domain/toolset/effect/risk and source/native permission metadata |
+| binding | Provider/action/schema references, API or CLI track, registered handler key and constrained configuration/definition mappings |
+| tool | Provider/schema references and reviewed protocol-handler configuration; discovery metadata is stored, not a hard-coded tool list |
+| resource | Provider, URI or URI template, MIME, registered handler and configuration |
+| prompt | Provider/schema references and inert template/configuration data |
+| target | Provider and exact registered CLI command identity, risk/status/description and definition metadata |
 
-Editable rows carry Joomla standard `id`, `asset_id`, `published`, `access`, `ordering`, `checked_out`, `checked_out_time`, `created`, `created_by`, `modified`, `modified_by`, `version` and `params` where appropriate. Access values reference Joomla viewing access levels, which aggregate groups; they are never compared to user group IDs. Application-level relation validation complements physical FKs where installation portability permits them. Unique provider/name and action/track/binding keys prevent ambiguous dispatch. Restrict deletion while dependent records exist; administrator APIs must not leave dangling definitions.
+Editable rows include `id`, `asset_id`, `name`, `title`, `published`, `access`, `ordering`, checkout/creation/modification fields, `version`, `params`, `seed_revision`, `seed_hash` and `customized`. Viewing access levels resolve user groups through Joomla; they are not group IDs. Validate relations and native asset rules on administrative edits, prevent dangling references and ambiguous duplicate identities, and invalidate stale plans when relevant schemas/bindings change.
 
-## Execution state
+## Durable state
 
-| Entity | Purpose and safety invariant |
-| --- | --- |
-| plan | Opaque random ID/hash, principal/context, action and definition revision, canonical input hash, preview/preconditions, expiry and state. No token or arbitrary serialized object. |
-| grant | Principal and bounded scope; one-shot, expiring or explicitly permitted indefinite duration; approval evidence; revoked/consumed timestamps. Atomically claim one-shot grants. |
-| execution | Principal, plan and idempotency key; claim/lease/state; verified result or uncertain/partial failure; timestamps. Unique principal/idempotency binding. |
-| lock | Resource key, owner nonce and lease expiry; atomic acquisition/release; protection across PHP workers. |
-| audit | Append-only event ID, time, principal, transport/track, action/plan/execution identifiers, outcome and redacted metadata. No credentials, sensitive request bodies or raw exception dumps. |
+Current state entities are `permission_request`, `grant`, `plan`, `execution`, `lease`, `session` and `audit`. They preserve principal isolation, requested/approved scope and duration, one-shot/revocation/expiry, encrypted validated input/results, definition/input fingerprints, idempotency, optimistic versions, lease ownership and redacted append-only events. Protocol sessions are separate from authentication and consent. Never treat a session or job identifier as a credential.
 
-Protocol session storage is separate from action/grant state and is only needed for an advertised protocol revision that actually supports it. Never reuse an MCP session ID as authentication or authorization.
+JCB long-running work requires extending execution/lease persistence and, where needed, normalized `job` and `artifact` relationships. Those additions are planned in integrations/JCB.md and are not present merely because named here. Store job principal/provider/execution references, state/lease/timestamps, bounded progress, immutable approved inputs and partial/uncertain outcomes. Artifacts use authorized IDs, MIME/size/hash/retention metadata and managed paths, not arbitrary remote filesystem access.
 
-## Seeding and migration
+## Seed ownership and upgrades
 
-The initial SQL contains the reviewed default configuration rows; runtime discovery reads these installed rows. Seed records use stable codes and source revisions. Schema migration and seed upgrades are idempotent, preserve administrator customizations and third-party providers, and do not blindly overwrite changed records. Changes to schemas/bindings invalidate old execution plans. Track shipped revision versus administrator-modified revision explicitly.
+Initial SQL contains reviewed configuration rows; runtime reads installed records. Stable natural identities and revision/hash/customized metadata separate shipped definitions from administrator edits and third-party providers. Upgrades must be idempotent, preserve local customization/relations and record conflicts rather than overwrite. The installer now contains SeedUpdater infrastructure; full native install/update/uninstall tests remain required.
 
-Generate seed data from the immutable original action contracts, review the resulting semantic mapping, and retain a machine-readable source-to-target parity manifest. Do not infer action support merely from its name or count. Unsupported upstream operations remain explicitly described as such; implemented upstream operations cannot be silently downgraded to placeholders.
+Original-core parity is source-pinned. JCB is a separate required provider expansion: capture actual API route and CLI registration contracts, then generate validated schemas/actions/bindings/targets and portable install/update SQL. Do not treat JCB's package entity map or API-generator templates as executable route evidence. `docs/integrations/jcb-surface.json` is planning evidence only and must not be loaded as runtime seed data.
 
-## Extending by rows
+## Extension by rows
 
-A third-party integration installs a provider, reusable input/output schemas, actions and track-specific bindings using existing registered handler keys. It supplies Joomla ACL/view-level defaults and validates exact field names/types, API routes and response mapping. No protocol-engine change is needed. New handler code is only required when the integration needs a primitive the existing adapters cannot express safely.
+A new integration adds provider/schema/action/binding and relevant tool/resource/prompt/target records using existing reviewed handler keys. Values describe native contracts, never executable PHP, arbitrary SQL/class names, shell or untrusted origins. A genuinely new primitive requires a reviewed DI handler before its binding is executable. The separate external client simply discovers those capabilities; no client-library code belongs in this database layer.
+
+For JCB, preserve source-code fields as inert definition data and exact ID/GUID/relationship/subform semantics. Package `get` may mutate local state, `push` affects configured remote repositories, and compiler/install effects require separately approved plans. Schema reuse must not erase differences between API and CLI semantics, publication, field-level permissions or missing capabilities. Full requirements and acceptance: integrations/JCB.md.

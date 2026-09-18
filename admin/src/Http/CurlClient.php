@@ -6,7 +6,7 @@
  * @copyright  Copyright (C) 2026 Vast Development Method. All rights reserved.
  * @license    GNU General Public License version 3 or later; see LICENSE
  */
-namespace VDM\Joomla\Mcp\Http;
+namespace VDM\Component\JoomEngineMcp\Administrator\Http;
 
 
 use InvalidArgumentException;
