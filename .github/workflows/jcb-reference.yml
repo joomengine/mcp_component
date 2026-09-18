@@ -1,0 +1,54 @@
+name: Pinned JCB integration reference
+
+on:
+  push:
+    branches: [feature/jcb-mcp-runtime]
+    paths: [.github/workflows/jcb-reference.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  reference:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: extension-builder/joomla
+          ref: 5ee658dd07eb749dca43ed4722f6cca7eb8208cf
+          path: reference/jcb
+          persist-credentials: false
+      - uses: actions/checkout@v7
+        with:
+          repository: joomengine/pkg-component-builder
+          ref: 9d2923849be18eb4dd128d87dcd0ef00ae5c1574
+          path: reference/package
+          persist-credentials: false
+      - uses: actions/checkout@v7
+        with:
+          repository: joomengine/mcp_plugin
+          ref: e7fb901cb0475abc56b40c65a02430eaa5cc426f
+          path: reference/mcp-plugin
+          persist-credentials: false
+      - name: Archive only public pinned dependency sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          git -C reference/jcb rev-parse HEAD > evidence/jcb-commit.txt
+          git -C reference/package rev-parse HEAD > evidence/package-commit.txt
+          git -C reference/mcp-plugin rev-parse HEAD > evidence/mcp-plugin-commit.txt
+          tar --exclude-vcs -czf evidence/jcb-source.tar.gz -C reference/jcb .
+          tar --exclude-vcs -czf evidence/mcp-plugin-source.tar.gz -C reference/mcp-plugin .
+          cp reference/package/src/joomla__plg_console_componentbuildercommands__6.x.zip evidence/jcb-console.zip
+          cp reference/package/src/joomla__Component-Builder__6.x.zip evidence/jcb-released-component.zip
+          cp reference/package/pkg_component_builder.xml evidence/jcb-package.xml
+          sha256sum evidence/*.tar.gz evidence/*.zip > evidence/SHA256SUMS
+      - uses: actions/upload-artifact@v7
+        with:
+          name: pinned-jcb-integration-reference
+          path: evidence/
+          retention-days: 7
+          if-no-files-found: error
