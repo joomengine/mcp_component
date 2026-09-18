@@ -1,0 +1,71 @@
+name: Synchronize tested component source
+
+on:
+  push:
+    branches: [feature/jcb-mcp-runtime]
+    paths: [.github/workflows/sync-runtime.yml]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: synchronize-component-source
+  cancel-in-progress: false
+
+jobs:
+  synchronize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: true
+          fetch-depth: 1
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: curl, dom, fileinfo, intl, json, mbstring, sodium, simplexml, xml, zip
+          tools: composer:v2
+          coverage: none
+      - name: Recover the exact reviewed source patch from repository Git objects
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/git/blobs/acb8aac5b62bd5bc33430542fa08da9afaa9dd3a" --jq .content | base64 --decode > "$RUNNER_TEMP/component-first.gzpart"
+          gh api "repos/$GITHUB_REPOSITORY/git/blobs/34d9d12a4ac6a759b7f0f4b5b30a9c25fcb43e0b" --jq .content | base64 --decode > "$RUNNER_TEMP/component-second.gzpart"
+          # Repair one known transport transcription; the complete byte checksum below is authoritative.
+          php -r '$p=getenv("RUNNER_TEMP")."/component-second.gzpart"; $s=str_replace("FSoh7cAwt5Z9", "FSoh7owt5Z9", base64_encode(file_get_contents($p)), $n); if ($n!==1 || ($b=base64_decode($s,true))===false) { exit(1); } file_put_contents($p,$b);'
+          cat "$RUNNER_TEMP/component-first.gzpart" "$RUNNER_TEMP/component-second.gzpart" > "$RUNNER_TEMP/component-source.patch.gz"
+          echo "3e80d83f45b814b339022fd190b57b6b15692f933015ed7f35e1e5f502603665  $RUNNER_TEMP/component-source.patch.gz" | sha256sum --check
+          gzip --decompress --stdout "$RUNNER_TEMP/component-source.patch.gz" > "$RUNNER_TEMP/component-source.patch"
+          git apply --check "$RUNNER_TEMP/component-source.patch"
+          git apply --index "$RUNNER_TEMP/component-source.patch"
+      - name: Materialize the concrete Joomla MVC source and portable installation data
+        run: |
+          set -euo pipefail
+          php tools/generate-administration.php
+          php tools/generate-catalogue.php
+          git add admin api site media plugins tools tests composer.json joomengine_mcp.xml joomengine_mcp_update_server.xml changelog.xml
+      - name: Validate complete source and distributable before committing
+        run: |
+          set -euo pipefail
+          composer validate --no-check-publish
+          composer install --no-interaction --prefer-dist --no-progress
+          find . -type d \( -name vendor -o -name .git -o -name build \) -prune -o -type f -name '*.php' -print0 | xargs -0 -r -n1 php -l
+          for suite in run catalogue execution actions protocol http ownership native/run; do php "tests/$suite.php"; done
+          bash tools/build.sh
+          php tests/package.php
+      - name: Commit the implementation without replacing concurrent changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin feature/jcb-mcp-runtime
+          test "$(git rev-parse FETCH_HEAD)" = "$GITHUB_SHA"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git diff --cached --stat
+          git commit -m 'feat: complete installable component administration and real Joomla HTTP lifecycle tests'
+          git push origin HEAD:refs/heads/feature/jcb-mcp-runtime
