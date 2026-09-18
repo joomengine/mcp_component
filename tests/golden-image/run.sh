@@ -54,7 +54,7 @@ fixture() {
 }
 fixture /tmp/mcp-component/tests/golden-image/prepare.php > "$out/prepare.log" 2>&1
 fixture /tmp/mcp-component/tests/integration/prepare-http.php >> "$out/prepare.log" 2>&1
-for suite in installation administration http catalogue-mcp acl-mcp browser; do
+for suite in installation administration http catalogue-mcp acl-mcp stdio browser; do
   fixture "/tmp/mcp-component/tests/integration/$suite.php" > "$out/$suite.log" 2>&1
 done
 fixture /tmp/mcp-component/tests/golden-image/registry.php > "$out/jcb-command-registry.json" 2> "$out/registry-errors.log"
@@ -64,5 +64,5 @@ compose exec -T joomla php /var/www/html/cli/joomla.php extension:install --path
 fixture /tmp/mcp-component/tests/integration/lifecycle.php verify > "$out/upgrade-verify.log" 2>&1
 fixture /tmp/mcp-component/tests/integration/installation.php > "$out/upgraded-installation.log" 2>&1
 fixture /tmp/mcp-component/tests/integration/lifecycle.php uninstall > "$out/uninstall.log" 2>&1
-printf '%s\n' 'Native golden-image installation, administrator-to-MCP, HTTP ACL, upgrade and uninstall tests passed. JCB command execution is a separate required test.' > "$out/summary.txt"
+printf '%s\n' 'Native golden-image installation, administrator-to-MCP, HTTP ACL, stdio CRUD, upgrade and uninstall tests passed. JCB command execution is a separate required test.' > "$out/summary.txt"
 cat "$out/summary.txt"
