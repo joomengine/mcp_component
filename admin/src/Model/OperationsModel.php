@@ -31,7 +31,7 @@ final class OperationsModel extends ListModel
 	protected function populateState($ordering = 'id', $direction = 'desc')
 	{
 		$kind = Factory::getApplication()->getInput()->getCmd('kind', 'execution');
-		$this->setState('filter.kind', in_array($kind, ['execution', 'grant', 'audit'], true) ? $kind : 'execution');
+		$this->setState('filter.kind', in_array($kind, ['execution', 'job', 'artifact', 'grant', 'audit'], true) ? $kind : 'execution');
 		parent::populateState('id', 'desc');
 		$this->setState('list.limit', max(1, min(100, (int) $this->state->get('list.limit', 20))));
 	}
@@ -54,6 +54,8 @@ final class OperationsModel extends ListModel
 		$columns = match ($kind)
 		{
 			'execution' => ['id', 'uuid', 'principal_key', 'plan_uuid', 'status', 'created_at', 'updated_at', 'version'],
+			'job' => ['id', 'uuid', 'principal_id', 'track', 'action_name', 'execution_uuid', 'status', 'progress', 'message', 'cancel_requested', 'created_at', 'updated_at', 'version'],
+			'artifact' => ['id', 'uuid', 'job_uuid', 'name', 'mime_type', 'size', 'sha256', 'created_at', 'expires_at'],
 			'grant' => ['id', 'uuid', 'principal_key', 'duration', 'remaining_uses', 'revoked', 'expires_at', 'created_at', 'version'],
 			'audit' => ['id', 'uuid', 'actor_id', 'event', 'action_name', 'outcome', 'created_at'],
 			default => throw new \RuntimeException('Unknown MCP state list.', 400),

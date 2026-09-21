@@ -16,10 +16,11 @@ $seed = Json::decode(file_get_contents($root . '/data/catalogue-seed.json'), max
 // Compare original JSON objects, not an associative decode that could repeat
 // the migration's object/list mistake and falsely certify a malformed schema.
 $source = json_decode(file_get_contents($root . '/data/upstream-contracts.json'), false, 128, JSON_THROW_ON_ERROR);
+$runtime = json_decode(file_get_contents($root . '/data/runtime-tools.json'), false, 128, JSON_THROW_ON_ERROR);
 $tools = array_column($seed['entities']['tool'], null, 'name');
 $documents = array_column($seed['entities']['schema'], 'document', 'id');
 $checks = 0;
-foreach ($source->tools as $original)
+foreach (array_merge($source->tools, $runtime->tools) as $original)
 {
 	$stored = json_decode($documents[$tools[$original->name]['input_schema_id']], false, 64, JSON_THROW_ON_ERROR);
 	if (Json::canonical($stored) !== Json::canonical($original->inputSchema))

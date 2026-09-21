@@ -11,6 +11,9 @@
     <field name="plan_ttl" type="number" label="COM_JOOMENGINE_MCP_PLAN_TTL" min="30" max="3600" default="300" filter="uint" />
     <field name="request_ttl" type="number" label="COM_JOOMENGINE_MCP_REQUEST_TTL" min="30" max="3600" default="600" filter="uint" />
     <field name="session_ttl" type="number" label="COM_JOOMENGINE_MCP_SESSION_TTL" min="60" max="86400" default="3600" filter="uint" />
+    <field name="php_cli_binary" type="text" label="COM_JOOMENGINE_MCP_PHP_CLI_BINARY" description="COM_JOOMENGINE_MCP_PHP_CLI_BINARY_DESC" maxlength="4096" filter="string" validate="runtimepath" />
+    <field name="job_timeout" type="number" label="COM_JOOMENGINE_MCP_JOB_TIMEOUT" description="COM_JOOMENGINE_MCP_JOB_TIMEOUT_DESC" min="1" max="3600" default="3600" filter="uint" />
+    <field name="artifact_directory" type="text" label="COM_JOOMENGINE_MCP_ARTIFACT_DIRECTORY" description="COM_JOOMENGINE_MCP_ARTIFACT_DIRECTORY_DESC" maxlength="4096" filter="string" validate="runtimepath" />
     <field name="allow_indefinite" type="radio" layout="joomla.form.field.radio.switcher" label="COM_JOOMENGINE_MCP_ALLOW_INDEFINITE" default="0" filter="boolean"><option value="0">JNO</option><option value="1">JYES</option></field>
   </fieldset>
   <fieldset name="permissions" label="JCONFIG_PERMISSIONS_LABEL">

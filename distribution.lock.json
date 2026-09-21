@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "console": {
+    "repository": "joomengine/mcp_plugin",
+    "ref": "cce3d3d0d510e306097f0c4c2ad091fdac3a0813",
+    "version": "0.1.0"
+  }
+}

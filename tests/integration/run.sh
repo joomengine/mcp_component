@@ -99,3 +99,4 @@ php "$JOOMLA_ROOT/cli/joomla.php" extension:install --path="$root/build/com_joom
 php "$root/tests/integration/lifecycle.php" verify | tee "$root/build/evidence/live-upgrade.log"
 php "$root/tests/integration/installation.php" | tee "$root/build/evidence/live-upgrade-seed.log"
 php "$root/tests/integration/lifecycle.php" uninstall | tee "$root/build/evidence/live-uninstall.log"
+php "$root/tests/integration/package.php" | tee "$root/build/evidence/live-package-lifecycle.log"

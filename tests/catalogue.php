@@ -10,6 +10,8 @@
 use VDM\Component\JoomEngineMcp\Administrator\Database\Structure;
 use VDM\Component\JoomEngineMcp\Administrator\Domain\OperationException;
 use VDM\Component\JoomEngineMcp\Administrator\Handler\NativeFactory;
+use VDM\Component\JoomEngineMcp\Administrator\Installer\SeedUpdater;
+use VDM\Component\JoomEngineMcp\Administrator\Protocol\ToolDispatcher;
 use VDM\Component\JoomEngineMcp\Administrator\Native\Contract\ModelProviderInterface;
 use VDM\Component\JoomEngineMcp\Administrator\Native\Contract\NativeOperationsInterface;
 use VDM\Component\JoomEngineMcp\Administrator\Security\Authorizer;
@@ -51,6 +53,7 @@ $rejects = static function (callable $operation, string $code) use ($check): voi
 $seed = Json::decode(file_get_contents($root . '/data/catalogue-seed.json'), maximum: 16777216);
 $source = Json::decode(file_get_contents($root . '/data/upstream-contracts.json'), maximum: 16777216);
 $native = Json::decode(file_get_contents($root . '/data/upstream-native.json'), maximum: 16777216);
+$runtime = Json::decode(file_get_contents($root . '/data/runtime-tools.json'), maximum: 16777216);
 $entities = $seed['entities'];
 $schemas = new SchemaValidator();
 
@@ -66,6 +69,7 @@ foreach ($entities as $entity => $rows)
 		$ids[$row['id']] = true;
 		$names[$row['name']] = true;
 		$check(array_diff_key($row, $columns) === [], 'Unknown generated database column.');
+		$check(in_array($row['seed_revision'], [$seed['source'], $seed['runtimeSource']], true), 'A seeded definition has no declared provenance.');
 
 		foreach ($columns as $field => $type)
 		{
@@ -83,11 +87,32 @@ foreach ($entities as $entity => $rows)
 	}
 }
 
-$expectedTools = array_column($source['tools'], 'name');
+$expectedTools = array_merge(array_column($source['tools'], 'name'), array_column($runtime['tools'], 'name'));
+$check(count($expectedTools) === count(array_unique($expectedTools)), 'Runtime declarations overlap the immutable upstream tool catalogue.');
 $actualTools = array_column($entities['tool'], 'name');
 sort($expectedTools);
 sort($actualTools);
-$check($expectedTools === $actualTools, 'Source MCP tool names were not preserved exactly.');
+$check($expectedTools === $actualTools, 'The exact upstream plus component-runtime tool union was not preserved.');
+$actualToolRows = array_column($entities['tool'], null, 'name');
+foreach ($runtime['tools'] as $tool)
+{
+	$check(in_array($tool['handler'], ToolDispatcher::keys(), true), 'A runtime tool has no registered dispatcher.');
+	$check($actualToolRows[$tool['name']]['handler'] === $tool['handler'], 'A runtime tool lost its declared handler.');
+	$check($actualToolRows[$tool['name']]['seed_revision'] === hash_file('sha256', $root . '/data/runtime-tools.json'), 'Runtime tool provenance differs from its declaration.');
+}
+
+foreach (['mysql', 'postgresql'] as $driver)
+{
+	$install = file_get_contents($root . '/admin/sql/install.' . $driver . '.utf8.sql');
+	$upgrade = file_get_contents($root . '/admin/sql/updates/' . $driver . '/0.1.1.sql');
+	foreach (['job', 'artifact'] as $entity)
+	{
+		$quote = $driver === 'mysql' ? '`' : '"';
+		$pattern = '/CREATE TABLE IF NOT EXISTS ' . preg_quote($quote . Structure::table($entity) . $quote, '/') . '.*?;/s';
+		$check(preg_match($pattern, $install, $fresh) === 1 && preg_match($pattern, $upgrade, $migrated) === 1
+			&& $fresh[0] === $migrated[0], 'Fresh and upgraded ' . $entity . ' tables differ on ' . $driver . '.');
+	}
+}
 $expectedActions = array_values(array_unique(array_merge(
 	array_column($source['catalog']['api']['readActions'], 'id'),
 	array_column($source['catalog']['api']['writeActions'], 'id'),
@@ -97,6 +122,42 @@ $actualActions = array_column($entities['action'], 'name');
 sort($expectedActions);
 sort($actualActions);
 $check($expectedActions === $actualActions, 'A source API or native action was lost.');
+
+// A fresh install and repeated upgrades retain the declared source for each row.
+$installed = new MemoryStore();
+$updater = new SeedUpdater($installed);
+$updater->apply($seed);
+$runtimeName = $runtime['tools'][0]['name'];
+$check($installed->one('tool', ['name' => $runtimeName])['seed_revision'] === $seed['runtimeSource'], 'Installer discarded component-runtime provenance.');
+$check($updater->apply($seed)['updated'] === 0, 'An unchanged seeded graph must be idempotent.');
+$nextSeed = $seed;
+$nextSeed['runtimeSource'] = str_repeat('a', 64);
+foreach ($nextSeed['entities'] as &$records)
+{
+	foreach ($records as &$record)
+	{
+		if ($record['seed_revision'] === $seed['runtimeSource'])
+		{
+			$record['seed_revision'] = $nextSeed['runtimeSource'];
+		}
+	}
+	unset($record);
+}
+unset($records);
+$check($updater->apply($nextSeed)['updated'] > 0
+	&& $installed->one('tool', ['name' => $runtimeName])['seed_revision'] === $nextSeed['runtimeSource'], 'Runtime-only upgrades must advance their declared revision.');
+$invalidSeed = $nextSeed;
+$invalidSeed['entities']['tool'][0]['seed_revision'] = str_repeat('b', 64);
+try
+{
+	$updater->apply($invalidSeed);
+	$check(false, 'Undeclared seed provenance was accepted.');
+}
+catch (RuntimeException $error)
+{
+	$check($error->getMessage() === 'A shipped definition references undeclared provenance.', 'Unexpected provenance failure.');
+}
+$check($updater->apply($nextSeed)['updated'] === 0, 'Rejected provenance altered the installed graph.');
 
 $store = new MemoryStore($entities);
 $principal = new Principal();

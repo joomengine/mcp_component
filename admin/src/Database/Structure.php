@@ -82,6 +82,19 @@ final class Structure
 				'idempotency_key' => 'uuid', 'fingerprint' => 'hash', 'status' => 'name',
 				'result_cipher' => 'text', 'created_at' => 'bigint', 'updated_at' => 'bigint', 'version' => 'version',
 			],
+			'job' => [
+				'uuid' => 'uuid', 'principal_key' => 'hash', 'principal_id' => 'name', 'track' => 'name',
+				'action_name' => 'name', 'execution_uuid' => 'uuid', 'token_hash' => 'hash',
+				'payload_cipher' => 'text', 'result_cipher' => 'text', 'status' => 'name',
+				'progress' => 'int', 'message' => 'text', 'cancel_requested' => 'int', 'worker_uuid' => 'uuid',
+				'lease_until' => 'bigint', 'created_at' => 'bigint', 'updated_at' => 'bigint',
+				'expires_at' => 'bigint', 'version' => 'version',
+			],
+			'artifact' => [
+				'uuid' => 'uuid', 'principal_key' => 'hash', 'job_uuid' => 'uuid', 'name' => 'name',
+				'mime_type' => 'name', 'size' => 'bigint', 'sha256' => 'hash', 'chunk_hashes' => 'json',
+				'created_at' => 'bigint', 'expires_at' => 'bigint',
+			],
 			'lease' => ['resource_key' => 'hash', 'owner_uuid' => 'uuid', 'expires_at' => 'bigint'],
 			'session' => [
 				'uuid' => 'uuid', 'principal_key' => 'hash', 'data_cipher' => 'text',

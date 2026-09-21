@@ -2,6 +2,9 @@
 set -euo pipefail
 root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$root"
+: "${MCP_PLUGIN_SOURCE:?Set the reviewed console plugin checkout}"
+MCP_PLUGIN_SOURCE="$(realpath -- "$MCP_PLUGIN_SOURCE")"
+[[ -f "$MCP_PLUGIN_SOURCE/joomengine_mcp.xml" && -f "$MCP_PLUGIN_SOURCE/tests/installed.php" ]]
 out="$root/build/evidence/golden"
 mkdir -p "$out"
 compose() { docker compose -f "$root/tests/golden-image/compose.yml" "$@"; }
@@ -45,9 +48,18 @@ actual="$(compose exec -T joomla sha256sum /var/www/html/libraries/vendor_jcb/VD
 [[ "$actual" == "$expected" ]] || { echo 'The native JCB install did not deploy the tested source.' >&2; exit 1; }
 printf '%s\n' "$actual" > "$out/installed-jcb-compiler.sha256"
 compose exec -T joomla php /var/www/html/cli/joomla.php extension:install --path=/tmp/mcp-component.zip --no-interaction --no-ansi > "$out/install-mcp.log" 2>&1
+php "$MCP_PLUGIN_SOURCE/build.php"
+plugin_version="$(php -r 'echo (string) simplexml_load_file($argv[1])->version;' "$MCP_PLUGIN_SOURCE/joomengine_mcp.xml")"
+git -C "$MCP_PLUGIN_SOURCE" rev-parse HEAD > "$out/console-plugin-source.txt"
+compose exec -T joomla mkdir -p /tmp/mcp-plugin/tests
+compose cp "$MCP_PLUGIN_SOURCE/tests/installed.php" joomla:/tmp/mcp-plugin/tests/installed.php
+compose cp "$MCP_PLUGIN_SOURCE/build/plg_console_joomengine_mcp-$plugin_version.zip" joomla:/tmp/mcp-console-plugin.zip
+compose exec -T joomla php /var/www/html/cli/joomla.php extension:install --path=/tmp/mcp-console-plugin.zip --no-interaction --no-ansi > "$out/install-console-plugin.log" 2>&1
 compose exec -T joomla touch /var/www/html/.mcp-test-fixture
+compose exec -T joomla php /var/www/html/cli/joomla.php joomla:mcp:jcb-sync --no-interaction --no-ansi > "$out/jcb-catalogue-sync.json" 2> "$out/jcb-catalogue-sync-errors.log"
 fixture() {
   compose exec -T -e MCP_TEST_ALLOW_DESTRUCTIVE=1 -e JOOMLA_ROOT=/var/www/html \
+    -e MCP_COMPONENT_SOURCE=/tmp/mcp-component \
     -e MCP_TEST_BASE_URL=http://127.0.0.1:80 -e MCP_TEST_TOKEN_FILE=/tmp/mcp-fixture-token \
     -e MCP_TEST_LIFECYCLE_FILE=/tmp/mcp-lifecycle.json \
     joomla php "$@"
@@ -57,6 +69,7 @@ fixture /tmp/mcp-component/tests/integration/prepare-http.php >> "$out/prepare.l
 for suite in installation administration http catalogue-mcp acl-mcp stdio browser; do
   fixture "/tmp/mcp-component/tests/integration/$suite.php" > "$out/$suite.log" 2>&1
 done
+fixture /tmp/mcp-plugin/tests/installed.php > "$out/console-plugin.log" 2>&1
 fixture /tmp/mcp-component/tests/golden-image/registry.php > "$out/jcb-command-registry.json" 2> "$out/registry-errors.log"
 php -r '$v=json_decode(file_get_contents($argv[1]),true,512,JSON_THROW_ON_ERROR); $c=array_filter($v["commands"]??[],static fn($c)=>str_starts_with($c["name"],"componentbuilder:")); if(count($c)<2)throw new RuntimeException("The installed JCB command registry is empty."); echo "Verified ",count($c)," native JCB command definitions\n";' "$out/jcb-command-registry.json" > "$out/registry.log"
 fixture /tmp/mcp-component/tests/integration/lifecycle.php prepare > "$out/upgrade-prepare.log" 2>&1

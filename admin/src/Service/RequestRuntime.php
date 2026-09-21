@@ -10,6 +10,7 @@ namespace VDM\Component\JoomEngineMcp\Administrator\Service;
 
 
 use Mcp\Server;
+use VDM\Component\JoomEngineMcp\Administrator\Job\Jobs;
 use VDM\Component\JoomEngineMcp\Administrator\Protocol\ServerFactory;
 use VDM\Component\JoomEngineMcp\Administrator\Protocol\ToolDispatcher;
 
@@ -31,15 +32,18 @@ final class RequestRuntime
 	private Catalogue $catalogue;
 	/** @var Settings Installation bounds. @since 0.1.0 */
 	private Settings $settings;
+	/** @var ?Jobs Principal-owned durable operations. @since 0.1.1 */
+	private ?Jobs $jobs;
 
 	/** @param ServerFactory $servers Protocol construction. @param ToolDispatcher $tools Tool execution. @param ActionExecutor $actions Semantic actions. @param Catalogue $catalogue Definitions. @param Settings $settings Bounds. @since 0.1.0 */
-	public function __construct(ServerFactory $servers, ToolDispatcher $tools, ActionExecutor $actions, Catalogue $catalogue, Settings $settings)
+	public function __construct(ServerFactory $servers, ToolDispatcher $tools, ActionExecutor $actions, Catalogue $catalogue, Settings $settings, ?Jobs $jobs = null)
 	{
 		$this->servers = $servers;
 		$this->tools = $tools;
 		$this->actions = $actions;
 		$this->catalogue = $catalogue;
 		$this->settings = $settings;
+		$this->jobs = $jobs;
 	}
 
 	/** @return Server Newly composed server over the same request authority. @since 0.1.0 */
@@ -70,5 +74,11 @@ final class RequestRuntime
 	public function settings(): Settings
 	{
 		return $this->settings;
+	}
+
+	/** @return ?Jobs Durable jobs when the reviewed worker is configured. @since 0.1.1 */
+	public function jobs(): ?Jobs
+	{
+		return $this->jobs;
 	}
 }

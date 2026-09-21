@@ -2,6 +2,8 @@
 DROP TABLE IF EXISTS "#__joomengine_mcp_audit";
 DROP TABLE IF EXISTS "#__joomengine_mcp_session";
 DROP TABLE IF EXISTS "#__joomengine_mcp_lease";
+DROP TABLE IF EXISTS "#__joomengine_mcp_artifact";
+DROP TABLE IF EXISTS "#__joomengine_mcp_job";
 DROP TABLE IF EXISTS "#__joomengine_mcp_execution";
 DROP TABLE IF EXISTS "#__joomengine_mcp_plan";
 DROP TABLE IF EXISTS "#__joomengine_mcp_grant";

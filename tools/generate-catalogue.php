@@ -14,14 +14,35 @@ require_once dirname(__DIR__) . '/admin/src/Database/Structure.php';
 $root = dirname(__DIR__);
 $sourceFile = $root . '/data/upstream-contracts.json';
 $nativeFile = $root . '/data/upstream-native.json';
+$runtimeFile = $root . '/data/runtime-tools.json';
 
-if (!is_file($sourceFile) || !is_file($nativeFile))
+if (!is_file($sourceFile) || !is_file($nativeFile) || !is_file($runtimeFile))
 {
 	throw new RuntimeException('Import the pinned upstream contracts before generating installation data.');
 }
 
 $upstream = json_decode(file_get_contents($sourceFile), true, 128, JSON_THROW_ON_ERROR);
 $native = json_decode(file_get_contents($nativeFile), true, 128, JSON_THROW_ON_ERROR);
+$runtime = json_decode(file_get_contents($runtimeFile), true, 128, JSON_THROW_ON_ERROR);
+$runtimeObjects = json_decode(file_get_contents($runtimeFile), false, 128, JSON_THROW_ON_ERROR);
+$runtimeRevision = hash_file('sha256', $runtimeFile);
+
+if (($runtime['version'] ?? null) !== 1 || !is_array($runtime['tools'] ?? null))
+{
+	throw new RuntimeException('Component runtime tools require the supported declaration schema.');
+}
+
+foreach ($runtimeObjects->tools as $index => $tool)
+{
+	foreach (['inputSchema', 'outputSchema'] as $field)
+	{
+		if (isset($tool->{$field}))
+		{
+			$runtime['tools'][$index][$field] = $tool->{$field};
+		}
+	}
+}
+unset($runtimeObjects);
 // Decode schema subtrees without associative conversion. An empty schema {}
 // means "any JSON value", whereas [] is invalid; defaults also retain their
 // original object/list distinction. Keep the surrounding migration maps arrays.
@@ -317,6 +338,39 @@ foreach ($upstream['tools'] as $tool)
 	];
 }
 
+// Component-owned additions extend the immutable migration source explicitly.
+$knownTools = array_fill_keys(array_column($rows['tool'], 'name'), true);
+$sourceSchemaCount = count($rows['schema']);
+
+foreach ($runtime['tools'] as $tool)
+{
+	if (!is_string($tool['name'] ?? null) || isset($knownTools[$tool['name']])
+		|| !is_string($tool['handler'] ?? null) || !is_array($tool['configuration'] ?? null))
+	{
+		throw new RuntimeException('Runtime tool declarations must be unique, explicit handler bindings.');
+	}
+
+	$knownTools[$tool['name']] = true;
+	$metadata = $tool;
+	unset($metadata['handler'], $metadata['configuration'], $metadata['inputSchema'], $metadata['outputSchema']);
+	$rows['tool'][] = [
+		'id' => count($rows['tool']) + 1, 'provider_id' => 1, 'name' => $tool['name'],
+		'title' => $tool['title'], 'description' => $tool['description'], 'handler' => $tool['handler'],
+		'input_schema_id' => $addSchema($tool['inputSchema']),
+		'output_schema_id' => isset($tool['outputSchema']) ? $addSchema($tool['outputSchema']) : null,
+		'configuration' => $json((object) $tool['configuration']), 'definition' => $json($metadata),
+		'seed_revision' => $runtimeRevision,
+	];
+}
+
+foreach (array_keys($rows['schema']) as $index)
+{
+	if ($index >= $sourceSchemaCount)
+	{
+		$rows['schema'][$index]['seed_revision'] = $runtimeRevision;
+	}
+}
+
 foreach ($upstream['resources'] as $resource)
 {
 	$rows['resource'][] = [
@@ -353,8 +407,9 @@ foreach ($rows as $entity => &$records)
 {
 	foreach ($records as &$record)
 	{
+		$revision = $record['seed_revision'] ?? $commit;
 		$record += array_map($defaults, Structure::columns($entity));
-		$record['seed_revision'] = $commit;
+		$record['seed_revision'] = $revision;
 		$record['created'] = '2026-09-17 00:00:00';
 		$owned = array_diff_key($record, array_flip(['id', 'asset_id', 'checked_out', 'checked_out_time', 'created', 'created_by', 'modified', 'modified_by', 'version', 'seed_revision', 'seed_hash', 'customized']));
 		ksort($owned, SORT_STRING);
@@ -442,6 +497,11 @@ foreach (['mysql', 'postgresql'] as $driver)
 			$parts[] = '  UNIQUE (' . $quoteName('resource_key') . ')';
 		}
 
+		if ($entity === 'job')
+		{
+			$parts[] = '  UNIQUE (' . $quoteName('execution_uuid') . ')';
+		}
+
 		if ($entity === 'execution')
 		{
 			$parts[] = '  UNIQUE (' . $quoteName('principal_key') . ', ' . $quoteName('idempotency_key') . ')';
@@ -502,6 +562,6 @@ foreach (['mysql', 'postgresql'] as $driver)
 	file_put_contents($directory . '/updates/' . $driver . '/0.1.0.sql', "-- Initial schema version; installation supplies the reviewed seed graph.\n");
 }
 
-file_put_contents($root . '/data/catalogue-seed.json', json_encode(['source' => $commit, 'entities' => $rows], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . "\n");
-file_put_contents($root . '/docs/migration/parity.json', json_encode(['source' => $commit, 'tools' => array_column($upstream['tools'], 'name'), 'actions' => $parity, 'sourceOnlyGates' => $gates, 'counts' => array_map('count', $rows)], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n");
+file_put_contents($root . '/data/catalogue-seed.json', json_encode(['source' => $commit, 'runtimeSource' => $runtimeRevision, 'entities' => $rows], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . "\n");
+file_put_contents($root . '/docs/migration/parity.json', json_encode(['source' => $commit, 'runtimeSource' => $runtimeRevision, 'tools' => array_column($rows['tool'], 'name'), 'upstreamTools' => array_column($upstream['tools'], 'name'), 'runtimeTools' => array_column($runtime['tools'], 'name'), 'actions' => $parity, 'sourceOnlyGates' => $gates, 'counts' => array_map('count', $rows)], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n");
 echo json_encode(['seedCounts' => array_map('count', $rows), 'drivers' => ['mysql', 'postgresql'], 'liveEvidence' => 'not implied by generated definitions'], JSON_PRETTY_PRINT) . PHP_EOL;

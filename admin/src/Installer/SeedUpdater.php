@@ -44,6 +44,8 @@ final class SeedUpdater
 	public function apply(array $seed): array
 	{
 		if (!is_string($seed['source'] ?? null) || preg_match('/\A[0-9a-f]{40,64}\z/D', $seed['source']) !== 1
+			|| (isset($seed['runtimeSource']) && (!is_string($seed['runtimeSource'])
+				|| preg_match('/\A[0-9a-f]{40,64}\z/D', $seed['runtimeSource']) !== 1))
 			|| array_keys($seed['entities'] ?? []) !== array_keys(Structure::definitions()))
 		{
 			throw new RuntimeException('The shipped catalogue graph has invalid provenance or entity ordering.');
@@ -61,6 +63,13 @@ final class SeedUpdater
 
 				foreach ($seed['entities'][$entity] as $record)
 				{
+					$revision = $record['seed_revision'] ?? $seed['source'];
+
+					if (!in_array($revision, array_filter([$seed['source'], $seed['runtimeSource'] ?? null]), true))
+					{
+						throw new RuntimeException('A shipped definition references undeclared provenance.');
+					}
+
 					$sourceId = (int) $record['id'];
 					$names[$record['name']] = true;
 
@@ -80,7 +89,7 @@ final class SeedUpdater
 
 					$current = $this->store->one($entity, ['name' => $record['name']]);
 					unset($record['id']);
-					$record['seed_revision'] = $seed['source'];
+					$record['seed_revision'] = $revision;
 					$record['seed_hash'] = self::hash($entity, $record);
 
 					if ($current === null)
@@ -111,7 +120,7 @@ final class SeedUpdater
 						continue;
 					}
 
-					if ($record['seed_hash'] === $current['seed_hash'] && $current['seed_revision'] === $seed['source'])
+					if ($record['seed_hash'] === $current['seed_hash'] && $current['seed_revision'] === $revision)
 					{
 						continue;
 					}

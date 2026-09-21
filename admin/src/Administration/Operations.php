@@ -65,6 +65,67 @@ final class Operations
 	}
 
 	/**
+	 * Cancel an unstarted job or request termination of its actual running worker.
+	 *
+	 * @param User $user Native administrator identity.
+	 * @param int $id Observed job row ID.
+	 * @param int $version Observed job revision.
+	 * @return void
+	 * @since 0.1.1
+	 */
+	public function cancelJob(User $user, int $id, int $version): void
+	{
+		$this->authorize($user, 'mcp.reconcile');
+		$this->store->transaction(function () use ($user, $id, $version): void
+		{
+			$job = $this->store->one('job', ['id' => $id, 'version' => $version]);
+
+			if ($job === null || !in_array($job['status'], ['queued', 'running'], true))
+			{
+				throw new RuntimeException('The job changed or is no longer cancellable. Reload its current state.', 409);
+			}
+
+			$values = ['cancel_requested' => 1, 'updated_at' => time(), 'version' => $version + 1,
+				'message' => 'An authorized administrator requested cancellation; partial effects are not rolled back.'];
+			$execution = $this->store->one('execution', ['uuid' => $job['execution_uuid'], 'principal_key' => $job['principal_key'], 'status' => 'running']);
+
+			if ($execution === null)
+			{
+				throw new RuntimeException('The job execution has already changed. Reload its current state.', 409);
+			}
+
+			if ($job['status'] === 'queued')
+			{
+				$result = ['executionId' => $execution['uuid'], 'action' => $job['action_name'], 'mutation' => null,
+					'verification' => ['status' => 'cancelled', 'effects' => 'not-started'], 'idempotentReplay' => false];
+				$values += ['status' => 'cancelled', 'token_hash' => '', 'payload_cipher' => '', 'lease_until' => 0,
+					'result_cipher' => $this->envelope->encrypt(Json::encode($result), 'job-result:' . $job['principal_key'] . ':' . $job['uuid'])];
+			}
+
+			if ($this->store->update('job', $values, ['id' => $id, 'version' => $version, 'status' => $job['status']]) !== 1)
+			{
+				throw new RuntimeException('The job changed before cancellation could be recorded.', 409);
+			}
+
+			if ($job['status'] === 'queued')
+			{
+				if ($this->store->update('execution', ['status' => 'completed', 'updated_at' => time(), 'version' => (int) $execution['version'] + 1,
+					'result_cipher' => $this->envelope->encrypt(Json::encode($result), 'execution:' . $job['principal_key'] . ':' . $execution['uuid'])],
+					['uuid' => $execution['uuid'], 'principal_key' => $job['principal_key'], 'status' => 'running', 'version' => (int) $execution['version']]) !== 1)
+				{
+					throw new RuntimeException('The execution changed before queued cancellation could settle it.', 409);
+				}
+
+				$this->store->update('plan', ['status' => 'completed'], ['uuid' => $execution['plan_uuid'], 'principal_key' => $job['principal_key'], 'status' => 'executing']);
+				$this->store->remove('lease', ['owner_uuid' => $execution['uuid']]);
+			}
+
+			$this->audit($user, 'job.cancel.requested.admin', $job['status'] === 'queued' ? 'cancelled' : 'requested',
+				$execution['plan_uuid'], $execution['uuid'], ['jobId' => $job['uuid'], 'effects' => $job['status'] === 'queued' ? 'not-started' : 'potentially-partial']);
+		});
+	}
+
+	/**
 	 * Record inspected effects and release only this execution's retained lease.
 	 *
 	 * @param User $user Authenticated administrator supplied by Joomla.

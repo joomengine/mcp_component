@@ -1,0 +1,256 @@
+{
+  "version": 1,
+  "description": "Component-owned runtime additions. The imported upstream contracts remain immutable.",
+  "tools": [
+    {
+      "name": "joomla_jobs_list",
+      "title": "List owned jobs",
+      "description": "List durable jobs belonging to the current authenticated principal. Status includes known cancellation, completion and uncertain outcomes.",
+      "handler": "job.list",
+      "configuration": {},
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "site": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 190,
+            "description": "Configured installation alias; omit to use this server."
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 50
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "joomla_job_status",
+      "title": "Inspect an owned job",
+      "description": "Read the current durable state and retained result of an owned job. An expired worker lease is reported as uncertain; a disconnected request is not proof of rollback.",
+      "handler": "job.status",
+      "configuration": {},
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "site": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 190,
+            "description": "Configured installation alias; omit to use this server."
+          },
+          "jobId": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$",
+            "description": "Opaque identifier returned by this server for the authenticated principal."
+          }
+        },
+        "required": [
+          "jobId"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "joomla_job_cancel",
+      "title": "Cancel an owned job",
+      "description": "Request cancellation of an owned job. Queued work is cancelled before execution; running work may have partial effects. Inspect the returned state and reconcile uncertain outcomes.",
+      "handler": "job.cancel",
+      "configuration": {},
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "site": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 190,
+            "description": "Configured installation alias; omit to use this server."
+          },
+          "jobId": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$",
+            "description": "Opaque identifier returned by this server for the authenticated principal."
+          }
+        },
+        "required": [
+          "jobId"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "joomla_job_redispatch",
+      "title": "Redispatch an unstarted job",
+      "description": "Redispatch only a never-started queued job using its existing approved execution claim. Running, cancelled and uncertain jobs cannot be replayed.",
+      "handler": "job.redispatch",
+      "configuration": {},
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "site": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 190,
+            "description": "Configured installation alias; omit to use this server."
+          },
+          "jobId": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$",
+            "description": "Opaque identifier returned by this server for the authenticated principal."
+          }
+        },
+        "required": [
+          "jobId"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "joomla_job_artifacts",
+      "title": "List owned job artifacts",
+      "description": "List immutable retained artifact metadata for an owned job. The server returns opaque artifact identifiers, never selectable filesystem paths.",
+      "handler": "job.artifacts",
+      "configuration": {},
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "site": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 190,
+            "description": "Configured installation alias; omit to use this server."
+          },
+          "jobId": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$",
+            "description": "Opaque identifier returned by this server for the authenticated principal."
+          }
+        },
+        "required": [
+          "jobId"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "joomla_job_artifact_read",
+      "title": "Read an owned artifact chunk",
+      "description": "Read and verify a bounded base64-encoded chunk of a retained owned artifact. Use the returned offsets and hashes to assemble the file; no local or remote path input is accepted.",
+      "handler": "job.artifact.read",
+      "configuration": {},
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "site": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 190,
+            "description": "Configured installation alias; omit to use this server."
+          },
+          "artifactId": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$",
+            "description": "Opaque identifier returned by this server for the authenticated principal."
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 0
+          },
+          "length": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 262144,
+            "default": 65536
+          }
+        },
+        "required": [
+          "artifactId"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    }
+  ]
+}

@@ -36,11 +36,12 @@ final class Settings
 			'max_request_bytes' => 1048576, 'max_list_limit' => 100,
 			'plan_ttl' => 300, 'request_ttl' => 600, 'session_ttl' => 3600,
 			'allow_indefinite' => false, 'allow_loopback_http' => false, 'allowed_origins' => [],
+			'php_cli_binary' => '', 'job_timeout' => 3600, 'artifact_directory' => '',
 		];
 		$this->values = array_intersect_key($values, $defaults) + $defaults;
 
 		foreach (['timeout' => [1, 120], 'max_result_bytes' => [1024, 16777216], 'max_request_bytes' => [1024, 4194304],
-			'max_list_limit' => [1, 500], 'plan_ttl' => [30, 3600], 'request_ttl' => [30, 3600], 'session_ttl' => [60, 86400]] as $key => [$min, $max])
+			'max_list_limit' => [1, 500], 'plan_ttl' => [30, 3600], 'request_ttl' => [30, 3600], 'session_ttl' => [60, 86400], 'job_timeout' => [1, 3600]] as $key => [$min, $max])
 		{
 			$value = filter_var($this->values[$key], FILTER_VALIDATE_INT);
 
@@ -118,6 +119,52 @@ final class Settings
 		}
 
 		$this->values['allowed_origins'] = array_values(array_unique($origins));
+
+		foreach (['php_cli_binary', 'artifact_directory'] as $key)
+		{
+			$path = $this->values[$key];
+
+			if (!is_string($path) || ($path !== '' && (!str_starts_with($path, '/') || strlen($path) > 4096
+				|| preg_match('/[\x00-\x1f\x7f]|(?:^|\/)\.\.?(?:\/|$)/', $path))))
+			{
+				throw new InvalidArgumentException('The worker configuration requires an absolute server-owned path: ' . $key);
+			}
+
+			if ($path === '')
+			{
+				continue;
+			}
+
+			if ($key === 'php_cli_binary' && (!is_file($path) || !is_executable($path)))
+			{
+				throw new InvalidArgumentException('The configured PHP CLI binary must be an executable regular file.');
+			}
+
+			if ($key === 'artifact_directory')
+			{
+				if (is_link($path) || !is_dir($path) || !is_writable($path))
+				{
+					throw new InvalidArgumentException('Artifact storage must be an existing writable directory, not a file or symbolic link.');
+				}
+
+				$ancestor = $path;
+				$suffix = '';
+
+				while (!file_exists($ancestor) && dirname($ancestor) !== $ancestor)
+				{
+					$suffix = '/' . basename($ancestor) . $suffix;
+					$ancestor = dirname($ancestor);
+				}
+
+				$canonical = rtrim((string) realpath($ancestor), '/') . $suffix;
+				$site = defined('JPATH_ROOT') ? realpath(JPATH_ROOT) : false;
+
+				if ($site !== false && ($canonical === $site || str_starts_with($canonical, rtrim($site, '/') . '/')))
+				{
+					throw new InvalidArgumentException('Artifact storage must be outside the public Joomla installation.');
+				}
+			}
+		}
 	}
 
 	/** @param string $name Reviewed setting name. @return mixed Validated setting. @since 0.1.0 */

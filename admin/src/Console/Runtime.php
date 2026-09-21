@@ -9,6 +9,7 @@
 namespace VDM\Component\JoomEngineMcp\Administrator\Console;
 
 
+use Closure;
 use Joomla\CMS\Application\ConsoleApplication;
 use Joomla\Database\DatabaseInterface;
 use Mcp\Server\Transport\StdioTransport;
@@ -42,14 +43,17 @@ final class Runtime implements ConsoleRuntimeInterface
 	private RequestRuntime $runtime;
 	/** @var Inspector Native command introspection. @since 0.1.0 */
 	private Inspector $inspector;
+	/** @var ?Closure Explicit privileged JCB catalogue refresh. @since 0.1.1 */
+	private ?Closure $synchronizeJcb;
 
 	/** @param ConsoleApplication $application Application. @param DatabaseInterface $database Native database. @param RequestRuntime $runtime Shared services. @param Inspector $inspector Console registry. @since 0.1.0 */
-	public function __construct(ConsoleApplication $application, DatabaseInterface $database, RequestRuntime $runtime, Inspector $inspector)
+	public function __construct(ConsoleApplication $application, DatabaseInterface $database, RequestRuntime $runtime, Inspector $inspector, ?callable $synchronizeJcb = null)
 	{
 		$this->application = $application;
 		$this->database = $database;
 		$this->runtime = $runtime;
 		$this->inspector = $inspector;
+		$this->synchronizeJcb = $synchronizeJcb === null ? null : Closure::fromCallable($synchronizeJcb);
 	}
 
 	/** @inheritDoc */
@@ -74,6 +78,16 @@ final class Runtime implements ConsoleRuntimeInterface
 			}
 
 			$this->runtime->catalogue()->refresh();
+
+			if ($operation === 'jcb-sync')
+			{
+				if ($this->synchronizeJcb === null)
+				{
+					throw new OperationException('JCB_UNAVAILABLE', 'The installed JCB catalogue integration is unavailable.');
+				}
+
+				return $this->write(['protocol' => 'joomla-mcp/1', 'ok' => true, 'catalogue' => ($this->synchronizeJcb)()]);
+			}
 
 			if ($operation === 'describe')
 			{

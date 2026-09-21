@@ -12,6 +12,7 @@ namespace VDM\Component\JoomEngineMcp\Administrator\Jcb;
 use Joomla\CMS\Application\ConsoleApplication;
 use Joomla\Console\Command\AbstractCommand;
 use ReflectionClass;
+use ReflectionProperty;
 use VDM\Component\JoomEngineMcp\Administrator\Domain\OperationException;
 use VDM\Component\JoomEngineMcp\Administrator\Service\Json;
 
@@ -72,6 +73,46 @@ final class CommandRegistry
 	}
 
 	/**
+	 * Inventory only commands actually registered by JCB's console plugin.
+	 *
+	 * @return array Registered, reviewed definitions and explicit unsupported names.
+	 * @since 0.1.0
+	 */
+	public function inventory(): array
+	{
+		$commands = [];
+		$unsupported = [];
+
+		foreach ($this->application->getAllCommands() as $command)
+		{
+			$name = $command->getName();
+
+			if (!is_string($name) || !str_starts_with($name, 'componentbuilder:') || isset($commands[$name]))
+			{
+				continue;
+			}
+
+			try
+			{
+				$native = $this->get($name);
+				$contract = CommandContract::describe($native);
+				$commands[$name] = $this->inspect(['command' => $name, 'contract' => $contract])
+					+ ['description' => $native->getDescription(), 'aliases' => $native->getAliases()];
+			}
+			catch (OperationException $error)
+			{
+				$unsupported[$name] = $error->getIdentifier();
+			}
+		}
+
+		ksort($commands, SORT_STRING);
+		ksort($unsupported, SORT_STRING);
+
+		return ['commands' => array_values($commands), 'unsupported' => $unsupported,
+			'fingerprint' => hash('sha256', Json::canonical(['commands' => $commands, 'unsupported' => $unsupported]))];
+	}
+
+	/**
 	 * Validate the database input contract and fingerprint all inherited source.
 	 *
 	 * @param   array<string,mixed>  $configuration  Reviewed command binding.
@@ -107,6 +148,38 @@ final class CommandRegistry
 		}
 		while (($class = $class->getParentClass()) !== false);
 
-		return $actual + ['implementation' => hash('sha256', Json::canonical($sources))];
+		$capability = [];
+
+		if ($command->getName() !== 'componentbuilder:compile:component')
+		{
+			$entity = (new ReflectionProperty('VDM\\Joomla\\Componentbuilder\\Abstraction\\Console\\Package', 'entity'))->getValue($command);
+			$factory = \VDM\Joomla\Componentbuilder\Factory::getEntityFactory($entity);
+			$area = \VDM\Joomla\Componentbuilder\Factory::getArea($entity);
+			$direction = str_starts_with($command->getName(), 'componentbuilder:push:') ? 'Set' : 'Get';
+			$service = $area . '.Remote.' . $direction;
+
+			if ($factory === null || $area === null || !$factory::getContainer()->has($service))
+			{
+				throw new OperationException('JCB_HANDLER_UNAVAILABLE', 'The registered JCB command has no native entity handler; its upstream no-op is not executable coverage.');
+			}
+
+			$capability = ['entity' => $entity, 'nativeService' => $service];
+			$implementation = new ReflectionClass($factory::getContainer()->get($service));
+
+			do
+			{
+				$file = $implementation->getFileName();
+
+				if (!is_string($file) || !is_file($file))
+				{
+					throw new OperationException('JCB_COMMAND_SOURCE', 'The native package handler source cannot be verified.');
+				}
+
+				$sources[$implementation->getName()] = hash_file('sha256', $file);
+			}
+			while (($implementation = $implementation->getParentClass()) !== false);
+		}
+
+		return $actual + $capability + ['implementation' => hash('sha256', Json::canonical($sources))];
 	}
 }

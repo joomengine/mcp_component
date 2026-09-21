@@ -14,6 +14,7 @@
  * different; Composer regenerates the staged map before this script archives it.
  */
 $root = dirname(__DIR__);
+require_once __DIR__ . '/archive.php';
 $stage = $root . '/build/component';
 $mode = $argv[1] ?? '';
 
@@ -86,13 +87,6 @@ elseif ($mode === '--archive')
 	}
 
 	$target = $root . '/build/com_joomengine_mcp-' . $version . '.zip';
-	$zip = new ZipArchive();
-
-	if ($zip->open($target, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true)
-	{
-		throw new RuntimeException('Cannot create the component archive.');
-	}
-
 	$files = [];
 	foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($stage, FilesystemIterator::SKIP_DOTS)) as $file)
 	{
@@ -105,20 +99,7 @@ elseif ($mode === '--archive')
 		$files[$name] = $file->getPathname();
 	}
 
-	ksort($files, SORT_STRING);
-	foreach ($files as $name => $path)
-	{
-		$zip->addFile($path, $name);
-		$zip->setMtimeName($name, 946684800);
-		$zip->setExternalAttributesName($name, ZipArchive::OPSYS_UNIX, 0100644 << 16);
-	}
-
-	if (!$zip->close())
-	{
-		throw new RuntimeException('The component archive could not be finalized.');
-	}
-
-	file_put_contents($target . '.sha256', hash_file('sha256', $target) . '  ' . basename($target) . "\n");
+	archiveDistribution($files, $target);
 	echo $target . "\n";
 }
 else

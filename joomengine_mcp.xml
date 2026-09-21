@@ -8,7 +8,7 @@
   <creationDate>September 2026</creationDate>
   <copyright>Copyright (C) 2026 Vast Development Method. All rights reserved.</copyright>
   <license>GNU General Public License version 3 or later; see LICENSE</license>
-  <version>0.1.0</version>
+  <version>0.1.1</version>
   <description>COM_JOOMENGINE_MCP_XML_DESCRIPTION</description>
   <namespace path="src">VDM\Component\JoomEngineMcp</namespace>
   <scriptfile>Joomengine_mcpInstallerScript.php</scriptfile>
@@ -32,7 +32,7 @@
     </submenu>
     <files folder="admin">
       <folder>src</folder><folder>services</folder><folder>forms</folder><folder>tmpl</folder>
-      <folder>layouts</folder><folder>sql</folder><folder>language</folder>
+      <folder>layouts</folder><folder>sql</folder><folder>language</folder><folder>cli</folder>
       <folder>vendor</folder><folder>data</folder><filename>access.xml</filename><filename>config.xml</filename>
       <filename>LICENSE</filename>
     </files>
@@ -51,7 +51,7 @@
   </sql></uninstall>
   <update><schemas schemapath="sql/updates" /></update>
   <updateservers>
-    <server type="extension" priority="1" name="JoomEngine MCP updates">https://raw.githubusercontent.com/joomengine/mcp_component/main/joomengine_mcp_update_server.xml</server>
+    <server type="extension" priority="1" name="JoomEngine MCP updates">https://github.com/joomengine/mcp_component/releases/latest/download/joomengine_mcp_update_server.xml</server>
   </updateservers>
   <changelogurl>https://raw.githubusercontent.com/joomengine/mcp_component/main/changelog.xml</changelogurl>
 </extension>

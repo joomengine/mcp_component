@@ -39,4 +39,18 @@ final class JoomEngineMcpComponent extends MVCComponent implements ConsoleRuntim
 	{
 		return $this->runtime->console($application);
 	}
+
+	/**
+	 * Enter the fixed worker using its one-time server-issued dispatch capability.
+	 *
+	 * @param ConsoleApplication $application Isolated local bootstrap.
+	 * @param string $id Durable job identifier.
+	 * @param string $ticket One-time worker secret delivered through stdin.
+	 * @return array<string,mixed> Principal-owned observed outcome.
+	 * @since 0.1.1
+	 */
+	public function runJobWorker(ConsoleApplication $application, string $id, string $ticket): array
+	{
+		return $this->runtime->work($application, $id, $ticket);
+	}
 }
