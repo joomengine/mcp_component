@@ -106,6 +106,11 @@ final class CatalogueBuilder
 		$routes = $api['routes'] ?? [];
 		foreach ($routes as $route)
 		{
+			if (ApiRegistry::unsupportedReason($route) !== null)
+			{
+				throw new OperationException('JCB_INVENTORY_INVALID', 'An API route requires a reviewed specialized adapter.');
+			}
+
 			$method = $route['method'];
 			$task = substr($route['controller'], strrpos($route['controller'], '.') + 1);
 			$name = self::routeName($route);
@@ -129,6 +134,12 @@ final class CatalogueBuilder
 			{
 				$properties['offset'] = ['type' => 'integer', 'minimum' => 0, 'maximum' => 100000];
 				$properties['limit'] = ['type' => 'integer', 'minimum' => 1, 'maximum' => 500];
+				$properties['filter'] = ['type' => 'object', 'maxProperties' => 32,
+					'propertyNames' => ['pattern' => '^[A-Za-z][A-Za-z0-9_]{0,63}$'],
+					'additionalProperties' => ['type' => ['string', 'integer', 'number', 'boolean'], 'maxLength' => 2048],
+					'description' => 'Native filter names and values accepted by this installed controller; unrecognized filters may be ignored by Joomla.'];
+				$properties['ordering'] = ['type' => 'string', 'maxLength' => 190, 'pattern' => '^[A-Za-z][A-Za-z0-9_.]*$'];
+				$properties['direction'] = ['type' => 'string', 'enum' => ['asc', 'desc']];
 			}
 
 			if ($body)
@@ -148,8 +159,15 @@ final class CatalogueBuilder
 				'input_schema_id' => $input, 'output_schema_id' => $output, 'definition' => Json::encode($definition)]);
 			$config = ['method' => $method, 'route' => $route['route'], 'route_parameters' => $parameters,
 				'paginated' => $list, 'body_policy' => $body ? 'required' : 'none', 'operation' => $operation,
-				'body_defaults' => (object) [], 'query_defaults' => (object) [], 'authentication' => 'joomla-api-token',
+				'body_defaults' => (object) ($body ? self::dataDefaults($route) : []),
+				'query_defaults' => (object) self::dataDefaults($route), 'authentication' => 'joomla-api-token',
 				'response_shape' => 'jsonapi', 'preserve_fields' => [], 'derived_fields' => []];
+
+			if ($list)
+			{
+				$config['native_filter'] = true;
+				$config['query_map'] = ['ordering' => 'list[ordering]', 'direction' => 'list[direction]'];
+			}
 
 			if (in_array($operation, ['create', 'update', 'delete'], true))
 			{
@@ -158,7 +176,9 @@ final class CatalogueBuilder
 				foreach ($routes as $read)
 				{
 					if ($read['method'] === 'GET' && $read['controller'] === $controller . '.displayItem'
-						&& in_array('id', $read['variables'], true))
+						&& in_array('id', $read['variables'], true)
+						&& rtrim($read['route'], '/') === ($operation === 'create' ? rtrim($route['route'], '/') . '/:id' : rtrim($route['route'], '/'))
+						&& Json::canonical(self::dataDefaults($read)) === Json::canonical(self::dataDefaults($route)))
 					{
 						$config['read_action'] = self::routeName($read);
 						break;
@@ -195,6 +215,20 @@ final class CatalogueBuilder
 		unset($records);
 
 		return ['source' => $source, 'entities' => $rows];
+	}
+
+	/** @param array $route Native registered defaults. @return array Fixed controller input without router metadata. @since 0.1.1 */
+	private static function dataDefaults(array $route): array
+	{
+		$defaults = $route['defaults'];
+		unset($defaults['component'], $defaults['public'], $defaults['format']);
+
+		foreach ($route['variables'] as $variable)
+		{
+			unset($defaults[$variable]);
+		}
+
+		return $defaults;
 	}
 
 	/** @param array $route Actual registered API method/path. @return string Stable route identity. @since 0.1.0 */

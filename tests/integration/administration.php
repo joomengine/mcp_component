@@ -15,6 +15,7 @@ use VDM\Component\JoomEngineMcp\Administrator\Administration\Operations;
 use VDM\Component\JoomEngineMcp\Administrator\Database\JoomlaStore;
 use VDM\Component\JoomEngineMcp\Administrator\Installer\SeedUpdater;
 use VDM\Component\JoomEngineMcp\Administrator\Security\Envelope;
+use VDM\Component\JoomEngineMcp\Administrator\Service\Json;
 
 require __DIR__ . '/bootstrap.php';
 $db = $container->get(DatabaseInterface::class);
@@ -37,6 +38,7 @@ $check = static function (bool $condition, string $name) use (&$checks): void
 $check($admin->id > 0 && $admin->authorise('core.admin'), 'Native administrator identity');
 $store = new JoomlaStore($db);
 $ids = [];
+$jobFixtures = [];
 try
 {
 	foreach (['provider', 'schema', 'action', 'binding', 'tool', 'resource', 'prompt', 'target'] as $entity)
@@ -93,9 +95,94 @@ try
 	$denied = $factory->createModel('Provider', 'Administrator', ['ignore_request' => true]);
 	$denied->setCurrentUser($guest);
 	$check(!$denied->save($data) && $denied->getItem($id) === false, 'Unauthorized model reads and writes are denied');
+
+	foreach (['job', 'artifact'] as $kind)
+	{
+		$operationsModel = $factory->createModel('Operations', 'Administrator', ['ignore_request' => true]);
+		$operationsModel->setCurrentUser($admin);
+		$operationsModel->setState('filter.kind', $kind);
+		$operationsModel->setState('list.limit', 10);
+		$check(is_array($operationsModel->getItems()), 'Native bounded administrator ' . $kind . ' metadata list');
+	}
+
+	$envelope = new Envelope((string) $app->get('secret'));
+	$operations = new Operations($store, $envelope);
+	$fixture = static function (string $status) use ($store, &$jobFixtures, $admin): array
+	{
+		$now = time();
+		$owner = hash('sha256', 'joomla:' . $admin->id);
+		$executionId = Json::uuid();
+		$planId = Json::uuid();
+		$jobId = Json::uuid();
+		$jobFixtures[] = ['job' => $jobId, 'execution' => $executionId, 'plan' => $planId];
+		$store->insert('plan', ['uuid' => $planId, 'principal_key' => $owner, 'action_id' => 1, 'binding_id' => 1,
+			'revision' => hash('sha256', 'administrator-fixture'), 'token_hash' => hash('sha256', random_bytes(32)),
+			'fingerprint' => hash('sha256', $executionId), 'input_cipher' => '', 'preview_json' => '{}', 'grant_uuid' => '',
+			'idempotency_key' => Json::uuid(), 'status' => 'executing', 'expires_at' => $now + 300, 'created_at' => $now, 'version' => 1]);
+		$store->insert('execution', ['uuid' => $executionId, 'principal_key' => $owner, 'plan_uuid' => $planId,
+			'idempotency_key' => Json::uuid(), 'fingerprint' => hash('sha256', $executionId), 'status' => 'running',
+			'result_cipher' => '', 'created_at' => $now, 'updated_at' => $now, 'version' => 1]);
+		$store->insert('lease', ['resource_key' => hash('sha256', 'administrator-fixture:' . $executionId),
+			'owner_uuid' => $executionId, 'expires_at' => $now + 120]);
+		$id = $store->insert('job', ['uuid' => $jobId, 'principal_key' => $owner, 'principal_id' => 'joomla:' . $admin->id,
+			'track' => 'api', 'action_name' => 'fixture.administration', 'execution_uuid' => $executionId,
+			'token_hash' => hash('sha256', random_bytes(32)), 'payload_cipher' => '', 'result_cipher' => '', 'status' => $status,
+			'progress' => 0, 'message' => 'Administrator cancellation fixture; no native mutation is dispatched.', 'cancel_requested' => 0,
+			'worker_uuid' => $status === 'running' ? Json::uuid() : '', 'lease_until' => $status === 'running' ? $now + 120 : 0,
+			'created_at' => $now, 'updated_at' => $now, 'expires_at' => $now + 300, 'version' => 1]);
+
+		return $store->one('job', ['id' => $id]);
+	};
+	$queued = $fixture('queued');
+	$deniedCancellation = false;
+
+	try
+	{
+		$operations->cancelJob($guest, (int) $queued['id'], 1);
+	}
+	catch (RuntimeException $error)
+	{
+		$deniedCancellation = $error->getCode() === 403;
+	}
+
+	$check($deniedCancellation && $store->one('job', ['id' => (int) $queued['id']])['status'] === 'queued', 'Unauthorized job cancellation cannot change persisted state');
+	$operations->cancelJob($admin, (int) $queued['id'], 1);
+	$cancelledJob = $store->one('job', ['id' => (int) $queued['id']]);
+	$cancelledExecution = $store->one('execution', ['uuid' => $queued['execution_uuid']]);
+	$outcome = Json::decode($envelope->decrypt($cancelledExecution['result_cipher'], 'execution:' . $queued['principal_key'] . ':' . $queued['execution_uuid']));
+	$check($cancelledJob['status'] === 'cancelled' && $cancelledJob['token_hash'] === '' && $cancelledExecution['status'] === 'completed'
+		&& $outcome['verification']['effects'] === 'not-started', 'Queued administrator cancellation persists a known non-executed outcome');
+	$check($store->one('lease', ['owner_uuid' => $queued['execution_uuid']]) === null, 'Queued cancellation releases only the observed job execution lease');
+	$staleCancellation = false;
+
+	try
+	{
+		$operations->cancelJob($admin, (int) $queued['id'], 1);
+	}
+	catch (RuntimeException $error)
+	{
+		$staleCancellation = $error->getCode() === 409;
+	}
+
+	$check($staleCancellation, 'Stale administrator job changes fail optimistic concurrency checks');
+	$running = $fixture('running');
+	$operations->cancelJob($admin, (int) $running['id'], 1);
+	$requested = $store->one('job', ['id' => (int) $running['id']]);
+	$check($requested['status'] === 'running' && (int) $requested['cancel_requested'] === 1
+		&& $store->one('execution', ['uuid' => $running['execution_uuid']])['status'] === 'running'
+		&& $store->one('lease', ['owner_uuid' => $running['execution_uuid']]) !== null, 'Running administrator cancellation requests stop without asserting rollback or releasing a live lease');
 }
 finally
 {
+	foreach ($jobFixtures as $fixture)
+	{
+		$store->remove('audit', ['execution_uuid' => $fixture['execution']]);
+		$store->remove('job', ['uuid' => $fixture['job']]);
+		$store->remove('lease', ['owner_uuid' => $fixture['execution']]);
+		$store->remove('execution', ['uuid' => $fixture['execution']]);
+		$store->remove('plan', ['uuid' => $fixture['plan']]);
+	}
+
 	foreach (array_reverse($ids, true) as $entity => $id)
 	{
 		$model = $factory->createModel(ucfirst($entity), 'Administrator', ['ignore_request' => true]);

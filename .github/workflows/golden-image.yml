@@ -40,13 +40,24 @@ jobs:
         uses: actions/checkout@v7
         with:
           repository: joomengine/mcp_plugin
-          ref: cce3d3d0d510e306097f0c4c2ad091fdac3a0813
+          ref: 873c46742d1ee95d661779e73649fcedaf069ff4
           path: build/plugin-source
           persist-credentials: false
+      - name: Check out the remote client bridge under test
+        uses: actions/checkout@v7
+        with:
+          repository: joomengine/mcp_client
+          ref: feature/standalone-php-client
+          path: build/client-source
+          persist-credentials: false
+      - name: Install the client dependencies for the remote acceptance scenario
+        working-directory: build/client-source
+        run: composer install --no-interaction --prefer-dist --no-progress
       - name: Install the component into the JCB golden image and exercise native Joomla
         env:
           COMPOSE_PROJECT_NAME: mcp-${{ github.run_id }}-${{ github.run_attempt }}
           MCP_PLUGIN_SOURCE: ${{ github.workspace }}/build/plugin-source
+          MCP_CLIENT_SOURCE: ${{ github.workspace }}/build/client-source
         run: bash tests/golden-image/run.sh
       - name: Preserve redacted installation and execution evidence
         if: always()

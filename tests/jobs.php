@@ -12,6 +12,7 @@ use VDM\Component\JoomEngineMcp\Administrator\Job\Artifacts;
 use VDM\Component\JoomEngineMcp\Administrator\Job\Jobs;
 use VDM\Component\JoomEngineMcp\Administrator\Security\Envelope;
 use VDM\Component\JoomEngineMcp\Administrator\Service\Json;
+use VDM\Component\JoomEngineMcp\Administrator\Service\Settings;
 use VDM\Component\JoomEngineMcp\Tests\Support\MemoryStore;
 use VDM\Component\JoomEngineMcp\Tests\Support\Principal;
 
@@ -107,6 +108,28 @@ $payload = ['action' => 'fixture.compile', 'prepared' => ['definition' => 'secre
 
 try
 {
+	$configuration = new Settings(['php_cli_binary' => PHP_BINARY, 'artifact_directory' => $base, 'job_timeout' => 3600]);
+	$check($configuration->get('php_cli_binary') === PHP_BINARY && $configuration->get('artifact_directory') === $base && $configuration->get('job_timeout') === 3600, 'Trusted worker configuration retains its exact validated paths and timeout.');
+	mkdir($base . '/public', 0700);
+	define('JPATH_ROOT', $base . '/public');
+
+	foreach ([['php_cli_binary' => 'php'], ['php_cli_binary' => PHP_BINARY . "\n"], ['job_timeout' => 3601],
+		['artifact_directory' => $base . '/public'], ['artifact_directory' => $base . '/missing']] as $invalid)
+	{
+		$denied = false;
+
+		try
+		{
+			new Settings($invalid);
+		}
+		catch (InvalidArgumentException)
+		{
+			$denied = true;
+		}
+
+		$check($denied, 'Unsafe or unusable worker configuration is rejected before dispatch.');
+	}
+
 	$execution = $claim();
 	$queued = $jobs->enqueue($execution, $payload);
 	$id = $queued['jobId'];
@@ -161,6 +184,12 @@ try
 	file_put_contents($base . '/owned/' . $artifact['artifactId'] . '.bin', 'tampered');
 	$reject(static fn () => $jobs->readArtifact($artifact['artifactId']), 'ARTIFACT_CHANGED');
 	$largeFiles = new Artifacts($store, $owner, $base . '/owned', [$base . '/native'], $clock, 1048576, 2097152, 60);
+	$staging = $base . '/native/joomengine-mcp-jcb-' . bin2hex(random_bytes(16));
+	mkdir($staging, 0700);
+	$stagedPath = $staging . '/' . bin2hex(random_bytes(16)) . '.zip';
+	file_put_contents($stagedPath, 'installer preservation bytes');
+	$staged = $largeFiles->capture($id, ['path' => $stagedPath, 'staged' => true]);
+	$check(!file_exists($stagedPath) && !is_dir($staging) && base64_decode($largeFiles->read($staged['artifactId'])['data'], true) === 'installer preservation bytes', 'Verified installer preservation copies are retained before their strictly named staging files are removed.');
 	$largeBytes = str_repeat('verified block bytes ', 30000);
 	file_put_contents($base . '/native/large.zip', $largeBytes);
 	$large = $largeFiles->capture($id, ['path' => $base . '/native/large.zip']);
@@ -214,8 +243,22 @@ try
 	$reject(static fn () => $jobs->run($retryId, $oldTicket, static fn (): array => []), 'JOB_UNAVAILABLE');
 	$jobs->cancel($retryId);
 	$now += 61;
-	$check($files->purgeExpired() === 2 && $jobs->artifacts($id)['artifacts'] === [], 'Expired owned artifacts are removed with their metadata.');
+	$check($files->purgeExpired() === 3 && $jobs->artifacts($id)['artifacts'] === [], 'Expired owned artifacts are removed with their metadata.');
 	$check($otherJobs->listing()['jobs'] === [], 'Cross-principal listings disclose no job metadata.');
+	$seen = [];
+	$offset = 0;
+
+	do
+	{
+		$page = $jobs->listing(2, $offset);
+		$seen = array_merge($seen, array_column($page['jobs'], 'jobId'));
+		$offset = $page['nextOffset'];
+	}
+	while ($offset !== null);
+
+	$check(count($seen) === count($store->find('job', ['principal_key' => hash('sha256', $owner->getId())]))
+		&& count($seen) === count(array_unique($seen)), 'Bounded job pagination reaches every owned row without duplicate job IDs.');
+	$reject(static fn () => $jobs->listing(10, -1), 'INVALID_INPUT');
 	echo Json::encode(['checks' => $checks, 'jobs' => 'passed with transactional persistence double', 'artifacts' => 'passed with actual filesystem copies', 'liveJoomla' => 'not run by this contract suite']) . PHP_EOL;
 }
 finally

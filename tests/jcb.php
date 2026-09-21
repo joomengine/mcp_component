@@ -12,6 +12,7 @@ use VDM\Component\JoomEngineMcp\Administrator\Jcb\CatalogueBuilder;
 use VDM\Component\JoomEngineMcp\Administrator\Jcb\CatalogueSynchronizer;
 use VDM\Component\JoomEngineMcp\Administrator\Jcb\CommandHandler;
 use VDM\Component\JoomEngineMcp\Administrator\Jcb\CommandInput;
+use VDM\Component\JoomEngineMcp\Administrator\Jcb\CompiledArchives;
 use VDM\Component\JoomEngineMcp\Administrator\Security\SchemaValidator;
 use VDM\Component\JoomEngineMcp\Administrator\Service\Json;
 use VDM\Component\JoomEngineMcp\Tests\Support\MemoryStore;
@@ -137,5 +138,30 @@ $check($again['preserved'] >= 1 && $store->one('action', ['id' => $custom['id']]
 $denied = new Principal();
 $denied->deny('core.admin', 'com_joomengine_mcp');
 $reject(static fn () => $sync->synchronize($commands, $routes, $denied), 'JCB_CATALOGUE_DENIED');
+
+$temporary = sys_get_temp_dir() . '/mcp-jcb-test-' . bin2hex(random_bytes(8));
+mkdir($temporary, 0700);
+$zipPath = $temporary . '/compiled-component.zip';
+$zip = new ZipArchive();
+$zip->open($zipPath, ZipArchive::CREATE | ZipArchive::EXCL);
+$zip->addFromString('component.xml', '<extension type="component"><name>Example</name></extension>');
+$zip->close();
+$archives = new CompiledArchives($temporary);
+$captured = $archives->capture([$zipPath], true);
+$check(count($captured) === 1 && $captured[0]['staged'] === true && hash_file('sha256', $zipPath) === $captured[0]['sha256'], 'Before-install capture preserves exact compiled ZIP bytes.');
+unlink($zipPath);
+$afterCleanup = $archives->capture([$zipPath]);
+$check(is_file($afterCleanup[0]['path']) && $afterCleanup === $captured, 'Native installer cleanup cannot destroy the retained compiler result.');
+$check((fileperms(dirname($captured[0]['path'])) & 0777) === 0700 && (fileperms($captured[0]['path']) & 0777) === 0600, 'Staged archives have owner-only permissions.');
+$invalid = $temporary . '/invalid.zip';
+file_put_contents($invalid, 'not an archive');
+$reject(static fn () => (new CompiledArchives($temporary))->capture([$invalid]), 'JCB_ARTIFACT_INVALID');
+$outside = tempnam(sys_get_temp_dir(), 'mcp-jcb-outside-');
+$reject(static fn () => $archives->capture([$outside], true), 'JCB_ARTIFACT_MISSING');
+unlink($outside);
+unlink($invalid);
+unlink($captured[0]['path']);
+rmdir(dirname($captured[0]['path']));
+rmdir($temporary);
 
 echo 'JCB authority, frozen-input and catalogue contracts passed: ' . $checks . PHP_EOL;

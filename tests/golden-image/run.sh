@@ -7,10 +7,17 @@ MCP_PLUGIN_SOURCE="$(realpath -- "$MCP_PLUGIN_SOURCE")"
 [[ -f "$MCP_PLUGIN_SOURCE/joomengine_mcp.xml" && -f "$MCP_PLUGIN_SOURCE/tests/installed.php" ]]
 out="$root/build/evidence/golden"
 mkdir -p "$out"
+tls=''
+work="$(mktemp -d)"
 compose() { docker compose -f "$root/tests/golden-image/compose.yml" "$@"; }
 cleanup() {
   local status=$?
   trap - EXIT INT TERM
+  if [[ -n "$tls" ]]; then
+    kill "$tls" 2>/dev/null || true
+    wait "$tls" 2>/dev/null || true
+  fi
+  rm -rf -- "$work"
   compose logs --no-color > "$out/container.log" 2>&1 || true
   compose down -v --remove-orphans > "$out/cleanup.log" 2>&1 || true
   exit "$status"
@@ -66,10 +73,45 @@ fixture() {
 }
 fixture /tmp/mcp-component/tests/golden-image/prepare.php > "$out/prepare.log" 2>&1
 fixture /tmp/mcp-component/tests/integration/prepare-http.php >> "$out/prepare.log" 2>&1
-for suite in installation administration http catalogue-mcp acl-mcp stdio browser; do
+for suite in installation administration http catalogue-mcp acl-mcp stdio browser jcb-api; do
   fixture "/tmp/mcp-component/tests/integration/$suite.php" > "$out/$suite.log" 2>&1
 done
 fixture /tmp/mcp-plugin/tests/installed.php > "$out/console-plugin.log" 2>&1
+fixture /tmp/mcp-component/tests/golden-image/jcb-acceptance.php > "$out/jcb-acceptance.log" 2>&1
+if [[ -n "${MCP_CLIENT_SOURCE:-}" ]]; then
+  MCP_CLIENT_SOURCE="$(realpath -- "$MCP_CLIENT_SOURCE")"
+  [[ -f "$MCP_CLIENT_SOURCE/bin/joomengine-mcp" && -f "$MCP_CLIENT_SOURCE/vendor/autoload.php" ]]
+  git -C "$MCP_CLIENT_SOURCE" rev-parse HEAD > "$out/client-source.txt"
+  compose exec -T joomla mkdir -p /tmp/mcp-client
+  for path in bin src vendor composer.json; do
+    compose cp "$MCP_CLIENT_SOURCE/$path" "joomla:/tmp/mcp-client/$path"
+  done
+  openssl req -x509 -newkey rsa:2048 -nodes -keyout "$work/client.key" -out "$work/client.crt" \
+    -days 2 -subj '/CN=host.docker.internal' -addext 'subjectAltName=DNS:host.docker.internal' \
+    > "$out/client-tls-setup.log" 2>&1
+  compose cp "$work/client.crt" joomla:/tmp/mcp-client-ca.crt
+  node "$root/tests/integration/tls-proxy.mjs" "http://127.0.0.1:${MCP_TEST_GOLDEN_HTTP_PORT:-18080}" \
+    "${MCP_TEST_GOLDEN_TLS_PORT:-18443}" "$work/client.key" "$work/client.crt" 0.0.0.0 > "$out/client-tls-proxy.log" 2>&1 &
+  tls=$!
+  tls_ready=0
+  for attempt in $(seq 1 50); do
+    if curl --silent --noproxy '*' --cacert "$work/client.crt" \
+      --resolve "host.docker.internal:${MCP_TEST_GOLDEN_TLS_PORT:-18443}:127.0.0.1" \
+      --output /dev/null "https://host.docker.internal:${MCP_TEST_GOLDEN_TLS_PORT:-18443}/api/index.php"; then
+      tls_ready=1
+      break
+    fi
+    sleep 0.2
+  done
+  [[ "$tls_ready" == 1 ]] || { echo 'The trusted client TLS fixture did not start.' >&2; exit 1; }
+  bridge_args="$(php -r 'echo json_encode(["-d", "curl.cainfo=/tmp/mcp-client-ca.crt", "/tmp/mcp-client/bin/joomengine-mcp", "connect", $argv[1]], JSON_THROW_ON_ERROR);' "https://host.docker.internal:${MCP_TEST_GOLDEN_TLS_PORT:-18443}")"
+  compose exec -T -e MCP_TEST_ALLOW_DESTRUCTIVE=1 -e JOOMLA_ROOT=/var/www/html \
+    -e MCP_COMPONENT_SOURCE=/tmp/mcp-component -e MCP_TEST_BASE_URL=http://127.0.0.1:80 \
+    -e MCP_TEST_TOKEN_FILE=/tmp/mcp-fixture-token -e MCP_TEST_JCB_TRANSPORT=api \
+    -e MCP_TEST_STDIO_COMMAND=php -e "MCP_TEST_STDIO_ARGS_JSON=$bridge_args" \
+    joomla sh -c 'export JOOMENGINE_MCP_TOKEN="$(cat /tmp/mcp-fixture-token)"; exec php /tmp/mcp-component/tests/golden-image/jcb-acceptance.php' \
+    > "$out/client-jcb-acceptance.log" 2>&1
+fi
 fixture /tmp/mcp-component/tests/golden-image/registry.php > "$out/jcb-command-registry.json" 2> "$out/registry-errors.log"
 php -r '$v=json_decode(file_get_contents($argv[1]),true,512,JSON_THROW_ON_ERROR); $c=array_filter($v["commands"]??[],static fn($c)=>str_starts_with($c["name"],"componentbuilder:")); if(count($c)<2)throw new RuntimeException("The installed JCB command registry is empty."); echo "Verified ",count($c)," native JCB command definitions\n";' "$out/jcb-command-registry.json" > "$out/registry.log"
 fixture /tmp/mcp-component/tests/integration/lifecycle.php prepare > "$out/upgrade-prepare.log" 2>&1
@@ -77,5 +119,5 @@ compose exec -T joomla php /var/www/html/cli/joomla.php extension:install --path
 fixture /tmp/mcp-component/tests/integration/lifecycle.php verify > "$out/upgrade-verify.log" 2>&1
 fixture /tmp/mcp-component/tests/integration/installation.php > "$out/upgraded-installation.log" 2>&1
 fixture /tmp/mcp-component/tests/integration/lifecycle.php uninstall > "$out/uninstall.log" 2>&1
-printf '%s\n' 'Native golden-image installation, administrator-to-MCP, HTTP ACL, stdio CRUD, upgrade and uninstall tests passed. JCB command execution is a separate required test.' > "$out/summary.txt"
+printf '%s\n' 'Native golden-image installation, administrator-to-MCP, HTTP ACL, stdio CRUD, exact JCB inventory, actual package/compiler jobs, owned ZIP downloads, configured remote HTTPS bridge, upgrade and uninstall tests passed.' > "$out/summary.txt"
 cat "$out/summary.txt"

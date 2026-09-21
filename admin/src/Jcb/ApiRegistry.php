@@ -36,6 +36,7 @@ final class ApiRegistry
 	{
 		$routes = [];
 		$unsupported = [];
+		$registered = [];
 
 		foreach ($this->router->getRoutes() as $route)
 		{
@@ -58,19 +59,22 @@ final class ApiRegistry
 
 			foreach ($route->getMethods() as $method)
 			{
-				if (!in_array($method, ['GET', 'POST', 'PATCH', 'PUT', 'DELETE'], true))
-				{
-					$unsupported[$method . ' ' . $path] = 'The method is not an MCP data operation.';
-					continue;
-				}
-
 				$key = $method . ' ' . $path;
 				$definition = ['method' => $method, 'route' => $path, 'controller' => $controller,
 					'defaults' => $defaults, 'variables' => $route->getRouteVariables(), 'rules' => $route->getRules()];
 
-				if (isset($routes[$key]) && Json::canonical($routes[$key]) !== Json::canonical($definition))
+				if (isset($registered[$key]) && Json::canonical($registered[$key]) !== Json::canonical($definition))
 				{
 					throw new OperationException('JCB_ROUTE_AMBIGUOUS', 'Two installed plugins register different JCB handlers for the same route.');
+				}
+
+				$registered[$key] = $definition;
+				$reason = self::unsupportedReason($definition);
+
+				if ($reason !== null)
+				{
+					$unsupported[$key] = $reason;
+					continue;
 				}
 
 				$routes[$key] = $definition;
@@ -81,6 +85,70 @@ final class ApiRegistry
 		ksort($unsupported, SORT_STRING);
 
 		return ['routes' => array_values($routes), 'unsupported' => $unsupported,
-			'fingerprint' => hash('sha256', Json::canonical($routes))];
+			'fingerprint' => hash('sha256', Json::canonical(['routes' => $routes, 'unsupported' => $unsupported]))];
 	}
+
+	/**
+	 * Review only source-backed Joomla CRUD contracts; method names do not imply safety.
+	 *
+	 * @param array $route An actual router registration.
+	 * @return ?string Explicit diagnostic, or null for a supported contract.
+	 * @since 0.1.1
+	 */
+	public static function unsupportedReason(array $route): ?string
+	{
+		$task = substr($route['controller'], strrpos($route['controller'], '.') + 1);
+		$operations = ['GET' => ['displayList', 'displayItem'], 'POST' => ['add'],
+			'PATCH' => ['edit'], 'PUT' => ['edit'], 'DELETE' => ['delete']];
+
+		if (!in_array($task, $operations[$route['method']] ?? [], true))
+		{
+			return 'The native method/task pair requires a reviewed specialized adapter.';
+		}
+
+		$variables = $route['variables'];
+		if (count($variables) !== count(array_unique($variables)))
+		{
+			return 'Repeated route variables require a reviewed adapter.';
+		}
+
+		foreach ($variables as $variable)
+		{
+			if (in_array($variable, ['data', 'offset', 'limit', 'filter', 'ordering', 'direction', 'etag', 'site'], true))
+			{
+				return 'A route variable collides with a reserved action input.';
+			}
+
+			$rule = $route['rules'][$variable] ?? '';
+			if (!in_array($rule, ['', '(\\d+)', '\\d+', '[0-9]+', '([0-9]+)', '[A-Za-z0-9][A-Za-z0-9._-]*'], true))
+			{
+				return 'A specialized route-variable rule requires a reviewed encoder.';
+			}
+		}
+
+		if (in_array($task, ['displayItem', 'edit', 'delete'], true)
+			&& (!in_array('id', $variables, true)
+				|| !in_array($route['rules']['id'] ?? '', ['(\\d+)', '\\d+', '[0-9]+', '([0-9]+)'], true)))
+		{
+			return 'Native item operations require an explicit numeric id route variable.';
+		}
+
+		foreach ($route['defaults'] as $name => $value)
+		{
+			if (in_array($name, ['component', 'public', 'format'], true))
+			{
+				continue;
+			}
+
+			if (!is_string($name) || preg_match('/\A[A-Za-z][A-Za-z0-9_]*\z/D', $name) !== 1
+				|| in_array($name, ['option', 'controller', 'task'], true)
+				|| !is_scalar($value) || strlen((string) $value) > 2048)
+			{
+				return 'Specialized route defaults require a reviewed adapter.';
+			}
+		}
+
+		return null;
+	}
+
 }
