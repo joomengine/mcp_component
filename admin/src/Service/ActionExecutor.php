@@ -9,11 +9,15 @@
 namespace VDM\Component\JoomEngineMcp\Administrator\Service;
 
 
+use Closure;
 use Throwable;
+use VDM\Component\JoomEngineMcp\Administrator\Contract\DeferredHandlerInterface;
+use VDM\Component\JoomEngineMcp\Administrator\Contract\PlannedHandlerInterface;
 use VDM\Component\JoomEngineMcp\Administrator\Contract\PrincipalInterface;
 use VDM\Component\JoomEngineMcp\Administrator\Domain\OperationException;
 use VDM\Component\JoomEngineMcp\Administrator\Handler\ApiHandler;
 use VDM\Component\JoomEngineMcp\Administrator\Handler\ApiRequestBuilder;
+use VDM\Component\JoomEngineMcp\Administrator\Job\Jobs;
 use VDM\Component\JoomEngineMcp\Administrator\Security\SchemaValidator;
 use VDM\Component\JoomEngineMcp\Administrator\State\Audit;
 use VDM\Component\JoomEngineMcp\Administrator\State\Executions;
@@ -49,6 +53,10 @@ final class ActionExecutor
 	private Settings $settings;
 	/** @var ApiRequestBuilder Preflight without network mutation. @since 0.1.0 */
 	private ApiRequestBuilder $requests;
+	/** @var ?Jobs Durable deferred operation service. @since 0.1.1 */
+	private ?Jobs $jobs;
+	/** @var ?Closure Checks the fixed worker before consuming a grant. @since 0.1.1 */
+	private ?Closure $workerReady;
 
 	/**
 	 * Compose authorization, validation, execution and durable state boundaries.
@@ -64,7 +72,7 @@ final class ActionExecutor
 	 * @param ApiRequestBuilder $requests Safe API request construction.
 	 * @since 0.1.0
 	 */
-	public function __construct(Catalogue $catalogue, SchemaValidator $schemas, PrincipalInterface $principal, HandlerRegistry $handlers, Permissions $permissions, Executions $executions, Audit $audit, Settings $settings, ApiRequestBuilder $requests)
+	public function __construct(Catalogue $catalogue, SchemaValidator $schemas, PrincipalInterface $principal, HandlerRegistry $handlers, Permissions $permissions, Executions $executions, Audit $audit, Settings $settings, ApiRequestBuilder $requests, ?Jobs $jobs = null, ?callable $workerReady = null)
 	{
 		$this->catalogue = $catalogue;
 		$this->schemas = $schemas;
@@ -75,6 +83,8 @@ final class ActionExecutor
 		$this->audit = $audit;
 		$this->settings = $settings;
 		$this->requests = $requests;
+		$this->jobs = $jobs;
+		$this->workerReady = $workerReady === null ? null : Closure::fromCallable($workerReady);
 	}
 
 	/**
@@ -147,20 +157,20 @@ final class ActionExecutor
 	public function plan(string $name, array $input, string $idempotencyKey, bool $dryRun = false, string $transport = 'auto'): array
 	{
 		$resolved = $this->resolve($name, $transport, 'write');
+		$handler = $this->handlers->get($resolved['binding']['handler']);
+		$this->requireWorker($handler);
 		Json::requireUuid($idempotencyKey);
 		unset($input['_edgeConfirmed'], $input['dryRun']);
 
-		if ($resolved['binding']['track'] === 'cli')
+		if ($resolved['binding']['track'] === 'cli' && !$handler instanceof PlannedHandlerInterface)
 		{
 			$input['dryRun'] = true;
 			$input['_edgeConfirmed'] = false;
 		}
 
 		$input = $this->validate($resolved, $input);
-		$before = $this->snapshot($resolved, $input);
-		$preflight = $resolved['binding']['track'] === 'cli'
-			? $this->invoke($resolved, $input)
-			: $this->requests->build($input, $resolved['binding']['configuration'], $before['item'] ?? []);
+		$before = $handler instanceof PlannedHandlerInterface ? null : $this->snapshot($resolved, $input);
+		$preflight = $this->preflight($resolved, $input, $before);
 		$preview = [
 			'site' => $this->settings->get('site_alias'), 'action' => $name,
 			'transport' => $resolved['binding']['track'], 'method' => $resolved['binding']['configuration']['method'] ?? 'native',
@@ -177,6 +187,7 @@ final class ActionExecutor
 
 		return $this->executions->plan($resolved, [
 			'input' => $input, 'before' => $before,
+			'prepared' => $handler instanceof PlannedHandlerInterface ? $preflight : null,
 			'preflight_hash' => hash('sha256', Json::canonical($preflight)),
 		], $preview, $idempotencyKey, $grant);
 	}
@@ -192,7 +203,24 @@ final class ActionExecutor
 	{
 		$plan = $this->executions->resolve($token);
 		$resolved = $this->resolve((string) $plan['preview']['action'], (string) $plan['preview']['transport'], 'write');
-		$previous = $this->executions->previous($plan);
+		try
+		{
+			$previous = $this->executions->previous($plan);
+		}
+		catch (OperationException $error)
+		{
+			$id = $error->toArray()['details']['executionId'] ?? null;
+
+			if ($error->getIdentifier() !== 'EXECUTION_UNCERTAIN' || $this->jobs === null || !is_string($id)
+				|| ($job = $this->jobs->forExecution($id)) === null)
+			{
+				throw $error;
+			}
+
+			return ['site' => $this->settings->get('site_alias'), 'action' => $resolved['action']['name'],
+				'executionId' => $id, 'job' => $job, 'idempotentReplay' => true,
+				'verification' => ['status' => 'pending', 'reason' => 'Read the existing job for its observed outcome.']];
+		}
 
 		if ($previous !== null)
 		{
@@ -200,17 +228,17 @@ final class ActionExecutor
 		}
 
 		$this->executions->assertFresh($plan, $resolved);
+		$handler = $this->handlers->get($resolved['binding']['handler']);
+		$this->requireWorker($handler);
 		$input = $this->validate($resolved, $plan['payload']['input']);
-		$before = $this->snapshot($resolved, $input);
+		$before = $handler instanceof PlannedHandlerInterface ? null : $this->snapshot($resolved, $input);
 
 		if (!hash_equals(hash('sha256', Json::canonical($plan['payload']['before'])), hash('sha256', Json::canonical($before))))
 		{
 			throw new OperationException('PRECONDITION_CHANGED', 'The Joomla resource changed after planning. Create a new plan against the current resource.');
 		}
 
-		$preflight = $resolved['binding']['track'] === 'cli'
-			? $this->invoke($resolved, $input)
-			: $this->requests->build($input, $resolved['binding']['configuration'], $before['item'] ?? []);
+		$preflight = $this->preflight($resolved, $input, $before);
 
 		if (!hash_equals($plan['payload']['preflight_hash'], hash('sha256', Json::canonical($preflight))))
 		{
@@ -222,20 +250,37 @@ final class ActionExecutor
 
 		try
 		{
-			if ($resolved['binding']['track'] === 'cli')
+			if ($handler instanceof DeferredHandlerInterface)
+			{
+				$job = $this->jobs->enqueue($execution, ['action' => $resolved['action']['name'],
+					'resolved' => $resolved, 'prepared' => $plan['payload']['prepared'],
+					'input' => $input, 'idempotencyKey' => $plan['idempotency_key']]);
+
+				return ['site' => $this->settings->get('site_alias'), 'action' => $resolved['action']['name'],
+					'executionId' => $execution['uuid'], 'job' => $job, 'idempotentReplay' => false,
+					'verification' => ['status' => 'pending', 'reason' => 'The approved operation was queued; inspect its job for completion.']];
+			}
+
+			if ($resolved['binding']['track'] === 'cli' && !$handler instanceof PlannedHandlerInterface)
 			{
 				$input['dryRun'] = false;
 				$input['_edgeConfirmed'] = true;
 			}
 
-			$mutation = $this->invoke($resolved, $input, $plan['idempotency_key'], $before['item'] ?? []);
-			$verification = $this->verify($resolved, $input, $mutation);
+			$mutation = $handler instanceof PlannedHandlerInterface
+				? $handler->apply($plan['payload']['prepared'], $resolved['binding'], $this->principal, $execution)
+				: $this->invoke($resolved, $input, $plan['idempotency_key'], $before['item'] ?? []);
+			$verification = $handler instanceof PlannedHandlerInterface
+				? $handler->verify($plan['payload']['prepared'], $mutation, $resolved['binding'], $this->principal)
+				: $this->verify($resolved, $input, $mutation);
 			$result = [
 				'site' => $this->settings->get('site_alias'), 'action' => $resolved['action']['name'],
 				'idempotencyKey' => $plan['idempotency_key'], 'mutation' => $mutation,
 				'verification' => $verification, 'idempotentReplay' => false,
 			];
-			$settled = $verification['status'] !== 'uncertain';
+			$settled = $handler instanceof PlannedHandlerInterface
+				? in_array($verification['status'] ?? '', ['verified', 'notPerformed', 'cancelled'], true)
+				: $verification['status'] !== 'uncertain';
 		}
 		catch (Throwable $error)
 		{
@@ -250,6 +295,60 @@ final class ActionExecutor
 		}
 
 		return $this->executions->finish($execution, $result, $settled, $resolved['action']['name']);
+	}
+
+	/**
+	 * Execute one authenticated worker payload after current ACL and grant checks.
+	 *
+	 * @param array<string,mixed> $payload Decrypted immutable queued operation.
+	 * @param callable $progress Durable bounded progress callback.
+	 * @param callable $cancel Polls cancellation and renews the worker lease.
+	 * @return array<string,mixed> Observed result; Jobs commits the final execution.
+	 * @since 0.1.1
+	 */
+	public function runJob(array $payload, callable $progress, callable $cancel): array
+	{
+		$this->catalogue->refresh();
+		$resolved = $this->resolve($payload['action'], $payload['resolved']['binding']['track'], 'write');
+
+		if (!hash_equals($resolved['revision'], (string) ($payload['resolved']['revision'] ?? ''))
+			|| (int) $resolved['binding']['id'] !== (int) $payload['resolved']['binding']['id'])
+		{
+			throw new OperationException('PLAN_STALE', 'The queued action definition changed before execution.');
+		}
+
+		$this->permissions->assertExecution($payload['execution'], $resolved['action']['toolset']);
+		$handler = $this->handlers->get($resolved['binding']['handler']);
+
+		if (!$handler instanceof DeferredHandlerInterface)
+		{
+			throw new OperationException('HANDLER_UNAVAILABLE', 'The queued deferred handler is unavailable.');
+		}
+
+		$progress(5, 'Current permissions and the approved definition were verified.');
+		$execution = $payload['execution'] + ['cancel' => $cancel, 'progress' => $progress];
+		$mutation = $handler->apply($payload['prepared'], $resolved['binding'], $this->principal, $execution);
+		$verification = $handler->verify($payload['prepared'], $mutation, $resolved['binding'], $this->principal);
+
+		return ['site' => $this->settings->get('site_alias'), 'action' => $resolved['action']['name'],
+			'idempotencyKey' => $payload['idempotencyKey'], 'mutation' => $mutation,
+			'verification' => $verification, 'idempotentReplay' => false];
+	}
+
+	/** @param object $handler Reviewed primitive. @return void @since 0.1.1 */
+	private function requireWorker(object $handler): void
+	{
+		if (!$handler instanceof DeferredHandlerInterface)
+		{
+			return;
+		}
+
+		if ($this->jobs === null || $this->workerReady === null)
+		{
+			throw new OperationException('WORKER_UNAVAILABLE', 'The durable operation worker is unavailable.');
+		}
+
+		($this->workerReady)();
 	}
 
 	/**
@@ -317,6 +416,29 @@ final class ActionExecutor
 	private function validate(array $resolved, array $input): array
 	{
 		return $this->schemas->input($input, $this->catalogue->schema((int) $resolved['binding']['input_schema_id']));
+	}
+
+	/**
+	 * Prepare a reviewed handler without granting legacy flags or performing writes.
+	 *
+	 * @param array<string,mixed> $resolved Authorized action and binding.
+	 * @param array<string,mixed> $input Validated operation input.
+	 * @param ?array $before Existing resource snapshot for API form merging.
+	 * @return array<string,mixed> Deterministic private preparation.
+	 * @since 0.1.0
+	 */
+	private function preflight(array $resolved, array $input, ?array $before): array
+	{
+		$handler = $this->handlers->get($resolved['binding']['handler']);
+
+		if ($handler instanceof PlannedHandlerInterface)
+		{
+			return $handler->prepare($input, $resolved['binding'], $this->principal);
+		}
+
+		return $resolved['binding']['track'] === 'cli'
+			? $this->invoke($resolved, $input)
+			: $this->requests->build($input, $resolved['binding']['configuration'], $before['item'] ?? []);
 	}
 
 	/** @param array<string,mixed> $resolved Resolution. @param array<string,mixed> $input Arguments. @param ?string $key Idempotency key. @param array<string,mixed> $current Existing form fields. @param bool $missing Expected 404. @return array<string,mixed> Handler result. @since 0.1.0 */

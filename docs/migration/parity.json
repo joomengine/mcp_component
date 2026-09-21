@@ -1,5 +1,6 @@
 {
     "source": "2cff50f4f6b440da3c684f9995a77efad32e1a36",
+    "runtimeSource": "6ddf4f9ba5cc6b5d2c35356074f71bf05e20e336bfc4a83f7abbda44ecd3ae94",
     "tools": [
         "joomla_sites_list",
         "joomla_capabilities",
@@ -24,7 +25,47 @@
         "joomla_content_article_create_plan",
         "joomla_content_article_update_plan",
         "joomla_content_article_delete_plan",
+        "joomla_write_apply",
+        "joomla_jobs_list",
+        "joomla_job_status",
+        "joomla_job_cancel",
+        "joomla_job_redispatch",
+        "joomla_job_artifacts",
+        "joomla_job_artifact_read"
+    ],
+    "upstreamTools": [
+        "joomla_sites_list",
+        "joomla_capabilities",
+        "joomla_actions_search",
+        "joomla_action_describe",
+        "joomla_action_read",
+        "joomla_permission_request",
+        "joomla_permission_approve",
+        "joomla_permissions_list",
+        "joomla_permission_revoke",
+        "joomla_action_write_plan",
+        "joomla_content_articles_list",
+        "joomla_content_article_get",
+        "joomla_extensions_list",
+        "joomla_application_config_get_safe",
+        "joomla_cli_commands_list",
+        "joomla_cli_command_help",
+        "joomla_cli_targets",
+        "joomla_companion_capabilities",
+        "joomla_cli_inventory",
+        "joomla_companion_action_read",
+        "joomla_content_article_create_plan",
+        "joomla_content_article_update_plan",
+        "joomla_content_article_delete_plan",
         "joomla_write_apply"
+    ],
+    "runtimeTools": [
+        "joomla_jobs_list",
+        "joomla_job_status",
+        "joomla_job_cancel",
+        "joomla_job_redispatch",
+        "joomla_job_artifacts",
+        "joomla_job_artifact_read"
     ],
     "actions": [
         {
@@ -2032,10 +2073,10 @@
     },
     "counts": {
         "provider": 1,
-        "schema": 407,
+        "schema": 410,
         "action": 285,
         "binding": 467,
-        "tool": 24,
+        "tool": 30,
         "resource": 1,
         "prompt": 0,
         "target": 38

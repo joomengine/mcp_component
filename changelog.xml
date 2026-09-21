@@ -1,6 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <changelogs>
   <changelog>
+    <element>com_joomengine_mcp</element><type>component</type><version>0.1.1</version>
+    <addition>
+      <item>Installed JCB catalogue synchronization and confirmed command planning.</item>
+      <item>Durable owned jobs, cancellation, recovery and verified compiler artifacts.</item>
+      <item>Combined Joomla package, immutable dependency pins and verified release update feeds.</item>
+    </addition>
+    <note><item>See CHANGELOG.md and docs/IMPLEMENTATION.md for current verification and release status.</item></note>
+  </changelog>
+  <changelog>
     <element>com_joomengine_mcp</element><type>component</type><version>0.1.0</version>
     <note><item>Development version. See CHANGELOG.md and the pull request for verified capabilities; no production release has been published.</item></note>
   </changelog>

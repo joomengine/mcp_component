@@ -1,18 +1,28 @@
 # Changelog
 
-## Unreleased
+## 0.1.1 — unreleased
 
 ### Added
 
-- Documentation-first PHP/Joomla-native database-driven MCP architecture and original-source parity contracts.
-- Runtime catalogue, safe API/native execution, permission/execution/audit state, PHP SDK protocol adapters, HTTP and console composition, portable SQL and isolated behavioural suites.
-- Installer/asset/seed-update infrastructure and request-body handling work; complete installed lifecycle verification remains pending.
-- Required first-class JCB API and CLI roadmap, pinned source/entity inventory, compiler/package effect classification, long-job/artifact requirements and full acceptance criteria.
+- Installed JCB API-route and command inventories, explicit administrator/CLI synchronization, and customization-preserving database definitions.
+- Confirmed package/compiler planning, frozen input and source/state fingerprints, and isolated native execution with retained diagnostics.
+- Durable principal-owned jobs, worker tickets and leases, progress, cancellation, queued redispatch, uncertain-outcome recovery and retained hash-verified compiler artifacts.
+- Versioned MySQL/PostgreSQL job and artifact schema updates.
+- Combined Joomla package with immutable console-plugin source selection, deterministic ZIP metadata, checksums and build provenance.
+- `.octojpack`, manual main-only release automation and component/package update feeds generated only after archive publication and download validation.
+- Package lifecycle, release validation, job/process and JCB behavioural tests, alongside installed Joomla and JCB workflows described in `docs/IMPLEMENTATION.md`.
 
 ### Changed
 
-- External Composer client and remote stdio ownership moves to `joomengine/mcp_client` / `joomengine/mcp-client`.
-- Component Composer identity is server-only `joomengine/mcp-component`; its outbound Joomla API transport moves into `admin/src/Http`, with no dependency on the external client.
-- Implementation status now records committed runtime and outstanding work instead of the original documentation-only state.
+- Background execution retains the original API user's identity and authority; a PHP worker does not grant local server-owner permissions.
+- Stale command definitions, implementation sources or approved JCB state require a new plan.
+- Component update discovery uses verified GitHub release feed assets.
 
-No production release, complete JCB runtime coverage or live installation certification is advertised.
+## 0.1.0 — development baseline
+
+- Database catalogue, schema validation, reviewed API/native handlers, grants/plans/executions/audit, SDK protocol adapters and shared console runtime.
+- Native administrator MVC/forms, assets, access rules, API routing plugin, portable SQL, dependency-complete component ZIP and installed core tests.
+- Source-pinned migration descriptors and preserved original PHP native handlers.
+- External client and remote stdio ownership separated into `mcp_client`.
+
+Release availability is established by GitHub releases, not this changelog.

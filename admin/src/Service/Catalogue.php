@@ -405,6 +405,31 @@ final class Catalogue
 			}
 		}
 
+		if (!$this->principal->isLocal())
+		{
+			foreach ([$metadata, $row['definition'] ?? []] as $definition)
+			{
+				$requirements = $definition['required_permissions'] ?? [];
+
+				if (!is_array($requirements) || !array_is_list($requirements) || count($requirements) > 64)
+				{
+					return false;
+				}
+
+				foreach ($requirements as $requirement)
+				{
+					if (!is_array($requirement) || !is_string($requirement['action'] ?? null)
+						|| !is_string($requirement['asset'] ?? null)
+						|| preg_match('/\A[a-zA-Z][a-zA-Z0-9_.-]{0,127}\z/D', $requirement['action']) !== 1
+						|| preg_match('/\Acom_[a-zA-Z0-9_.-]{1,192}\z/D', $requirement['asset']) !== 1
+						|| !$this->principal->authorise($requirement['action'], $requirement['asset']))
+					{
+						return false;
+					}
+				}
+			}
+		}
+
 		if (isset($row['handler']) && !(($this->handlerAvailable)($row['entity'], $row['handler'])))
 		{
 			return false;

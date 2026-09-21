@@ -11,6 +11,7 @@ namespace VDM\Component\JoomEngineMcp\Administrator\Protocol;
 
 use VDM\Component\JoomEngineMcp\Administrator\Contract\PrincipalInterface;
 use VDM\Component\JoomEngineMcp\Administrator\Domain\OperationException;
+use VDM\Component\JoomEngineMcp\Administrator\Job\Jobs;
 use VDM\Component\JoomEngineMcp\Administrator\Security\SchemaValidator;
 use VDM\Component\JoomEngineMcp\Administrator\Service\ActionExecutor;
 use VDM\Component\JoomEngineMcp\Administrator\Service\Catalogue;
@@ -41,6 +42,8 @@ final class ToolDispatcher
 	private Settings $settings;
 	/** @var ?Inspector Local console introspection, absent for HTTP. @since 0.1.0 */
 	private ?Inspector $console;
+	/** @var ?Jobs Durable operations owned by this principal. @since 0.1.1 */
+	private ?Jobs $jobs;
 
 	/**
 	 * Compose protocol primitives without retaining a Joomla service locator.
@@ -54,7 +57,7 @@ final class ToolDispatcher
 	 * @param ?Inspector $console Optional local-only console inspector.
 	 * @since 0.1.0
 	 */
-	public function __construct(Catalogue $catalogue, ActionExecutor $actions, Permissions $permissions, SchemaValidator $schemas, PrincipalInterface $principal, Settings $settings, ?Inspector $console = null)
+	public function __construct(Catalogue $catalogue, ActionExecutor $actions, Permissions $permissions, SchemaValidator $schemas, PrincipalInterface $principal, Settings $settings, ?Inspector $console = null, ?Jobs $jobs = null)
 	{
 		$this->catalogue = $catalogue;
 		$this->actions = $actions;
@@ -63,6 +66,7 @@ final class ToolDispatcher
 		$this->principal = $principal;
 		$this->settings = $settings;
 		$this->console = $console;
+		$this->jobs = $jobs;
 	}
 
 	/** @return string[] Reviewed tool service keys, not a capability catalogue. @since 0.1.0 */
@@ -70,7 +74,8 @@ final class ToolDispatcher
 	{
 		return ['site.list', 'catalog.capabilities', 'catalog.search', 'catalog.describe', 'action.read', 'action.plan',
 			'action.apply', 'action.safe_configuration', 'permission.request', 'permission.approve', 'permission.list',
-			'permission.revoke', 'console.list', 'console.help', 'console.targets', 'console.capabilities', 'console.inventory'];
+			'permission.revoke', 'console.list', 'console.help', 'console.targets', 'console.capabilities', 'console.inventory',
+			'job.list', 'job.status', 'job.cancel', 'job.redispatch', 'job.artifacts', 'job.artifact.read'];
 	}
 
 	/**
@@ -111,6 +116,12 @@ final class ToolDispatcher
 			'console.inventory' => $this->inspector()->inventory(),
 			'console.list' => $this->inspector()->text(),
 			'console.help' => $this->inspector()->help($input['command']),
+			'job.list' => $this->jobs()->listing($input['limit'] ?? 50),
+			'job.status' => $this->jobs()->status($input['jobId']),
+			'job.cancel' => $this->jobs()->cancel($input['jobId']),
+			'job.redispatch' => $this->jobs()->redispatch($input['jobId']),
+			'job.artifacts' => $this->jobs()->artifacts($input['jobId']),
+			'job.artifact.read' => $this->jobs()->readArtifact($input['artifactId'], $input['offset'] ?? 0, $input['length'] ?? 65536),
 			default => throw new OperationException('HANDLER_UNAVAILABLE', 'The requested tool primitive is unavailable.'),
 		};
 
@@ -305,5 +316,16 @@ final class ToolDispatcher
 		}
 
 		return $this->console;
+	}
+
+	/** @return Jobs Current principal's durable operation boundary. @since 0.1.1 */
+	private function jobs(): Jobs
+	{
+		if ($this->jobs === null)
+		{
+			throw new OperationException('JOB_UNAVAILABLE', 'The installed durable job service is unavailable.');
+		}
+
+		return $this->jobs;
 	}
 }

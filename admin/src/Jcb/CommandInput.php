@@ -198,6 +198,37 @@ final class CommandInput
 		return $result;
 	}
 
+	/**
+	 * Apply the native compiler's key normalization before checking installer ACL.
+	 * Nonempty bundle values enable installation even when their text is "false".
+	 *
+	 * @param array $input Frozen native options and environment.
+	 * @return bool Whether native compilation may install an extension.
+	 * @since 0.1.0
+	 */
+	public static function requestsInstallation(array $input): bool
+	{
+		$options = (array) ($input['options'] ?? []);
+		$environment = (array) ($input['environment'] ?? []);
+
+		if (!empty($options['install']) || !empty($environment['JCB_INSTALL']) || !empty($environment['JCB_COMPILE_INSTALL']))
+		{
+			return true;
+		}
+
+		$bundle = isset($options['options']) ? Json::decode($options['options']) : [];
+
+		foreach ((array) $bundle as $key => $value)
+		{
+			if (strtolower(str_replace('-', '_', trim((string) $key))) === 'install' && !empty($value))
+			{
+				return true;
+			}
+		}
+
+		return false;
+	}
+
 	/** @param mixed $value Explicit option. @param string $fallback Ambient fallback. @return string Native empty-value precedence. @since 0.1.0 */
 	private function value(mixed $value, string $fallback): string
 	{

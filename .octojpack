@@ -1,0 +1,52 @@
+{
+  "global": {
+    "packager": "Vast Development Method",
+    "packager_url": "https://dev.vdm.io/",
+    "url": "github.com",
+    "api": "https://api.github.com"
+  },
+  "package": {
+    "name": "PKG_JOOMENGINE_MCP",
+    "code_name": "joomengine_mcp",
+    "package_name": "pkg_joomengine_mcp",
+    "min_joomla_version": "6.1",
+    "max_joomla_version": "6.99",
+    "copyright": "Copyright (C) 2026 Vast Development Method. All rights reserved.",
+    "copyright_year": "2026",
+    "license": "GNU General Public License version 3 or later; see LICENSE",
+    "license_file": "LICENSE",
+    "author": "Llewellyn van der Merwe",
+    "author_email": "joomla@vdm.io",
+    "author_url": "https://dev.vdm.io/",
+    "description": "JoomEngine MCP component, webservices routing, and local console server.",
+    "version_id": "com_joomengine_mcp",
+    "version": "0.1.1",
+    "update_servers": "https://github.com/joomengine/mcp_component/releases/latest/download/pkg_joomengine_mcp_update_server.xml"
+  },
+  "repository": {
+    "owner": "joomengine",
+    "repo": "mcp_component",
+    "branch": "distribution"
+  },
+  "files": [
+    {
+      "owner": "joomengine",
+      "repo": "mcp_component",
+      "id": "com_joomengine_mcp",
+      "type": "component",
+      "mode": "releases"
+    },
+    {
+      "owner": "joomengine",
+      "repo": "mcp_plugin",
+      "id": "joomengine_mcp",
+      "type": "plugin",
+      "group": "console",
+      "mode": "releases"
+    }
+  ],
+  "languages": [
+    {"tag": "en-GB", "ini": "sys.ini", "key": "PKG_JOOMENGINE_MCP", "value": "JoomEngine MCP Package"},
+    {"tag": "en-GB", "ini": "ini", "key": "PKG_JOOMENGINE_MCP", "value": "JoomEngine MCP Package"}
+  ]
+}

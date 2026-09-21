@@ -1,0 +1,104 @@
+name: Publish component and Joomla package
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: component-package-release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: curl, dom, fileinfo, json, mbstring, simplexml, sodium, xml, zip
+          tools: composer:v2
+          coverage: none
+      - name: Require successful installed verification on this exact main commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git fetch origin main --tags
+          [[ "$(git rev-parse origin/main)" == "$GITHUB_SHA" ]]
+          mkdir -p build
+          gh api --paginate "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$GITHUB_SHA&event=push&per_page=100" \
+            --jq '.workflow_runs[] | {name, head_sha, status, conclusion, run_number}' | jq -s . > build/release-ci.json
+          for workflow in 'PHP contracts and migration evidence' 'Installed Joomla component' 'Installed JCB golden image'; do
+            jq -e --arg name "$workflow" --arg sha "$GITHUB_SHA" \
+              '[.[] | select(.name == $name and .head_sha == $sha)] | sort_by(.run_number) | last | .status == "completed" and .conclusion == "success"' \
+              build/release-ci.json >/dev/null || { echo "Required workflow has not passed: $workflow" >&2; exit 1; }
+          done
+          version="$(php -r 'echo (string) simplexml_load_file("joomengine_mcp.xml")->version;')"
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          tag="v$version"
+          if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+            echo 'This immutable version exists; bump it in a reviewed change.' >&2
+            exit 1
+          fi
+          printf 'RELEASE_VERSION=%s\nRELEASE_TAG=%s\n' "$version" "$tag" >> "$GITHUB_ENV"
+      - name: Rebuild complete distribution from immutable sources
+        run: |
+          set -euo pipefail
+          bash tools/build.sh
+          bash tools/build-distribution.sh
+          php tests/package.php --distribution
+          php tests/release.php
+          jq -e '.sources.component.workingTreeModified == false' build/distribution.json >/dev/null
+          sha256sum build/*joomengine_mcp-*.zip > build/distribution-first.sha256
+          bash tools/build.sh
+          bash tools/build-distribution.sh
+          sha256sum --check build/distribution-first.sha256
+      - name: Publish immutable versioned assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          [[ "$(git rev-parse origin/main)" == "$GITHUB_SHA" ]]
+          component="build/com_joomengine_mcp-$RELEASE_VERSION.zip"
+          package="build/pkg_joomengine_mcp-$RELEASE_VERSION.zip"
+          plugin_version="$(php -r 'echo json_decode(file_get_contents("distribution.lock.json"),true,64,JSON_THROW_ON_ERROR)["console"]["version"];')"
+          console="build/plg_console_joomengine_mcp-$plugin_version.zip"
+          gh release create "$RELEASE_TAG" --target "$GITHUB_SHA" \
+            --title "JoomEngine MCP $RELEASE_VERSION" --notes-file CHANGELOG.md --draft
+          # OctoJpack release mode consumes the first ZIP asset: upload the component first.
+          gh release upload "$RELEASE_TAG" "$component" "$component.sha256"
+          gh release upload "$RELEASE_TAG" "$package" "$package.sha256" "$console" "$console.sha256" build/distribution.json
+          gh release edit "$RELEASE_TAG" --draft=false --latest
+          mkdir -p build/published
+          gh release download "$RELEASE_TAG" --dir build/published --pattern '*.zip' --pattern '*.sha256'
+          for archive in "$component" "$package" "$console"; do
+            cmp "$archive" "build/published/$(basename "$archive")"
+            cmp "$archive.sha256" "build/published/$(basename "$archive").sha256"
+          done
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" > build/published/release.json
+          php tools/update-feeds.php build/published/release.json build/published
+          gh release upload "$RELEASE_TAG" build/release-feeds/*.xml
+      - name: Preserve build and publication evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: component-release-evidence
+          path: |
+            build/release-ci.json
+            build/distribution.json
+            build/distribution-first.sha256
+            build/published/release.json
+            build/release-feeds/
+          if-no-files-found: error
+          retention-days: 30

@@ -262,6 +262,49 @@ final class Permissions
 		}
 	}
 
+	/**
+	 * Reauthorize the grant already consumed by a durable execution claim.
+	 *
+	 * A one-use grant has zero uses after claiming, but remains bound to that one
+	 * execution. Revocation, expiry, scope and current ACL still apply when its
+	 * delayed worker starts; this method never consumes a second use.
+	 *
+	 * @param array<string,mixed> $execution Server-owned committed claim.
+	 * @param string $toolset Current authorized action scope.
+	 * @return void
+	 * @since 0.1.0
+	 */
+	public function assertExecution(array $execution, string $toolset): void
+	{
+		$this->requireScope([$toolset]);
+		$claim = $this->store->one('execution', ['uuid' => $execution['uuid'] ?? '',
+			'principal_key' => $this->principalKey, 'status' => 'running']);
+		$plan = $claim === null ? null : $this->store->one('plan', ['uuid' => $claim['plan_uuid'],
+			'principal_key' => $this->principalKey, 'status' => 'executing']);
+
+		if ($plan === null || !hash_equals($claim['fingerprint'], (string) ($execution['fingerprint'] ?? '')))
+		{
+			throw new OperationException('EXECUTION_STATE_CHANGED', 'The approved execution is no longer available.');
+		}
+
+		if ($this->principal->isLocal() && $plan['grant_uuid'] === '')
+		{
+			return;
+		}
+
+		$grant = $this->store->one('grant', ['uuid' => $plan['grant_uuid'], 'principal_key' => $this->principalKey]);
+		$scope = $grant === null ? [] : Json::decode($grant['scope_json']);
+
+		if ($grant === null || (int) $grant['revoked'] !== 0
+			|| ((int) $grant['expires_at'] !== 0 && (int) $grant['expires_at'] <= ($this->clock)())
+			|| ($grant['duration'] === 'indefinite' && !$this->settings->get('allow_indefinite'))
+			|| ($scope['site'] ?? '') !== $this->settings->get('site_alias')
+			|| !in_array($toolset, $scope['toolsets'] ?? [], true))
+		{
+			throw new OperationException('GRANT_UNAVAILABLE', 'The queued operation grant was revoked, expired or changed scope.');
+		}
+	}
+
 	/** @param array<string,mixed> $row Grant record. @return bool Current usability. @since 0.1.0 */
 	private function usable(array $row): bool
 	{

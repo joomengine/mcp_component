@@ -36,9 +36,17 @@ jobs:
           ref: 5ee658dd07eb749dca43ed4722f6cca7eb8208cf
           path: build/jcb-source
           persist-credentials: false
+      - name: Check out the reviewed console plugin under test
+        uses: actions/checkout@v7
+        with:
+          repository: joomengine/mcp_plugin
+          ref: cce3d3d0d510e306097f0c4c2ad091fdac3a0813
+          path: build/plugin-source
+          persist-credentials: false
       - name: Install the component into the JCB golden image and exercise native Joomla
         env:
           COMPOSE_PROJECT_NAME: mcp-${{ github.run_id }}-${{ github.run_attempt }}
+          MCP_PLUGIN_SOURCE: ${{ github.workspace }}/build/plugin-source
         run: bash tests/golden-image/run.sh
       - name: Preserve redacted installation and execution evidence
         if: always()

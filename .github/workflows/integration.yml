@@ -54,9 +54,13 @@ jobs:
           tools: composer:v2
           coverage: none
       - name: Build a complete distributable with its PHP dependencies
-        run: bash tools/build.sh
+        run: |
+          bash tools/build.sh
+          bash tools/build-distribution.sh
       - name: Validate packaged files and native manifests
-        run: php tests/package.php
+        run: |
+          php tests/package.php --distribution
+          php tests/release.php
       - name: Install, execute real HTTP and administrator operations, then upgrade
         env:
           MCP_TEST_ALLOW_DESTRUCTIVE: '1'
@@ -74,7 +78,8 @@ jobs:
           name: installed-${{ matrix.database }}-php-${{ matrix.php }}
           path: |
             build/evidence/
-            build/com_joomengine_mcp-*.zip
-            build/com_joomengine_mcp-*.zip.sha256
+            build/*joomengine_mcp-*.zip
+            build/*joomengine_mcp-*.zip.sha256
+            build/distribution.json
           if-no-files-found: error
           retention-days: 7
