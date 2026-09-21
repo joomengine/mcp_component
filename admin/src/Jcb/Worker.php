@@ -10,6 +10,7 @@ namespace VDM\Component\JoomEngineMcp\Administrator\Jcb;
 
 
 use Joomla\Database\DatabaseInterface;
+use Joomla\CMS\Event\Extension\AfterInstallEvent;
 use ReflectionProperty;
 use Symfony\Component\Console\Input\ArrayInput;
 use VDM\Component\JoomEngineMcp\Administrator\Console\WorkerApplication;
@@ -32,6 +33,8 @@ final class Worker
 	private CommandRegistry $registry;
 	/** @var DefinitionSnapshot Native definition/configuration observation. @since 0.1.0 */
 	private DefinitionSnapshot $snapshot;
+	/** @var DatabaseInterface Independent native installation read-back. @since 0.1.0 */
+	private DatabaseInterface $database;
 
 	/** @param WorkerApplication $application Isolated application. @param DatabaseInterface $database Installed Joomla database. @since 0.1.0 */
 	public function __construct(WorkerApplication $application, DatabaseInterface $database)
@@ -39,6 +42,7 @@ final class Worker
 		$this->application = $application;
 		$this->registry = new CommandRegistry($application);
 		$this->snapshot = new DefinitionSnapshot($database);
+		$this->database = $database;
 	}
 
 	/** @return array Actual installed command definitions; no command is executed. @since 0.1.0 */
@@ -134,12 +138,47 @@ final class Worker
 			putenv($key . '=' . $value);
 		}
 
+		$compile = $prepared['command'] === 'componentbuilder:compile:component';
+		$archives = $compile ? new CompiledArchives((string) $this->application->get('tmp_path')) : null;
+		$installations = [];
+		$beforeInstall = null;
+		$afterInstall = null;
+		$messageOffset = count($this->application->getMessageQueue());
+
+		if ($compile && CommandInput::requestsInstallation($prepared['input']))
+		{
+			$beforeInstall = static function () use ($archives, $command): void
+			{
+				$paths = (new ReflectionProperty('VDM\\Joomla\\Componentbuilder\\Console\\Compiler', 'outputPaths'))->getValue($command);
+				$archives->capture($paths, true);
+			};
+			$afterInstall = function (AfterInstallEvent $event) use (&$installations): void
+			{
+				$id = $event->getEid();
+				$row = null;
+
+				if (is_int($id) && $id > 0)
+				{
+					$db = $this->database;
+					$query = $db->createQuery()->select($db->quoteName(['extension_id', 'type', 'element', 'folder', 'manifest_cache']))
+						->from($db->quoteName('#__extensions'))->where($db->quoteName('extension_id') . ' = ' . $id);
+					$row = $db->setQuery($query)->loadAssoc();
+				}
+
+				$installations[] = ['persisted' => is_array($row), 'extensionId' => is_int($id) ? $id : null,
+					'element' => $row['element'] ?? null, 'type' => $row['type'] ?? null,
+					'sha256' => $row === null ? null : hash('sha256', Json::canonical($row))];
+			};
+			$this->application->getDispatcher()->addListener('onExtensionBeforeInstall', $beforeInstall);
+			$this->application->getDispatcher()->addListener('onExtensionAfterInstall', $afterInstall);
+		}
+
 		try
 		{
 			$exit = $this->application->invokeNativeCommand($command, $input, $output);
 			$artifacts = [];
 			$messages = ['success' => [], 'warning' => [], 'error' => []];
-			$compile = $prepared['command'] === 'componentbuilder:compile:component';
+			$package = [];
 
 			if ($compile)
 			{
@@ -147,17 +186,13 @@ final class Worker
 				// not emit them. Read that fixed result property, never arbitrary fields.
 				$paths = (new ReflectionProperty('VDM\\Joomla\\Componentbuilder\\Console\\Compiler', 'outputPaths'))->getValue($command);
 
-				foreach (array_unique($paths) as $path)
+				try
 				{
-					$real = is_string($path) ? realpath($path) : false;
-
-					if ($real === false || is_link($path) || !is_file($real) || !is_readable($real)
-						|| strtolower(pathinfo($real, PATHINFO_EXTENSION)) !== 'zip' || filesize($real) < 1)
-					{
-						throw new OperationException('JCB_ARTIFACT_MISSING', 'A compiled archive cannot be independently verified.');
-					}
-
-					$artifacts[] = ['path' => $real, 'name' => basename($real), 'size' => filesize($real), 'sha256' => hash_file('sha256', $real)];
+					$artifacts = $archives->capture($paths);
+				}
+				catch (OperationException $error)
+				{
+					$messages['error'][] = $error->getIdentifier();
 				}
 			}
 			else
@@ -171,10 +206,25 @@ final class Worker
 						$messages[$category] = array_values((array) $bus->get($category));
 					}
 				}
+
+				try
+				{
+					$package = (new PackageResults())->inspect($command, $prepared, $actual);
+				}
+				catch (\Throwable $error)
+				{
+					$package = ['verification' => ['status' => 'unverified', 'reason' => 'Native package completion was recorded, but independent result read-back was unavailable.']];
+				}
+			}
+
+			foreach (array_slice($this->application->getMessageQueue(), $messageOffset) as $message)
+			{
+				$category = in_array($message['type'] ?? '', ['error', 'warning'], true) ? $message['type'] : 'success';
+				$messages[$category][] = (string) ($message['message'] ?? '');
 			}
 
 			$after = $this->snapshot->fingerprint();
-			$verification = ['status' => 'unverified', 'reason' => 'Native completion alone does not prove every local or remote package effect.',
+			$verification = ($package['verification'] ?? ['status' => 'unverified', 'reason' => 'The command produced no independently verified result.']) + [
 				'definitionsChanged' => !hash_equals($prepared['snapshot'], $after),
 				'nativeMessages' => array_map('count', $messages)];
 
@@ -186,7 +236,27 @@ final class Worker
 			elseif ($compile && $artifacts !== [])
 			{
 				$verification = ['status' => 'verified', 'artifactCount' => count($artifacts),
-					'artifactHashes' => array_column($artifacts, 'sha256'), 'reason' => 'Native compilation completed and each returned archive exists and was hashed.'];
+					'scope' => 'compiled archives', 'artifactHashes' => array_column($artifacts, 'sha256'),
+					'reason' => 'Native compilation completed and each returned ZIP passed archive validation and was hashed.'];
+
+				if (CommandInput::requestsInstallation($prepared['input']))
+				{
+					$verifiedInstalls = count(array_filter($installations, static fn (array $row): bool => $row['persisted']));
+					$verification['installationCount'] = $verifiedInstalls;
+					$verification['scope'] = 'compiled archives and installed extension records';
+
+					if ($verifiedInstalls < count($artifacts) || $verifiedInstalls !== count($installations))
+					{
+						$verification['status'] = 'partial';
+						$verification['reason'] = 'Archives were retained, but not every native installation had an independent extension record read-back.';
+					}
+				}
+			}
+
+			if ($messages['warning'] !== [] && $verification['status'] === 'verified')
+			{
+				$verification['status'] = 'partial';
+				$verification['reason'] = 'Persisted results were observed, but the native operation also reported warnings requiring review.';
 			}
 
 			return ['protocol' => 'joomengine-worker/1', 'exitCode' => $exit,
@@ -194,10 +264,17 @@ final class Worker
 				'stderr' => $principal->isLocal() ? $output->getErrorOutput()->contents() : '',
 				'messages' => $principal->isLocal() ? $messages : array_map('count', $messages),
 				'beforeSnapshot' => $prepared['snapshot'], 'afterSnapshot' => $after,
+				'package' => $package, 'installations' => $installations,
 				'artifacts' => $artifacts, 'verification' => $verification];
 		}
 		finally
 		{
+			if ($beforeInstall !== null)
+			{
+				$this->application->getDispatcher()->removeListener('onExtensionBeforeInstall', $beforeInstall);
+				$this->application->getDispatcher()->removeListener('onExtensionAfterInstall', $afterInstall);
+			}
+
 			foreach ($savedEnvironment as $key => $value)
 			{
 				putenv($value === false ? $key : $key . '=' . $value);

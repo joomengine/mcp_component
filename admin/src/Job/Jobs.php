@@ -342,17 +342,18 @@ final class Jobs
 		return $this->status($id);
 	}
 
-	/** @param int $limit Maximum rows. @return array Owned current jobs. @since 0.1.0 */
-	public function listing(int $limit = 50): array
+	/** @param int $limit Maximum rows. @param int $offset Owner-scoped row offset. @return array Owned current jobs and explicit next offset. @since 0.1.0 */
+	public function listing(int $limit = 50, int $offset = 0): array
 	{
-		if ($limit < 1 || $limit > 100)
+		if ($limit < 1 || $limit > 100 || $offset < 0 || $offset > 1000000)
 		{
-			throw new OperationException('INVALID_INPUT', 'Job page limits must be between 1 and 100.');
+			throw new OperationException('INVALID_INPUT', 'Job page limits must be between 1 and 100 and offsets between 0 and 1000000.');
 		}
 
 		$jobs = [];
+		$rows = $this->store->find('job', ['principal_key' => $this->principalKey], $limit + 1, $offset);
 
-		foreach ($this->store->find('job', ['principal_key' => $this->principalKey], $limit) as $row)
+		foreach (array_slice($rows, 0, $limit) as $row)
 		{
 			try
 			{
@@ -367,7 +368,7 @@ final class Jobs
 			}
 		}
 
-		return ['jobs' => $jobs];
+		return ['jobs' => $jobs, 'nextOffset' => count($rows) > $limit && $offset + $limit <= 1000000 ? $offset + $limit : null];
 	}
 
 	/** @param string $id Owned UUID. @return array Cancellation request or known pre-start cancellation. @since 0.1.0 */

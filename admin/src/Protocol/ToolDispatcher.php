@@ -116,7 +116,7 @@ final class ToolDispatcher
 			'console.inventory' => $this->inspector()->inventory(),
 			'console.list' => $this->inspector()->text(),
 			'console.help' => $this->inspector()->help($input['command']),
-			'job.list' => $this->jobs()->listing($input['limit'] ?? 50),
+			'job.list' => $this->jobs()->listing($input['limit'] ?? 50, $input['offset'] ?? 0),
 			'job.status' => $this->jobs()->status($input['jobId']),
 			'job.cancel' => $this->jobs()->cancel($input['jobId']),
 			'job.redispatch' => $this->jobs()->redispatch($input['jobId']),

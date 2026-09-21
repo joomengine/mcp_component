@@ -58,6 +58,11 @@ final class CompiledArchives
 
 		foreach (array_unique($paths) as $path)
 		{
+			if (!is_string($path))
+			{
+				throw new OperationException('JCB_ARTIFACT_INVALID', 'A compiler archive must have a native file path.');
+			}
+
 			if (isset($this->captured[$path]))
 			{
 				continue;
@@ -89,6 +94,11 @@ final class CompiledArchives
 
 			$hash = hash_file('sha256', $real);
 			$target = $real;
+
+			if (!is_string($hash))
+			{
+				throw new OperationException('JCB_ARTIFACT_CHANGED', 'The compiler output cannot be hashed.');
+			}
 
 			if ($preserve)
 			{

@@ -8,6 +8,10 @@ services:
       JOOMLA_DB_USER: joomengine
       JOOMLA_DB_NAME: joomengine
       JOOMLA_DB_PASSWORD: disposable-golden-password
+    ports:
+      - "127.0.0.1:${MCP_TEST_GOLDEN_HTTP_PORT:-18080}:80"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       mariadb:
         condition: service_healthy

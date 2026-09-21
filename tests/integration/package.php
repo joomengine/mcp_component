@@ -55,7 +55,8 @@ try
 	$webservices = new Extension($db);
 	$check($webservices->load(['type' => 'plugin', 'folder' => 'webservices', 'element' => 'joomengine_mcp'])
 		&& (new Registry($webservices->params))->get('joomengine_mcp_owner') === 'com_joomengine_mcp'
-		&& (int) $webservices->package_id === 0, 'Component retains sole ownership of its webservices plugin');
+		&& (int) $webservices->package_id === (int) $package->extension_id,
+		'Joomla tracks the component-owned routing plugin inside its parent package');
 	$check(is_file(JPATH_ADMINISTRATOR . '/components/com_joomengine_mcp/vendor/autoload.php')
 		&& is_file(JPATH_PLUGINS . '/console/joomengine_mcp/src/Extension/JoomEngineMcpPlugin.php'),
 		'Combined installation contains both server dependencies and console implementation');

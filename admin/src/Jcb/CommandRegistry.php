@@ -13,6 +13,9 @@ use Joomla\CMS\Application\ConsoleApplication;
 use Joomla\Console\Command\AbstractCommand;
 use ReflectionClass;
 use ReflectionProperty;
+use RecursiveDirectoryIterator;
+use RecursiveIteratorIterator;
+use FilesystemIterator;
 use VDM\Component\JoomEngineMcp\Administrator\Domain\OperationException;
 use VDM\Component\JoomEngineMcp\Administrator\Service\Json;
 
@@ -27,6 +30,8 @@ final class CommandRegistry
 {
 	/** @var ConsoleApplication Native console application after plugin registration. @since 0.1.0 */
 	private ConsoleApplication $application;
+	/** @var ?string Read-only installed JCB source hash, shared across one inventory. @since 0.1.0 */
+	private ?string $libraryFingerprint = null;
 
 	/**
 	 * Inject the genuine local registry; HTTP dispatch cannot construct it.
@@ -149,6 +154,7 @@ final class CommandRegistry
 		while (($class = $class->getParentClass()) !== false);
 
 		$capability = [];
+		$sources['installed-vdm-library'] = $this->libraryFingerprint();
 
 		if ($command->getName() !== 'componentbuilder:compile:component')
 		{
@@ -164,22 +170,63 @@ final class CommandRegistry
 			}
 
 			$capability = ['entity' => $entity, 'nativeService' => $service];
-			$implementation = new ReflectionClass($factory::getContainer()->get($service));
-
-			do
-			{
-				$file = $implementation->getFileName();
-
-				if (!is_string($file) || !is_file($file))
-				{
-					throw new OperationException('JCB_COMMAND_SOURCE', 'The native package handler source cannot be verified.');
-				}
-
-				$sources[$implementation->getName()] = hash_file('sha256', $file);
-			}
-			while (($implementation = $implementation->getParentClass()) !== false);
 		}
 
 		return $actual + $capability + ['implementation' => hash('sha256', Json::canonical($sources))];
+	}
+
+	/**
+	 * Hash installed source without constructing native services during planning.
+	 * Some JCB dependency-resolver constructors populate missing GUIDs in the DB.
+	 *
+	 * @return string Digest of the actual bounded VDM PHP source tree.
+	 * @since 0.1.0
+	 */
+	private function libraryFingerprint(): string
+	{
+		if ($this->libraryFingerprint !== null)
+		{
+			return $this->libraryFingerprint;
+		}
+
+		$file = (new ReflectionClass('VDM\\Joomla\\Componentbuilder\\Factory'))->getFileName();
+
+		if (!is_string($file) || !is_file($file))
+		{
+			throw new OperationException('JCB_COMMAND_SOURCE', 'The installed JCB factory source is unavailable.');
+		}
+
+		$root = dirname($file, 2);
+		$files = [];
+		$bytes = 0;
+
+		foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS)) as $entry)
+		{
+			if (!$entry->isFile() || $entry->getExtension() !== 'php')
+			{
+				continue;
+			}
+
+			$bytes += $entry->getSize();
+
+			if ($entry->isLink() || count($files) >= 8192 || $bytes > 268435456)
+			{
+				throw new OperationException('JCB_COMMAND_SOURCE', 'The installed JCB library exceeds the reviewed source boundary.');
+			}
+
+			$digest = hash_file('sha256', $entry->getPathname());
+
+			if ($digest === false)
+			{
+				throw new OperationException('JCB_COMMAND_SOURCE', 'An installed JCB library source could not be read.');
+			}
+
+			$files[substr($entry->getPathname(), strlen($root) + 1)] = $digest;
+		}
+
+		ksort($files, SORT_STRING);
+		$this->libraryFingerprint = hash('sha256', Json::canonical($files));
+
+		return $this->libraryFingerprint;
 	}
 }

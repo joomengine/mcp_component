@@ -104,6 +104,27 @@ final class ApiRequestBuilder
 			}
 		}
 
+		if (!empty($configuration['native_filter']) && array_key_exists('filter', $arguments))
+		{
+			$filter = $arguments['filter'];
+			if (!is_array($filter) || ($filter !== [] && array_is_list($filter)) || count($filter) > 32)
+			{
+				throw new OperationException('INVALID_INPUT', 'A bounded native filter object is required.');
+			}
+
+			foreach ($filter as $key => $value)
+			{
+				if (!is_string($key) || preg_match('/\A[A-Za-z][A-Za-z0-9_]{0,63}\z/D', $key) !== 1
+					|| !is_scalar($value) || strlen((string) $value) > 2048
+					|| (is_float($value) && !is_finite($value)))
+				{
+					throw new OperationException('INVALID_INPUT', 'A native filter needs bounded scalar values and literal field names.');
+				}
+
+				$query['filter[' . $key . ']'] = is_bool($value) ? (int) $value : $value;
+			}
+		}
+
 		$query = array_replace($query, (array) ($configuration['query_defaults'] ?? []));
 		$policy = $configuration['body_policy'] ?? 'none';
 		$body = null;
