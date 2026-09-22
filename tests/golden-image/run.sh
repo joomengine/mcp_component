@@ -73,7 +73,7 @@ fixture() {
 }
 fixture /tmp/mcp-component/tests/golden-image/prepare.php > "$out/prepare.log" 2>&1
 fixture /tmp/mcp-component/tests/integration/prepare-http.php >> "$out/prepare.log" 2>&1
-for suite in installation administration http catalogue-mcp acl-mcp stdio browser jcb-api; do
+for suite in installation administration http catalogue-mcp acl-mcp stdio browser jcb-api job-worker; do
   fixture "/tmp/mcp-component/tests/integration/$suite.php" > "$out/$suite.log" 2>&1
 done
 fixture /tmp/mcp-plugin/tests/installed.php > "$out/console-plugin.log" 2>&1
@@ -94,8 +94,9 @@ if [[ -n "${MCP_CLIENT_SOURCE:-}" ]]; then
     -days 2 -subj '/CN=host.docker.internal' -addext 'subjectAltName=DNS:host.docker.internal' \
     > "$out/client-tls-setup.log" 2>&1
   compose cp "$work/client.crt" joomla:/tmp/mcp-client-ca.crt
+  # Joomla's canonical internal port is 80; the Docker host publishes it on 18080.
   node "$root/tests/integration/tls-proxy.mjs" "http://127.0.0.1:${MCP_TEST_GOLDEN_HTTP_PORT:-18080}" \
-    "${MCP_TEST_GOLDEN_TLS_PORT:-18443}" "$work/client.key" "$work/client.crt" 0.0.0.0 > "$out/client-tls-proxy.log" 2>&1 &
+    "${MCP_TEST_GOLDEN_TLS_PORT:-18443}" "$work/client.key" "$work/client.crt" 0.0.0.0 127.0.0.1:80 > "$out/client-tls-proxy.log" 2>&1 &
   tls=$!
   tls_ready=0
   for attempt in $(seq 1 50); do

@@ -122,6 +122,14 @@ Preserve `local`, `added`, `not_found` result categories, dependency/message que
 
 Plans must identify the selected definitions and the dependency closure/effective revisions relevant to their effects. Recheck before execution. Repository credentials stay in the existing server configuration; requests refer to authorized configured repository identities, not arbitrary URL/token pairs. A push affects external repositories and may not be undoable atomically. Keep per-stage evidence and reconciliation instructions.
 
+### Pinned native filesystem reset limitation
+
+At the pinned JCB revision, `Componentbuilder/Package/{File,Folder}/Remote/Config.php` defines an index containing only `name`, `path` and `guid`. The native writer's inherited `Abstraction/Remote/Base::getIndexItem()` emits that index, and `Package/GrepContent::getRemote()` adds the fetched content without a local destination. However, `Package/Remote/GetContent::reset()` calls `item()`, which requires the index's `value` and `target` before invoking the file/folder store. These paths are relative to `libraries/vendor_jcb/VDM.Joomla/src/`.
+
+`tests/jcb-files.php` confirms this boundary using the pinned native writer, Grep and reader classes with only repository I/O substituted: both reset item helpers return false and leave divergent local bytes unchanged with the writer-generated index. Adding only the missing `value` and `target` makes the same native methods restore the file and folder; independent MCP byte verification then passes. Missing or divergent assets remain incomplete in MCP read-back and cannot establish verified package completion. The adapter preserves this native behaviour and does not rewrite upstream code or silently repair remote indexes.
+
+The installed `tests/golden-image/package-roundtrip.php` proves get/init/pull/push/reset of a component and its linked definition dependency, including overwrite, remote failure and reconciliation. That result does not establish successful filesystem reset for native indexes missing destination metadata. Filesystem reset remains subject to this recorded upstream limitation; its required coverage is retained.
+
 ## 8. Durable jobs, artifacts and recovery
 
 Version 0.1.1 extends execution/lease/audit persistence with normalized `job` and `artifact` tables and explicit MySQL/PostgreSQL migrations. Jobs are related to their execution and principal; artifacts retain their owned job reference. The following requirements remain the acceptance contract for the implemented services.
