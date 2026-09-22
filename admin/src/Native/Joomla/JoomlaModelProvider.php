@@ -1,70 +1,130 @@
 <?php
-
-declare(strict_types=1);
-
+/**
+ * @package    JoomEngine.Mcp
+ * @created    17 September 2026
+ * @author     Llewellyn van der Merwe <https://dev.vdm.io>
+ * @git        JoomEngine MCP <https://github.com/joomengine/mcp_component>
+ * @copyright  Copyright (C) 2026 Vast Development Method. All rights reserved.
+ * @license    GNU General Public License version 2 or later; see LICENSES/joomla-mcp.txt
+ * @since      0.1.0
+ */
 namespace VDM\Component\JoomEngineMcp\Administrator\Native\Joomla;
+
 
 use Throwable;
 use VDM\Component\JoomEngineMcp\Administrator\Native\Contract\ModelProviderInterface;
 use VDM\Component\JoomEngineMcp\Administrator\Native\Domain\ActionException;
 
-final readonly class JoomlaModelProvider implements ModelProviderInterface
+
+/**
+ * Boot native administrator models while preserving component paths.
+ *
+ * @since  0.1.0
+ */
+final class JoomlaModelProvider implements ModelProviderInterface
 {
-    public function __construct(private object $application)
-    {
-    }
+	/**
+	 * The current Joomla application context.
+	 *
+	 * @var   object
+	 *
+	 * @since  0.1.0
+	 */
+	private object $application;
 
-    public function administrator(string $component, string $modelName): object
-    {
-        if (!method_exists($this->application, 'bootComponent')) {
-            throw new ActionException('JOOMLA_RUNTIME_UNAVAILABLE', 'The Joomla component runtime is unavailable.');
-        }
+	/**
+	 * Initialize the reviewed dependencies and configuration.
+	 *
+	 * @param   object  $application  The current Joomla application context.
+	 *
+	 * @since  0.1.0
+	 */
+	public function __construct(object $application)
+	{
+		$this->application = $application;
+	}
 
-        $this->defineComponentPaths($component);
+	/**
+	 * Boot and return the selected native administrator model.
+	 *
+	 * @param   string  $component  The fixed Joomla component identifier.
+	 * @param   string  $modelName  The fixed administrator model name.
+	 * @return  object
+	 *
+	 * @since  0.1.0
+	 */
+	public function administrator(string $component, string $modelName): object
+	{
+		if (!method_exists($this->application, 'bootComponent'))
+		{
+			throw new ActionException('JOOMLA_RUNTIME_UNAVAILABLE', 'The Joomla component runtime is unavailable.');
+		}
 
-        try {
-            $componentInstance = $this->application->bootComponent($component);
-        } catch (Throwable) {
-            throw new ActionException('COMPONENT_UNAVAILABLE', sprintf('Component "%s" is unavailable.', $component));
-        }
+		$this->defineComponentPaths($component);
 
-        if (!is_object($componentInstance) || !method_exists($componentInstance, 'getMVCFactory')) {
-            throw new ActionException('COMPONENT_UNAVAILABLE', sprintf('Component "%s" is unavailable.', $component));
-        }
+		try
+		{
+			$componentInstance = $this->application->bootComponent($component);
+		}
+		catch (Throwable)
+		{
+			throw new ActionException('COMPONENT_UNAVAILABLE', sprintf('Component "%s" is unavailable.', $component));
+		}
 
-        try {
-            $model = $componentInstance->getMVCFactory()->createModel(
-                $modelName,
-                'Administrator',
-                ['ignore_request' => true],
-            );
-        } catch (Throwable) {
-            throw new ActionException('MODEL_UNAVAILABLE', sprintf('Joomla model "%s.%s" is unavailable.', $component, $modelName));
-        }
+		if (!is_object($componentInstance) || !method_exists($componentInstance, 'getMVCFactory'))
+		{
+			throw new ActionException('COMPONENT_UNAVAILABLE', sprintf('Component "%s" is unavailable.', $component));
+		}
 
-        if (!is_object($model)) {
-            throw new ActionException('MODEL_UNAVAILABLE', sprintf('Joomla model "%s.%s" is unavailable.', $component, $modelName));
-        }
+		try
+		{
+			$model = $componentInstance->getMVCFactory()->createModel(
+				$modelName,
+				'Administrator',
+				['ignore_request' => true],
+			);
+		}
+		catch (Throwable)
+		{
+			throw new ActionException('MODEL_UNAVAILABLE', sprintf('Joomla model "%s.%s" is unavailable.', $component, $modelName));
+		}
 
-        return $model;
-    }
+		if (!is_object($model))
+		{
+			throw new ActionException('MODEL_UNAVAILABLE', sprintf('Joomla model "%s.%s" is unavailable.', $component, $modelName));
+		}
 
-    private function defineComponentPaths(string $component): void
-    {
-        if (!preg_match('/^com_[a-z0-9_]+$/', $component)) {
-            throw new ActionException('COMPONENT_UNAVAILABLE', 'The requested Joomla component name is invalid.');
-        }
+		return $model;
+	}
 
-        if (defined('JPATH_ADMINISTRATOR') && !defined('JPATH_COMPONENT_ADMINISTRATOR')) {
-            define('JPATH_COMPONENT_ADMINISTRATOR', JPATH_ADMINISTRATOR . '/components/' . $component);
-        }
+	/**
+	 * Define component paths needed by legacy Joomla model loaders.
+	 *
+	 * @param   string  $component  The fixed Joomla component identifier.
+	 * @return  void
+	 *
+	 * @since  0.1.0
+	 */
+	private function defineComponentPaths(string $component): void
+	{
+		if (!preg_match('/^com_[a-z0-9_]+$/', $component))
+		{
+			throw new ActionException('COMPONENT_UNAVAILABLE', 'The requested Joomla component name is invalid.');
+		}
 
-        if (defined('JPATH_SITE') && !defined('JPATH_COMPONENT_SITE')) {
-            define('JPATH_COMPONENT_SITE', JPATH_SITE . '/components/' . $component);
-        }
+		if (defined('JPATH_ADMINISTRATOR') && !defined('JPATH_COMPONENT_ADMINISTRATOR'))
+		{
+			define('JPATH_COMPONENT_ADMINISTRATOR', JPATH_ADMINISTRATOR . '/components/' . $component);
+		}
 
-        if (defined('JPATH_COMPONENT_ADMINISTRATOR') && !defined('JPATH_COMPONENT')) {
-            define('JPATH_COMPONENT', JPATH_COMPONENT_ADMINISTRATOR);
-        }
-    }
+		if (defined('JPATH_SITE') && !defined('JPATH_COMPONENT_SITE'))
+		{
+			define('JPATH_COMPONENT_SITE', JPATH_SITE . '/components/' . $component);
+		}
+
+		if (defined('JPATH_COMPONENT_ADMINISTRATOR') && !defined('JPATH_COMPONENT'))
+		{
+			define('JPATH_COMPONENT', JPATH_COMPONENT_ADMINISTRATOR);
+		}
+	}
 }

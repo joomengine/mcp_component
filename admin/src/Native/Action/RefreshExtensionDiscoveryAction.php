@@ -1,8 +1,15 @@
 <?php
-
-declare(strict_types=1);
-
+/**
+ * @package    JoomEngine.Mcp
+ * @created    17 September 2026
+ * @author     Llewellyn van der Merwe <https://dev.vdm.io>
+ * @git        JoomEngine MCP <https://github.com/joomengine/mcp_component>
+ * @copyright  Copyright (C) 2026 Vast Development Method. All rights reserved.
+ * @license    GNU General Public License version 2 or later; see LICENSES/joomla-mcp.txt
+ * @since      0.1.0
+ */
 namespace VDM\Component\JoomEngineMcp\Administrator\Native\Action;
+
 
 use Throwable;
 use VDM\Component\JoomEngineMcp\Administrator\Native\Contract\ActionInterface;
@@ -11,112 +18,174 @@ use VDM\Component\JoomEngineMcp\Administrator\Native\Domain\ActionDescriptor;
 use VDM\Component\JoomEngineMcp\Administrator\Native\Domain\ActionException;
 use VDM\Component\JoomEngineMcp\Administrator\Native\Domain\Input;
 
-/** Adapts Joomla DiscoverModel::discover(), the implementation of extension:discover. */
-final readonly class RefreshExtensionDiscoveryAction implements ActionInterface
+
+/**
+ *  Adapts Joomla DiscoverModel::discover(), the implementation of extension:discover.
+ *
+ * @since  0.1.0
+ */
+final class RefreshExtensionDiscoveryAction implements ActionInterface
 {
-    public function __construct(private ModelProviderInterface $models)
-    {
-    }
+	/**
+	 * The provider of native administrator models.
+	 *
+	 * @var   ModelProviderInterface
+	 *
+	 * @since  0.1.0
+	 */
+	private ModelProviderInterface $models;
 
-    public function descriptor(): ActionDescriptor
-    {
-        return new ActionDescriptor(
-            'extensions.discovered.refresh',
-            'Refresh Joomla discovered-extension metadata through DiscoverModel::discover().',
-            'write',
-            [['action' => 'core.manage', 'asset' => 'com_installer']],
-            [
-                'type' => 'object',
-                'properties' => [
-                    'dryRun' => ['type' => 'boolean', 'default' => true],
-                    '_edgeConfirmed' => ['type' => 'boolean', 'writeOnly' => true],
-                ],
-                'additionalProperties' => false,
-            ],
-            [
-                'type' => 'object',
-                'required' => ['applied', 'dryRun', 'preState', 'recovery'],
-                'properties' => [
-                    'applied' => ['type' => 'boolean'],
-                    'dryRun' => ['type' => 'boolean'],
-                    'operation' => ['type' => 'string'],
-                    'preState' => ['type' => 'object'],
-                    'postState' => ['type' => 'object'],
-                    'verification' => ['type' => 'object'],
-                    'recovery' => ['type' => 'object'],
-                    'requiresEdgeConfirmation' => ['type' => 'boolean'],
-                ],
-                'additionalProperties' => false,
-            ],
-        );
-    }
+	/**
+	 * Initialize the reviewed dependencies and configuration.
+	 *
+	 * @param   ModelProviderInterface  $models  The provider of native administrator models.
+	 *
+	 * @since  0.1.0
+	 */
+	public function __construct(ModelProviderInterface $models)
+	{
+		$this->models = $models;
+	}
 
-    public function execute(array $input): array
-    {
-        Input::rejectUnknown($input, ['dryRun', '_edgeConfirmed']);
-        $before = $this->count();
-        $plan = [
-            'applied' => false,
-            'dryRun' => true,
-            'preState' => ['discoveredCount' => $before],
-            'operation' => 'purge-and-rescan-discovered-extension-metadata',
-            'recovery' => ['automaticRollback' => false, 'retry' => 'extensions.discovered.refresh'],
-            'requiresEdgeConfirmation' => true,
-        ];
+	/**
+	 * Return the action identity, schemas and required Joomla permissions.
+	 *
+	 * @return  ActionDescriptor
+	 *
+	 * @since  0.1.0
+	 */
+	public function descriptor(): ActionDescriptor
+	{
+		return new ActionDescriptor(
+			'extensions.discovered.refresh',
+			'Refresh Joomla discovered-extension metadata through DiscoverModel::discover().',
+			'write',
+			[['action' => 'core.manage', 'asset' => 'com_installer']],
+			[
+				'type' => 'object',
+				'properties' => [
+					'dryRun' => ['type' => 'boolean', 'default' => true],
+					'_edgeConfirmed' => ['type' => 'boolean', 'writeOnly' => true],
+				],
+				'additionalProperties' => false,
+			],
+			[
+				'type' => 'object',
+				'required' => ['applied', 'dryRun', 'preState', 'recovery'],
+				'properties' => [
+					'applied' => ['type' => 'boolean'],
+					'dryRun' => ['type' => 'boolean'],
+					'operation' => ['type' => 'string'],
+					'preState' => ['type' => 'object'],
+					'postState' => ['type' => 'object'],
+					'verification' => ['type' => 'object'],
+					'recovery' => ['type' => 'object'],
+					'requiresEdgeConfirmation' => ['type' => 'boolean'],
+				],
+				'additionalProperties' => false,
+			],
+		);
+	}
 
-        if (Input::boolean($input, 'dryRun', true)) {
-            return $plan;
-        }
+	/**
+	 * Validate the supplied input and perform this action within its native contract.
+	 *
+	 * @param   array  $input  The input value.
+	 * @return  array
+	 *
+	 * @since  0.1.0
+	 */
+	public function execute(array $input): array
+	{
+		Input::rejectUnknown($input, ['dryRun', '_edgeConfirmed']);
+		$before = $this->count();
+		$plan = [
+			'applied' => false,
+			'dryRun' => true,
+			'preState' => ['discoveredCount' => $before],
+			'operation' => 'purge-and-rescan-discovered-extension-metadata',
+			'recovery' => ['automaticRollback' => false, 'retry' => 'extensions.discovered.refresh'],
+			'requiresEdgeConfirmation' => true,
+		];
 
-        $this->confirm($input);
-        $model = $this->models->administrator('com_installer', 'Discover');
+		if (Input::boolean($input, 'dryRun', true))
+		{
+			return $plan;
+		}
 
-        if (!method_exists($model, 'discover')) {
-            throw new ActionException('MODEL_INCOMPATIBLE', 'The Joomla Installer Discover model is incompatible.');
-        }
+		$this->confirm($input);
+		$model = $this->models->administrator('com_installer', 'Discover');
 
-        try {
-            $newlyDiscovered = $model->discover();
-        } catch (Throwable) {
-            throw new ActionException('MODEL_OPERATION_FAILED', 'Joomla could not refresh discovered extensions.');
-        }
+		if (!method_exists($model, 'discover'))
+		{
+			throw new ActionException('MODEL_INCOMPATIBLE', 'The Joomla Installer Discover model is incompatible.');
+		}
 
-        if (!is_int($newlyDiscovered) || $newlyDiscovered < 0) {
-            throw new ActionException('MODEL_RESULT_INVALID', 'Joomla returned an invalid discovery count.');
-        }
+		try
+		{
+			$newlyDiscovered = $model->discover();
+		}
+		catch (Throwable)
+		{
+			throw new ActionException('MODEL_OPERATION_FAILED', 'Joomla could not refresh discovered extensions.');
+		}
 
-        $after = $this->count();
+		if (!is_int($newlyDiscovered) || $newlyDiscovered < 0)
+		{
+			throw new ActionException('MODEL_RESULT_INVALID', 'Joomla returned an invalid discovery count.');
+		}
 
-        return [
-            'applied' => true,
-            'dryRun' => false,
-            'preState' => ['discoveredCount' => $before],
-            'postState' => ['discoveredCount' => $after, 'newlyDiscovered' => $newlyDiscovered],
-            'verification' => ['readBackCompleted' => true, 'nativeCount' => $newlyDiscovered],
-            'recovery' => ['automaticRollback' => false, 'retry' => 'extensions.discovered.refresh'],
-        ];
-    }
+		$after = $this->count();
 
-    private function count(): int
-    {
-        $model = $this->models->administrator('com_installer', 'Discover');
+		return [
+			'applied' => true,
+			'dryRun' => false,
+			'preState' => ['discoveredCount' => $before],
+			'postState' => ['discoveredCount' => $after, 'newlyDiscovered' => $newlyDiscovered],
+			'verification' => ['readBackCompleted' => true, 'nativeCount' => $newlyDiscovered],
+			'recovery' => ['automaticRollback' => false, 'retry' => 'extensions.discovered.refresh'],
+		];
+	}
 
-        if (!method_exists($model, 'getTotal')) {
-            throw new ActionException('MODEL_INCOMPATIBLE', 'The Joomla Installer Discover model cannot report status.');
-        }
+	/**
+	 * Read the current number of records from the fixed installer model.
+	 *
+	 * @return  int
+	 *
+	 * @since  0.1.0
+	 */
+	private function count(): int
+	{
+		$model = $this->models->administrator('com_installer', 'Discover');
 
-        try {
-            return max(0, (int) $model->getTotal());
-        } catch (Throwable) {
-            throw new ActionException('MODEL_OPERATION_FAILED', 'Joomla could not count discovered extensions.');
-        }
-    }
+		if (!method_exists($model, 'getTotal'))
+		{
+			throw new ActionException('MODEL_INCOMPATIBLE', 'The Joomla Installer Discover model cannot report status.');
+		}
 
-    /** @param array<string, mixed> $input */
-    private function confirm(array $input): void
-    {
-        if (!Input::boolean($input, '_edgeConfirmed', false)) {
-            throw new ActionException('CONFIRMATION_REQUIRED', 'Extension discovery refresh requires signed MCP edge confirmation.');
-        }
-    }
+		try
+		{
+			return max(0, (int) $model->getTotal());
+		}
+		catch (Throwable)
+		{
+			throw new ActionException('MODEL_OPERATION_FAILED', 'Joomla could not count discovered extensions.');
+		}
+	}
+
+	/**
+	 * Require explicit confirmation before invoking the native write.
+	 *
+	 * @param   array<string, mixed>  $input  The input value.
+	 * @return  void
+	 *
+	 * @since  0.1.0
+	 */
+	private function confirm(array $input): void
+	{
+		if (!Input::boolean($input, '_edgeConfirmed', false))
+		{
+			throw new ActionException('CONFIRMATION_REQUIRED', 'Extension discovery refresh requires signed MCP edge confirmation.');
+		}
+	}
 }

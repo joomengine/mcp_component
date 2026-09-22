@@ -77,7 +77,9 @@ for suite in installation administration http catalogue-mcp acl-mcp stdio browse
   fixture "/tmp/mcp-component/tests/integration/$suite.php" > "$out/$suite.log" 2>&1
 done
 fixture /tmp/mcp-plugin/tests/installed.php > "$out/console-plugin.log" 2>&1
+fixture /tmp/mcp-component/tests/jcb-files.php > "$out/jcb-files.log" 2>&1
 fixture /tmp/mcp-component/tests/golden-image/jcb-acceptance.php > "$out/jcb-acceptance.log" 2>&1
+fixture /tmp/mcp-component/tests/golden-image/package-roundtrip.php > "$out/package-roundtrip.log" 2>&1
 if [[ -n "${MCP_CLIENT_SOURCE:-}" ]]; then
   MCP_CLIENT_SOURCE="$(realpath -- "$MCP_CLIENT_SOURCE")"
   [[ -f "$MCP_CLIENT_SOURCE/bin/joomengine-mcp" && -f "$MCP_CLIENT_SOURCE/vendor/autoload.php" ]]
@@ -105,12 +107,14 @@ if [[ -n "${MCP_CLIENT_SOURCE:-}" ]]; then
   done
   [[ "$tls_ready" == 1 ]] || { echo 'The trusted client TLS fixture did not start.' >&2; exit 1; }
   bridge_args="$(php -r 'echo json_encode(["-d", "curl.cainfo=/tmp/mcp-client-ca.crt", "/tmp/mcp-client/bin/joomengine-mcp", "connect", $argv[1]], JSON_THROW_ON_ERROR);' "https://host.docker.internal:${MCP_TEST_GOLDEN_TLS_PORT:-18443}")"
+  for scenario in jcb-acceptance package-roundtrip; do
   compose exec -T -e MCP_TEST_ALLOW_DESTRUCTIVE=1 -e JOOMLA_ROOT=/var/www/html \
     -e MCP_COMPONENT_SOURCE=/tmp/mcp-component -e MCP_TEST_BASE_URL=http://127.0.0.1:80 \
     -e MCP_TEST_TOKEN_FILE=/tmp/mcp-fixture-token -e MCP_TEST_JCB_TRANSPORT=api \
     -e MCP_TEST_STDIO_COMMAND=php -e "MCP_TEST_STDIO_ARGS_JSON=$bridge_args" \
-    joomla sh -c 'export JOOMENGINE_MCP_TOKEN="$(cat /tmp/mcp-fixture-token)"; exec php /tmp/mcp-component/tests/golden-image/jcb-acceptance.php' \
-    > "$out/client-jcb-acceptance.log" 2>&1
+    joomla sh -c 'export JOOMENGINE_MCP_TOKEN="$(cat /tmp/mcp-fixture-token)"; exec php "$1"' sh \
+    "/tmp/mcp-component/tests/golden-image/$scenario.php" > "$out/client-$scenario.log" 2>&1
+  done
 fi
 fixture /tmp/mcp-component/tests/golden-image/registry.php > "$out/jcb-command-registry.json" 2> "$out/registry-errors.log"
 php -r '$v=json_decode(file_get_contents($argv[1]),true,512,JSON_THROW_ON_ERROR); $c=array_filter($v["commands"]??[],static fn($c)=>str_starts_with($c["name"],"componentbuilder:")); if(count($c)<2)throw new RuntimeException("The installed JCB command registry is empty."); echo "Verified ",count($c)," native JCB command definitions\n";' "$out/jcb-command-registry.json" > "$out/registry.log"

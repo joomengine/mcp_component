@@ -6,7 +6,7 @@ JoomEngine MCP must support **the entire actual API and CLI surface of Joomla Co
 
 Cover JCB's definition/entity APIs, fields and field types, reusable powers and code, component/module/plugin/view relationships, compiler, and all registered package get/init/pull/push/reset commands. Retain the exact native input semantics, permissions, dependencies, outputs and failure behaviour. Extend the existing database graph and reviewed handler primitives; do not write a separate hard-coded MCP server for JCB.
 
-This document records the required design and roadmap. At this commit **JCB execution bindings have not been implemented or added to the active install seed**. `jcb-surface.json` is a source-backed planning inventory, not a runtime catalogue or proof of completed support. Every observed API route and registered CLI operation must eventually have its own verified mapping. Missing upstream information remains a required task; it is not an excuse to invent routes or silently omit functionality.
+This document records the required contract and acceptance matrix. Version 0.1.1 implements installed-route/command inventory, explicit catalogue synchronization, reviewed command planning/execution, durable jobs and artifacts. JCB bindings are materialized from the installed registries through the administrator Operations screen or `joomla:mcp:jcb-sync`; ordinary discovery reads persisted rows. `jcb-surface.json` remains source-backed planning evidence, not a runtime catalogue. Current installed execution evidence and remaining checks are recorded in ../IMPLEMENTATION.md. Unsupported native contracts or absent handlers require explicit diagnostics; they are not successful executable coverage.
 
 JCB may be absent on an individual Joomla site. In that case the server must retain Joomla core support and hide unavailable JCB operations. That installation behaviour must not be confused with project acceptance: acceptance requires a JCB-present fixture exercising the complete integration.
 
@@ -66,6 +66,10 @@ Ordinary additions should require validated database rows using existing primiti
 
 The authoritative inventory must include every actual exposed list/item resource, mutation and specialized action, including read-only dynamic site/custom-admin resources where present. Do not limit API coverage to the package entity map. For each endpoint capture method, route variables/defaults, controller/model, identifier forms, filters/order/pagination, content type, JSON shape, schema, effects, exact Joomla ACL/field permissions and version constraints.
 
+The installed adapter publishes the reviewed native method/task pairs (`GET displayList/displayItem`, `POST add`, `PATCH/PUT edit`, `DELETE delete`). Specialized tasks, nonstandard identifier rules and routing defaults remain explicit unavailable diagnostics until their native contract is reviewed. A GET method alone never establishes a safe read. Fixed route defaults are preserved, and mutation read-back must match the exact collection, controller and defaults. This does not invent endpoints for distributions without a webservices plugin.
+
+List bindings expose bounded `offset`/`limit`, a scalar `filter` object, and `ordering`/`direction`, mapped to Joomla's native `page[...]`, `filter[...]` and `list[...]` query keys. The installed controller defines accepted filter names and ordering columns; unknown names may be ignored by Joomla. Router registrations do not contain controller-specific filter schemas, so discovery does not claim an invented list of supported fields. Native ACL, validation and form handling remain authoritative.
+
 Use the native API/model contract for create/update/delete and other supported actions. Preserve GUID-to-ID or alternate unique-key resolution, relationship fields, nested/subform values and source-code/string encoding. Do not guess that missing create IDs behave like update IDs. Preserve published-state, checkout, conflicts and errors. Verify mutations through native read-back, not only status codes.
 
 JCB definition payloads legitimately include PHP, JavaScript, XML and SQL source strings used later by its compiler. They remain inert domain data while stored or returned. Schema/field ACL and appropriate secret classification apply; blanket removal of code fields would destroy JCB parity. Executing compilation, import hooks or installation is a distinct higher-risk operation requiring explicit authority.
@@ -120,7 +124,7 @@ Plans must identify the selected definitions and the dependency closure/effectiv
 
 ## 8. Durable jobs, artifacts and recovery
 
-Extend existing execution/lease/audit persistence for long JCB work. Where normalized additional `job` and `artifact` tables are needed, introduce explicit migrations and relationships to execution, principal and provider rather than opaque process-local state. This is required future runtime work, not a claim that these tables already exist.
+Version 0.1.1 extends execution/lease/audit persistence with normalized `job` and `artifact` tables and explicit MySQL/PostgreSQL migrations. Jobs are related to their execution and principal; artifacts retain their owned job reference. The following requirements remain the acceptance contract for the implemented services.
 
 A job must retain an opaque ID, requesting principal, action/binding/definition revision, immutable validated input reference, approved effects, execution/idempotency key, worker/lease owner, timestamps, bounded progress, state and final/partial/uncertain outcome. Re-authorize relevant privileges at start and resource reads; an HTTP-created job never becomes unrestricted merely because a local worker runs it. Purely local jobs retain separately recorded server-owner provenance.
 

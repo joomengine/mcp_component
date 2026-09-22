@@ -1,8 +1,8 @@
-# External client separation — 18 September 2026
+# External client separation — 22 September 2026
 
 ## Ownership
 
-The owner created `joomengine/mcp_client` for the external Composer client and remote stdio bridge. That repository exclusively owns package `joomengine/mcp-client`, namespace `VDM\Joomla\Mcp\Client`, client examples/tests, the planned `joomengine-mcp` executable and independent releases. Earlier statements assigning that work to this component are superseded.
+The owner created `joomengine/mcp_client` for the external Composer client and remote stdio bridge. That repository exclusively owns package `joomengine/mcp-client`, namespace `VDM\Joomla\Mcp\Client`, client examples/tests, the `joomengine-mcp` executable and independent releases. Earlier statements assigning that work to this component are superseded.
 
 This component owns server dependencies through composer.json (`joomengine/mcp-component`), not a distributable external client. The console plugin owns direct local server stdio only. Neither server repository depends on the client package. The client must not load this component's administrator classes, SQL or Joomla installation locally.
 
@@ -10,7 +10,7 @@ This component owns server dependencies through composer.json (`joomengine/mcp-c
 
 At the inspected server head `a3fb48c680c520fe3b81c6e40fc8aa8cc427f36e`, no completed external MCP client existed to extract. The only generic library files were `libraries/src/Http/CurlClient.php` and `NetworkException.php`; RuntimeFactory uses that transport for server-side Joomla API forwarding.
 
-Move the required server transport to `admin/src/Http` under `VDM\Component\JoomEngineMcp\Administrator\Http`, update its imports and remove the old libraries/src autoload prefix. The client repository retains a separately namespaced transport foundation with the original licence/authorship plus its new Connection and SDK ClientFactory. This deliberate transport separation avoids a server dependency on its external client. Do not remove the server's necessary outbound API capability or claim an unimplemented client was moved wholesale.
+The server transport has moved to `admin/src/Http` under `VDM\Component\JoomEngineMcp\Administrator\Http`; imports and Composer mapping use that boundary. The client maintains its separately namespaced transport and connection/SDK integration. The component has no external-client dependency.
 
 ## Public wire contract
 
@@ -20,6 +20,8 @@ A workstation stdio-to-HTTP bridge does not acquire the server's trusted CLI aut
 
 ## Handoff and acceptance
 
-The owner permits completing the component first and finalizing client interoperability afterwards. Stabilize installation, endpoint/authentication/protocol/version behaviour, grants, JCB jobs and artifacts; then run the shared live acceptance matrix from the standalone client. No client catalogue changes should be required when new JCB database definitions are added. Final remote stdio execution and stable Packagist release remain client tasks, not missing component source files.
+The independent client now provides the Composer SDK, remote stdio executable and private per-site token configuration. Shared installed tests exercise the real authenticated endpoint through both the SDK and executable, with trusted TLS and server-discovered contracts. Final verification runs against the completed component, including newly synchronized JCB definitions; no client catalogue changes are required for those definitions.
+
+The component's [implementation status](IMPLEMENTATION.md) records server acceptance. Client checks and publishing automation remain in the client repository. Packagist publication and GitHub releases are intentional post-merge actions, not missing component source files.
 
 Client plan: https://github.com/joomengine/mcp_client/pull/1

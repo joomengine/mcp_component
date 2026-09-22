@@ -9,19 +9,34 @@
         "source": "companion/plugin/src/Joomla/JoomlaNativeOperations.php",
         "sourceSha256": "088c1a0844d11f14fd63ad477991dab474d407b7b97f67c353e8785f79c157bb",
         "target": "admin/src/Native/Joomla/JoomlaNativeOperations.php",
-        "targetSha256": "57f932ea6b52db423a4ba6f6534a6f2711fee20184c69ec3355231352fa29a5d"
+        "targetSha256": "7fddee05d41ddef8483c371874700932e0032d05a90e01991d2ee7a3607d05e2",
+        "targetTransformations": [
+            "namespace/path migration",
+            "JCB PHP style and explicit dependency properties",
+            "class and member contract documentation"
+        ]
     },
     {
         "source": "companion/plugin/src/Joomla/JoomlaModelProvider.php",
         "sourceSha256": "7e30d6d1bc84e16cba2e4d27042d755ff3b706d36d25e65bd58a568e55f80110",
         "target": "admin/src/Native/Joomla/JoomlaModelProvider.php",
-        "targetSha256": "f7943654fa6183c3d0d9ebb8f7d29b4f8b92ba1252d9aad3edab088af1ad408c"
+        "targetSha256": "16bec9c2edae2556887bb217ed19eebba6376959a5f90ed962fed2f9207a8658",
+        "targetTransformations": [
+            "namespace/path migration",
+            "JCB PHP style and explicit dependency properties",
+            "class and member contract documentation"
+        ]
     },
     {
         "source": "companion/plugin/src/Joomla/JoomlaCapabilityResolver.php",
         "sourceSha256": "e2fb36aece1f91113ccf0c531174ece8eabfa91698fbe2b7feed1b7642d6b5a8",
         "target": "admin/src/Native/Joomla/JoomlaCapabilityResolver.php",
-        "targetSha256": "17031026e76986defa4ae5270d847cb1a91d24c110f3811600624a56b69314af"
+        "targetSha256": "65388a319422adac7f333d5e1d7a0cf6a4f84d375dc67176e26576d25356aa96",
+        "targetTransformations": [
+            "namespace/path migration",
+            "JCB PHP style and explicit dependency properties",
+            "class and member contract documentation"
+        ]
     },
     {
         "source": "companion/plugin/src/Joomla/CoreEntityCatalogue.php",
@@ -33,199 +48,364 @@
         "source": "companion/plugin/src/Command/SelfTestCommand.php",
         "sourceSha256": "86b0bc556df34866b943e1aef3f983005c92c2bb926354667e80e6a80d60a4fd",
         "target": "admin/src/Native/Command/SelfTestCommand.php",
-        "targetSha256": "af63356bdb562c6a9961197c8903ccc135f0277a36170c8fd4e77dcf9661b940"
+        "targetSha256": "782d64e8c200294fd715d0d5a21adc1edcc5934c69765ec7a68cc6a509755282",
+        "targetTransformations": [
+            "namespace/path migration",
+            "JCB PHP style and explicit dependency properties",
+            "class and member contract documentation"
+        ]
     },
     {
         "source": "companion/plugin/src/Command/CliInventoryCommand.php",
         "sourceSha256": "8483d11e5e73b059beeec7ed2cb9b0a5f1afd7156ef01057746ea12946216c0f",
         "target": "admin/src/Native/Command/CliInventoryCommand.php",
-        "targetSha256": "cd2911bd2a4aeda27086a48dbb19f4d6c2d19ccd725836b823c05071f09f52b3"
+        "targetSha256": "1d681c9a89a896eb0e2a166612252539be96d819669c5c30945eea72d6a731b5",
+        "targetTransformations": [
+            "namespace/path migration",
+            "JCB PHP style and explicit dependency properties",
+            "class and member contract documentation"
+        ]
     },
     {
         "source": "companion/plugin/src/Command/DescribeCommand.php",
         "sourceSha256": "e6b1aa6d37a44a2332277afea755cb9cda6e49a7ce446e876b341c06052a95a4",
         "target": "admin/src/Native/Command/DescribeCommand.php",
-        "targetSha256": "e96193e287c6f429681908b22a0e86548a4f6617dc5408b2061dcb2723ca1856"
+        "targetSha256": "e9ce3f7c6446b6c6e62cff9cdf05dcd93d09105877191dada9334dd9cf80e884",
+        "targetTransformations": [
+            "namespace/path migration",
+            "JCB PHP style and explicit dependency properties",
+            "class and member contract documentation"
+        ]
     },
     {
         "source": "companion/plugin/src/Command/DispatchCommand.php",
         "sourceSha256": "06023442d9dd5145a3203e369c5513210c50605ec1f5006ae7b7ae34c218a887",
         "target": "admin/src/Native/Command/DispatchCommand.php",
-        "targetSha256": "a5969371d5cbdc8974ac67c23e8ac55fc2276da2cda73e3cb68101a2201c9efd"
+        "targetSha256": "d9fb71dbe7bb6c37134e2a6a75bc2f38e44923034ed2b16747a1b93d5b97530c",
+        "targetTransformations": [
+            "namespace/path migration",
+            "JCB PHP style and explicit dependency properties",
+            "class and member contract documentation"
+        ]
     },
     {
         "source": "companion/plugin/src/Domain/ActionRegistry.php",
         "sourceSha256": "8b3394b8a645cf3605b05b9bc03eb703ca91514954683926dcabeab6ce9ef0e3",
         "target": "admin/src/Native/Domain/ActionRegistry.php",
-        "targetSha256": "6bd89e7fa107d5c83e34d2346e078c96c9da28882ce289d74b39a02fba728193"
+        "targetSha256": "79a714e75f165f459969dcc1c63b31ec085347e0f2ea1c24c065b0e91fa5b55b",
+        "targetTransformations": [
+            "namespace/path migration",
+            "JCB PHP style and explicit dependency properties",
+            "class and member contract documentation"
+        ]
     },
     {
         "source": "companion/plugin/src/Domain/ActionException.php",
         "sourceSha256": "6d2683b2816c03cb139717c3545ee995d67a49e2c05e7515c5c54572eec5e696",
         "target": "admin/src/Native/Domain/ActionException.php",
-        "targetSha256": "dbdb89a02dcb2a457e2716c633868c9d7a23b83098220af83d6f113f59563677"
+        "targetSha256": "2641b37d89c967e60dba878bbc56390a9e6b63ad891d82b11447aa448d6925a6",
+        "targetTransformations": [
+            "namespace/path migration",
+            "JCB PHP style and explicit dependency properties",
+            "class and member contract documentation"
+        ]
     },
     {
         "source": "companion/plugin/src/Domain/CoreEntityDefinition.php",
         "sourceSha256": "ce668ee93388040b41adcd3ae31229bc2a03303aad3b910c49eeba9dcc5f1cd1",
         "target": "admin/src/Native/Domain/CoreEntityDefinition.php",
-        "targetSha256": "9be9d8e58f89388ecacc3a99a0ca188936f284372d841e1a370c76a88d9e9c3c"
+        "targetSha256": "06025d3ac11f7a45ae206d55a6b861c3c1ee0b7a1b19fd51cf4422ca3fb7ac53",
+        "targetTransformations": [
+            "namespace/path migration",
+            "JCB PHP style and explicit dependency properties",
+            "class and member contract documentation"
+        ]
     },
     {
         "source": "companion/plugin/src/Domain/Input.php",
         "sourceSha256": "b114e0a807c0444636b1658b8d760d7b4b79a3b04ebd022980cfc173ce387f15",
         "target": "admin/src/Native/Domain/Input.php",
-        "targetSha256": "f2768a285152b4f504d4ed5f7f504f01c1f1cd2f007010e5b90f29c142cb5c65"
+        "targetSha256": "02b0c83de104b61dde9161101a66441b4275e0c357faa00dae1dc9cbe4fe7af1",
+        "targetTransformations": [
+            "namespace/path migration",
+            "JCB PHP style and explicit dependency properties",
+            "class and member contract documentation"
+        ]
     },
     {
         "source": "companion/plugin/src/Domain/ActionDescriptor.php",
         "sourceSha256": "fe8576e98ddf6ce7e6acc4dd0bcc5289431d395560b430e302ad5ad8a0572940",
         "target": "admin/src/Native/Domain/ActionDescriptor.php",
-        "targetSha256": "59556958b27058281b545f6993973b98c782153328486c6f847faa308d0d19da"
+        "targetSha256": "13a269d259649d6ddd7c82314e1ecf623ce1c857b0db8112de1ecc262a523e70",
+        "targetTransformations": [
+            "namespace/path migration",
+            "JCB PHP style and explicit dependency properties",
+            "class and member contract documentation"
+        ]
     },
     {
         "source": "companion/plugin/src/Protocol/DispatchService.php",
         "sourceSha256": "b20f42f643dd95a1dfa87872a9375592f9e44dfcc0a506976f5dd1f78dcbb259",
         "target": "admin/src/Native/Protocol/DispatchService.php",
-        "targetSha256": "5955550b23c01eeac83903f3588a3468e99993f4a41faa2c92ed207e2fae8a38"
+        "targetSha256": "82e48e212cee43fbb257319f91d183c665f8c75097698e656cc43242bc93bebd",
+        "targetTransformations": [
+            "namespace/path migration",
+            "JCB PHP style and explicit dependency properties",
+            "class and member contract documentation"
+        ]
     },
     {
         "source": "companion/plugin/src/Protocol/DescriptionService.php",
         "sourceSha256": "2c0a1688c41cfba34865805edf803f0309f9be144efc721c64297b90ffe789e3",
         "target": "admin/src/Native/Protocol/DescriptionService.php",
-        "targetSha256": "590015ed890e238a6b06d67d6c3e96377a8c0cc536b347208cf8833c422a0a90"
+        "targetSha256": "1176c278e2251cc8a3d1862ddbd479a3f2063cc9b67c7db210bc9e45bebde5dd",
+        "targetTransformations": [
+            "namespace/path migration",
+            "JCB PHP style and explicit dependency properties",
+            "class and member contract documentation"
+        ]
     },
     {
         "source": "companion/plugin/src/Protocol/RequestDecoder.php",
         "sourceSha256": "67ba7093225ea01c9eb099caaffd4bc67968610191fe4228146ba88b1fbd01c8",
         "target": "admin/src/Native/Protocol/RequestDecoder.php",
-        "targetSha256": "f2a0cd88399058a3a0a4a4b5fb6d2e3291ed2c02f783f3764633ee3dc34311d0"
+        "targetSha256": "ceb1f51a9f65fbf941b29758565ff5d575e5830c50f396ad7b7488ddeca58493",
+        "targetTransformations": [
+            "namespace/path migration",
+            "JCB PHP style and explicit dependency properties",
+            "class and member contract documentation"
+        ]
     },
     {
         "source": "companion/plugin/src/Protocol/SelfTestService.php",
         "sourceSha256": "3f299a5703a5d15f9cac80d031cb9587755bb8b81b6e8f10c6bca068a5804860",
         "target": "admin/src/Native/Protocol/SelfTestService.php",
-        "targetSha256": "8c2c4a7380df1938687a30de3f33896552cc7d04c206bb636a85e2784f8bae61"
+        "targetSha256": "816135cb23087331ae8fed3a728d26456dce31c8ffaa6da552892d7e973ae397",
+        "targetTransformations": [
+            "namespace/path migration",
+            "JCB PHP style and explicit dependency properties",
+            "class and member contract documentation"
+        ]
     },
     {
         "source": "companion/plugin/src/Contract/NativeOperationsInterface.php",
         "sourceSha256": "86bd028d39625c08d5f60c3dbcd74e64d8a7db742ef17e8391dd388214f8ea5c",
         "target": "admin/src/Native/Contract/NativeOperationsInterface.php",
-        "targetSha256": "f8c5da430b4880d7dc8e122e62bf76fbf24b50c54a820f9e81e67bcfbef1173a"
+        "targetSha256": "6e0f644e09f636d15768b83411e0f702a1d1797c8d0a4f6975c7d20d904d36e8",
+        "targetTransformations": [
+            "namespace/path migration",
+            "JCB PHP style and explicit dependency properties",
+            "class and member contract documentation"
+        ]
     },
     {
         "source": "companion/plugin/src/Contract/ModelProviderInterface.php",
         "sourceSha256": "8dc55cb3ea6f0df90ba0b94b9e3a25d44f92048d5607cf641bbb548fe3c2a6e5",
         "target": "admin/src/Native/Contract/ModelProviderInterface.php",
-        "targetSha256": "8a6f673ba085636b96a639d1a42259e5bb3a193afb68fc3c3234b6c08953e668"
+        "targetSha256": "e70c870022d4885d03c1364d858673ca6178eca7fbc958137d4ccb3ff07789b0",
+        "targetTransformations": [
+            "namespace/path migration",
+            "JCB PHP style and explicit dependency properties",
+            "class and member contract documentation"
+        ]
     },
     {
         "source": "companion/plugin/src/Contract/ActionInterface.php",
         "sourceSha256": "9bb64f0381bf0d75115f420b0a15c3d3836c05fa72eb455c40cef766796a89c8",
         "target": "admin/src/Native/Contract/ActionInterface.php",
-        "targetSha256": "0e662f5582df8110a43de43a732e909e21a2153b2e176ba64126f326db7cf6e1"
+        "targetSha256": "20edc7647f2222e1a40105656fdd39fde2230a52a306dd1ca8ffbcbc64b36fc5",
+        "targetTransformations": [
+            "namespace/path migration",
+            "JCB PHP style and explicit dependency properties",
+            "class and member contract documentation"
+        ]
     },
     {
         "source": "companion/plugin/src/Contract/CapabilityResolverInterface.php",
         "sourceSha256": "3cc421efecdfdeebe5205e08d15e55b39187bea0f81a254d742d153bde3c7429",
         "target": "admin/src/Native/Contract/CapabilityResolverInterface.php",
-        "targetSha256": "e7494c6f04525cfba8256dca8e25985962c11ba714eb26341ab495ad28a58b85"
+        "targetSha256": "563ac55007abaf98c1dbd01e6064894fbc974ff34b7a5ecd66288fd3f1822228",
+        "targetTransformations": [
+            "namespace/path migration",
+            "JCB PHP style and explicit dependency properties",
+            "class and member contract documentation"
+        ]
     },
     {
         "source": "companion/plugin/src/Action/SchedulerTaskAction.php",
         "sourceSha256": "c60c5976fdfda4c34e136aeb25a769cd0f56b1b7f3f56fdd7d3ef646ac6d10ae",
         "target": "admin/src/Native/Action/SchedulerTaskAction.php",
-        "targetSha256": "9155bef99daf54ace8590049f8a275eec4caeaaaabfaf5d19a724115a4312690"
+        "targetSha256": "ced55bf95fd72859a4a8a99fb13bf6175f0f93e6f13eae406080292e1aab77cf",
+        "targetTransformations": [
+            "namespace/path migration",
+            "JCB PHP style and explicit dependency properties",
+            "class and member contract documentation"
+        ]
     },
     {
         "source": "companion/plugin/src/Action/PurgeExpiredCacheAction.php",
         "sourceSha256": "51d77e84b128866d1abd1cd809e740023e85faff46069743cef6777b517ca775",
         "target": "admin/src/Native/Action/PurgeExpiredCacheAction.php",
-        "targetSha256": "9e7f0f7d6463c2a72d2b29f0f5abac206c8a17c0f92ad7beb1e1ed86eed8e2aa"
+        "targetSha256": "6b9df9a09a913affac6e9367bff727e4dd4c6f5a817859138ef0795f884e3655",
+        "targetTransformations": [
+            "namespace/path migration",
+            "JCB PHP style and explicit dependency properties",
+            "class and member contract documentation"
+        ]
     },
     {
         "source": "companion/plugin/src/Action/SafeConfigurationAction.php",
         "sourceSha256": "bb7266e6b14a17563332e053f2f69a9e621f102983bb1ed59c631b726322f274",
         "target": "admin/src/Native/Action/SafeConfigurationAction.php",
-        "targetSha256": "3395bcd8ec10d6980a5b1f1aa7d7f8de5268df26b22b2c6b27190e59444aab15"
+        "targetSha256": "082ff3f070754d4b29959c083989a6b526b18e1e2c3358340546c0d4fca44099",
+        "targetTransformations": [
+            "namespace/path migration",
+            "JCB PHP style and explicit dependency properties",
+            "class and member contract documentation"
+        ]
     },
     {
         "source": "companion/plugin/src/Action/RefreshExtensionUpdatesAction.php",
         "sourceSha256": "6e6b4326682e85722b7da7fe3ecb2fa6fcb768589742705844ea07c2d0510aef",
         "target": "admin/src/Native/Action/RefreshExtensionUpdatesAction.php",
-        "targetSha256": "8a29cad19216e83ec7efe290a4f9d49cab0fdefd5d572390b12871e48b1171a2"
+        "targetSha256": "0d0deef0a31a51af7169bcc82b422d743ae103f29437e8b69a944426b1c174b0",
+        "targetTransformations": [
+            "namespace/path migration",
+            "JCB PHP style and explicit dependency properties",
+            "class and member contract documentation"
+        ]
     },
     {
         "source": "companion/plugin/src/Action/SiteStateAction.php",
         "sourceSha256": "b34b1b3fcda2958ec394940fcf9b59c05fb46b8109ba1d0aee542586f6d198b7",
         "target": "admin/src/Native/Action/SiteStateAction.php",
-        "targetSha256": "c7b763cacf1ce65cd7181cb7f3a9cedfd1d881d65ec32afb99aa93743895d753"
+        "targetSha256": "f35c91e1e70856207c61994df89d907ed56078770ef0ee5be13c78cbd8765f33",
+        "targetTransformations": [
+            "namespace/path migration",
+            "JCB PHP style and explicit dependency properties",
+            "class and member contract documentation"
+        ]
     },
     {
         "source": "companion/plugin/src/Action/SystemInfoAction.php",
         "sourceSha256": "ddb3ed7c33f716969c8cb6f5121963ff2cbfd8206feaa9e2d95cdffe1350781f",
         "target": "admin/src/Native/Action/SystemInfoAction.php",
-        "targetSha256": "c42ba52c22a3ee3ac257ebaeb2a6006872a72f2135c1a7b718e2e5f57a4c7260"
+        "targetSha256": "c13d1d118eb608b644868081255a85f80871d0c3e62b54c94500e45d0f9078a2",
+        "targetTransformations": [
+            "namespace/path migration",
+            "JCB PHP style and explicit dependency properties",
+            "class and member contract documentation"
+        ]
     },
     {
         "source": "companion/plugin/src/Action/RefreshExtensionDiscoveryAction.php",
         "sourceSha256": "a31f2798fd1d8e813fd2c6b0ccd4330663b27e633c813c280902f23133e13a05",
         "target": "admin/src/Native/Action/RefreshExtensionDiscoveryAction.php",
-        "targetSha256": "e6ae05002beca2c94b156ffd19726404a1db18c56a3c93f1afdca520b14cb64e"
+        "targetSha256": "bcfb00737cc0fe161fd849c4f1c775f310c6deb60f7547a8f652ae75578203cf",
+        "targetTransformations": [
+            "namespace/path migration",
+            "JCB PHP style and explicit dependency properties",
+            "class and member contract documentation"
+        ]
     },
     {
         "source": "companion/plugin/src/Action/ListArticlesAction.php",
         "sourceSha256": "e7efbaffdcc27ef11a423365b57aef8e5d09da37e492c0a98ddc3542d7ce1cf3",
         "target": "admin/src/Native/Action/ListArticlesAction.php",
-        "targetSha256": "29b20ccfdbc84651c669845a5dc565cb1a2f521a2a1a4cd2b55c0bf2acbe48d7"
+        "targetSha256": "f2fef9c201d9f1de54519bf4a4eca66e05327f21ae5987a0edfb7e1fbd3b595d",
+        "targetTransformations": [
+            "namespace/path migration",
+            "JCB PHP style and explicit dependency properties",
+            "class and member contract documentation"
+        ]
     },
     {
         "source": "companion/plugin/src/Action/GetArticleAction.php",
         "sourceSha256": "6eaf63b54f10beb22667b254b26f92f31fbb7b56cf6c8b62bf818af842a7cee1",
         "target": "admin/src/Native/Action/GetArticleAction.php",
-        "targetSha256": "b1d7666fd46503b9b4815acf6da87215efb942c9da03f59f08c42b5662f3a293"
+        "targetSha256": "bba8123081b9711fdd1957fcb8cd0d3b9dd7e73417dd4724cfc77fb833f40bda",
+        "targetTransformations": [
+            "namespace/path migration",
+            "JCB PHP style and explicit dependency properties",
+            "class and member contract documentation"
+        ]
     },
     {
         "source": "companion/plugin/src/Action/FixedModelListAction.php",
         "sourceSha256": "0695e16ccbacf3b1a7c5d02167da958b798f107dbe34c7da804063254ca47650",
         "target": "admin/src/Native/Action/FixedModelListAction.php",
-        "targetSha256": "96319da360bbd42432e9c3d80caa0263cf11aabbfe892fc5d07d74fd54224235"
+        "targetSha256": "8efff3a9f64bacd68024267cd65a03984291739b6ba3dc1a59063d2c6a67c735",
+        "targetTransformations": [
+            "namespace/path migration",
+            "JCB PHP style and explicit dependency properties",
+            "class and member contract documentation"
+        ]
     },
     {
         "source": "companion/plugin/src/Action/ListExtensionsAction.php",
         "sourceSha256": "fc366f14dace720ecab4994b86d7fd1f1621ce82ae18ee4565dad7154a5d5e08",
         "target": "admin/src/Native/Action/ListExtensionsAction.php",
-        "targetSha256": "087f0eaf73faf6954cf62d8a47e13ea84bed305414164c8278c2f8f6111b1e26"
+        "targetSha256": "e524446740fbc42f49e132598dc20ee19762218298ae02a62c5e337c9bc374eb",
+        "targetTransformations": [
+            "namespace/path migration",
+            "JCB PHP style and explicit dependency properties",
+            "class and member contract documentation"
+        ]
     },
     {
         "source": "companion/plugin/src/Action/CoreEntityAction.php",
         "sourceSha256": "045c352b2a1cad22dcc037e4e611930afa78626e57c64dceab7284237f184474",
         "target": "admin/src/Native/Action/CoreEntityAction.php",
-        "targetSha256": "e4c7da7dd907e1485af9eb4443b8aa6af28612e5650ae3853e9d204e06f0698f"
+        "targetSha256": "02c4f7ac1154a36507e97c267523e03b110487f3ebd2a033e82271abb1c29a1e",
+        "targetTransformations": [
+            "namespace/path migration",
+            "JCB PHP style and explicit dependency properties",
+            "class and member contract documentation"
+        ]
     },
     {
         "source": "companion/plugin/src/Action/CoreUpdateStatusAction.php",
         "sourceSha256": "8ca5a3fa45363c3459017862be62d0d2b3d612b4e6a048a71783b6f731692e2c",
         "target": "admin/src/Native/Action/CoreUpdateStatusAction.php",
-        "targetSha256": "e7c7bdbe375687c521f1a4892ebbda2753aea88396c524273c2569815278f4ab"
+        "targetSha256": "6b882e5a299cc9e2f024db13f84fe765494bd5ccbcafdc4c8e39ab5d2ac28dfc",
+        "targetTransformations": [
+            "namespace/path migration",
+            "JCB PHP style and explicit dependency properties",
+            "class and member contract documentation"
+        ]
     },
     {
         "source": "companion/plugin/src/Action/SessionGarbageCollectionAction.php",
         "sourceSha256": "6f023ebbd3a345ebba106751a5c75d3b55d2b6f9dd79e0a7f2422ac6e1c49547",
         "target": "admin/src/Native/Action/SessionGarbageCollectionAction.php",
-        "targetSha256": "55d75bc7a0274f2fc7b4381a871e2e5d688810b1c7c213214608a0b5617586d4"
+        "targetSha256": "7469db168739d4b4d47f1aab117bd59e3062a411b4d0e3e63a0662818c9f2bd4",
+        "targetTransformations": [
+            "namespace/path migration",
+            "JCB PHP style and explicit dependency properties",
+            "class and member contract documentation"
+        ]
     },
     {
         "source": "companion/plugin/src/Action/FixedModelStateAction.php",
         "sourceSha256": "eeb1cf72ee5754f112440b7f642f8909446c33033cffa074b4108b6e28441b26",
         "target": "admin/src/Native/Action/FixedModelStateAction.php",
-        "targetSha256": "72b89cb14c85eb33442940b4a9396df1dcc1ea87d61e15655853da19b85c49f3"
+        "targetSha256": "c61f7a818e45a744cc2f309834993e262aeb2abcbc10485978f01c13cf99ef61",
+        "targetTransformations": [
+            "namespace/path migration",
+            "JCB PHP style and explicit dependency properties",
+            "class and member contract documentation"
+        ]
     },
     {
         "source": "companion/plugin/src/Action/CleanCacheAction.php",
         "sourceSha256": "b0acab7d7726fb10093d869379544974e9320432a19059dfdbd6ab888f30f23f",
         "target": "admin/src/Native/Action/CleanCacheAction.php",
-        "targetSha256": "9352e64271c6d7e28000fbbdfe26849dc3ad9185d88fab3a020f5a6858eb4664"
+        "targetSha256": "8bb91397c538d40a9f2c7590f263aadbbbf6ae94c6599294e57a3ff70585a492",
+        "targetTransformations": [
+            "namespace/path migration",
+            "JCB PHP style and explicit dependency properties",
+            "class and member contract documentation"
+        ]
     },
     {
         "source": "companion/tests/run.php",

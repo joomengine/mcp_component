@@ -171,6 +171,15 @@ try
 	}
 	[$packageJob] = $start('jcb.init.joomla_component', ['items' => $demo]);
 	$package = $wait($packageJob);
+	if ($track === 'cli' && $package['status'] !== 'completed')
+	{
+		// This disposable fixture contains no repository credentials. Native
+		// command diagnostics are needed to distinguish execution from read-back.
+		$native = $package['result']['mutation'] ?? [];
+		fwrite(STDERR, json_encode(['nativeExitCode' => $native['exitCode'] ?? null,
+			'stdout' => substr((string) ($native['stdout'] ?? ''), 0, 8192),
+			'stderr' => substr((string) ($native['stderr'] ?? ''), 0, 8192)], JSON_THROW_ON_ERROR) . PHP_EOL);
+	}
 	echo json_encode(['packageOutcome' => ['status' => $package['status'], 'verification' => $package['result']['verification'] ?? null,
 		'error' => $package['result']['error']['code'] ?? null]], JSON_THROW_ON_ERROR) . PHP_EOL;
 	$check($package['status'] === 'completed' && ($package['result']['verification']['status'] ?? '') === 'verified',
