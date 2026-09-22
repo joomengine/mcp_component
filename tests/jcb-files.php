@@ -120,6 +120,7 @@ foreach (['File', 'Folder'] as $area)
 	$grep = $make('VDM\\Joomla\\Componentbuilder\\Package\\GrepContent');
 	$set($grep, 'contents', $git);
 	$set($grep, 'config', $config);
+	$grep->path = null;
 	$grep->paths = [$repository, $second];
 
 	foreach (['Get', 'Set'] as $direction)
@@ -170,6 +171,14 @@ try
 	$git->reads = [];
 	$result = $verifier->inspect([$file], $container, false, $second);
 	$check($result['complete'] && array_column($git->reads, 2) === ['read-second', 'read-second'], 'Import verification honors the explicitly selected repository and read branch.');
+	$default = clone $second;
+	$default->read_branch = 'default';
+	$git->indexes['two:'] = $index;
+	$git->content['two::' . $path] = file_get_contents($root . '/images/example.json');
+	$git->reads = [];
+	$result = $verifier->inspect([$file], $container, false, $default);
+	$check($result['complete'] && array_column($git->reads, 2) === [null, null] && $default->read_branch === 'default',
+		'Explicit native default branches are normalized without mutating the approved repository object.');
 	$git->indexes['one:read-feature'] = (object) [];
 	$git->reads = [];
 	$result = $verifier->inspect([$file], $container, false);
