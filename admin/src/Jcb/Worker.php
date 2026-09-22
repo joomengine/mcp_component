@@ -213,7 +213,9 @@ final class Worker
 				}
 				catch (\Throwable $error)
 				{
-					$package = ['verification' => ['status' => 'unverified', 'reason' => 'Native package completion was recorded, but independent result read-back was unavailable.']];
+					$package = ['verification' => ['status' => 'unverified',
+						'code' => $error instanceof OperationException ? $error->getIdentifier() : 'JCB_PACKAGE_READBACK_UNAVAILABLE',
+						'reason' => 'Native package completion was recorded, but independent result read-back was unavailable.']];
 				}
 			}
 
@@ -253,7 +255,7 @@ final class Worker
 				}
 			}
 
-			if ($messages['warning'] !== [] && $verification['status'] === 'verified')
+			if ($messages['warning'] !== [] && $verification['status'] === 'verified' && !($package['remoteReadBack']['complete'] ?? false))
 			{
 				$verification['status'] = 'partial';
 				$verification['reason'] = 'Persisted results were observed, but the native operation also reported warnings requiring review.';

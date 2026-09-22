@@ -17,6 +17,7 @@
 - Background execution retains the original API user's identity and authority; a PHP worker does not grant local server-owner permissions.
 - Stale command definitions, implementation sources or approved JCB state require a new plan.
 - Component update discovery uses verified GitHub release feed assets.
+- Imported native production PHP follows the JCB code style, preserving source attribution, protocol literals and the original behavioural contracts.
 
 ## 0.1.0 — development baseline
 

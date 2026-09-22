@@ -1,6 +1,6 @@
 # Database and extension contract
 
-Tables use `#__joomengine_mcp_`. Shared queries use Joomla DatabaseInterface and bound parameters; database-specific DDL supplies MySQL/MariaDB and PostgreSQL installation/update paths. The current executable structure is `admin/src/Database/Structure.php`; this document distinguishes existing entities from proposed JCB long-job additions.
+Tables use `#__joomengine_mcp_`. Shared queries use Joomla DatabaseInterface and bound parameters; database-specific DDL supplies MySQL/MariaDB and PostgreSQL installation/update paths. The current executable structure is `admin/src/Database/Structure.php`, including the 0.1.1 job/artifact additions.
 
 ## Configuration graph
 
@@ -19,15 +19,15 @@ Editable rows include `id`, `asset_id`, `name`, `title`, `published`, `access`, 
 
 ## Durable state
 
-Current state entities are `permission_request`, `grant`, `plan`, `execution`, `lease`, `session` and `audit`. They preserve principal isolation, requested/approved scope and duration, one-shot/revocation/expiry, encrypted validated input/results, definition/input fingerprints, idempotency, optimistic versions, lease ownership and redacted append-only events. Protocol sessions are separate from authentication and consent. Never treat a session or job identifier as a credential.
+Current state entities are `permission_request`, `grant`, `plan`, `execution`, `lease`, `session`, `audit`, `job` and `artifact`. They preserve principal isolation, requested/approved scope and duration, one-shot/revocation/expiry, encrypted validated input/results, definition/input fingerprints, idempotency, optimistic versions, lease ownership and redacted append-only events. Protocol sessions are separate from authentication and consent. A session or job identifier is not a credential.
 
-JCB long-running work requires extending execution/lease persistence and, where needed, normalized `job` and `artifact` relationships. Those additions are planned in integrations/JCB.md and are not present merely because named here. Store job principal/provider/execution references, state/lease/timestamps, bounded progress, immutable approved inputs and partial/uncertain outcomes. Artifacts use authorized IDs, MIME/size/hash/retention metadata and managed paths, not arbitrary remote filesystem access.
+The normalized `job` table retains principal/execution references, encrypted approved input, claim/worker tickets, state/lease/timestamps, progress and partial/uncertain outcomes. `artifact` records hold owned job references, MIME/size/SHA-256, chunk hashes and retention metadata. Private artifact paths are selected by server composition; requests use opaque IDs and bounded byte ranges. Version 0.1.1 includes installation DDL and upgrade migrations for both supported database families.
 
 ## Seed ownership and upgrades
 
-Initial SQL contains reviewed configuration rows; runtime reads installed records. Stable natural identities and revision/hash/customized metadata separate shipped definitions from administrator edits and third-party providers. Upgrades must be idempotent, preserve local customization/relations and record conflicts rather than overwrite. The installer now contains SeedUpdater infrastructure; full native install/update/uninstall tests remain required.
+Initial SQL contains reviewed configuration rows; runtime reads installed records. Stable natural identities and revision/hash/customized metadata separate shipped definitions from administrator edits and third-party providers. SeedUpdater and native lifecycle tests preserve local customization and relations. Current installed verification is tracked in IMPLEMENTATION.md.
 
-Original-core parity is source-pinned. JCB is a separate required provider expansion: capture actual API route and CLI registration contracts, then generate validated schemas/actions/bindings/targets and portable install/update SQL. Do not treat JCB's package entity map or API-generator templates as executable route evidence. `docs/integrations/jcb-surface.json` is planning evidence only and must not be loaded as runtime seed data.
+Original-core parity is source-pinned. JCB definitions are synchronized explicitly from installed API routes and CLI registrations into database rows, preserving customization and provenance. They are not fabricated in static installation SQL. The package entity map and API-generator templates are not executable route evidence. `docs/integrations/jcb-surface.json` remains planning evidence and is never loaded as runtime seed data.
 
 ## Extension by rows
 

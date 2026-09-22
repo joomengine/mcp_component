@@ -10,6 +10,7 @@ namespace VDM\Component\JoomEngineMcp\Administrator\Jcb;
 
 
 use ReflectionProperty;
+use Joomla\DI\ContainerResource;
 use VDM\Component\JoomEngineMcp\Administrator\Domain\OperationException;
 use VDM\Component\JoomEngineMcp\Administrator\Service\Json;
 
@@ -39,10 +40,13 @@ final class PackageResults
 			strtolower($direction)))->getValue($command);
 		$categories = ['local' => [], 'not_found' => [], 'added' => []];
 		$targets = [];
+		$assetCategories = [];
 		$failed = 0;
 
 		if ($builder !== null)
 		{
+			$container = (new ReflectionProperty('VDM\\Joomla\\Componentbuilder\\Package\\Builder\\' . $direction, 'container'))->getValue($builder);
+
 			if (!$push)
 			{
 				$results = (new ReflectionProperty('VDM\\Joomla\\Componentbuilder\\Package\\Builder\\Get', 'results'))->getValue($builder);
@@ -51,8 +55,21 @@ final class PackageResults
 				{
 					foreach ((array) ($results[$category] ?? []) as $guid => $entity)
 					{
-						$this->target($targets, $entity, 'guid', $guid);
 						$categories[$category][$guid] = $entity;
+
+						if (\VDM\Joomla\Componentbuilder\Factory::getArea($entity) === null)
+						{
+							$assetCategories[$guid] = $category;
+							continue;
+						}
+
+						$resource = $container->getResource(\VDM\Joomla\Componentbuilder\Factory::getArea($entity) . '.Remote.Get');
+						$service = $resource === null ? null : (new ReflectionProperty(ContainerResource::class, 'instance'))->getValue($resource);
+						if (!$service instanceof \VDM\Joomla\Abstraction\Remote\Get)
+						{
+							throw new OperationException('JCB_RESULT_UNVERIFIABLE', 'A native result has no initialized entity reader.');
+						}
+						$this->target($targets, $entity, $service->getGuidField(), $guid);
 					}
 				}
 			}
@@ -97,16 +114,55 @@ final class PackageResults
 		}
 
 		$covered = $prepared['input']['selectors'] !== [];
+		$requestedCovered = $covered;
+		$selectors = $prepared['input']['selectors'];
 
-		foreach ($prepared['input']['selectors'] as $selector)
+		if (!$push && $builder !== null && count(array_filter($selectors, static fn (string $value): bool =>
+			preg_match('/\A[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\z/Di', $value) !== 1)) > 0)
+		{
+			// This native helper resolves local aliases and remote indexes only;
+			// it does not import a definition or instantiate a dependency writer.
+			$selectors = $builder->getValidGuids($definition['entity'], $selectors);
+			$requestedCovered = count($selectors) === count($prepared['input']['selectors']);
+		}
+
+		foreach ($selectors as $selector)
 		{
 			$covered = $covered && ($categories['local'][$selector] ?? '') === $definition['entity'];
+			$requestedCovered = $requestedCovered && count(array_filter($targets, static fn (array $target): bool =>
+				$target['entity'] === $definition['entity'] && $target['value'] === $selector)) > 0;
+		}
+
+		$remote = [];
+
+		if ($builder !== null)
+		{
+			$container = (new ReflectionProperty('VDM\\Joomla\\Componentbuilder\\Package\\Builder\\' . $direction, 'container'))->getValue($builder);
+			$remote = $push ? (new RemoteResults())->inspect(array_values($targets), $container)
+				: (new ImportedResults())->inspect(array_values($targets), $container, $item, $categories['local'], $prepared);
+		}
+
+		foreach ($assetCategories as $key => $category)
+		{
+			if ($category !== 'not_found' && count(array_filter($remote['files']['records'] ?? [], static fn (array $record): bool =>
+				($record['key'] ?? null) === $key && ($record['matches'] ?? false))) === 0)
+			{
+				$remote['complete'] = false;
+				$remote['unverifiedCount'] = ($remote['unverifiedCount'] ?? 0) + 1;
+			}
 		}
 
 		$status = 'unverified';
 		$reason = 'Local row hashes are observed; complete remote and dependency equivalence has not been independently established.';
 
-		if ($missing > 0 || $failed > 0 || $categories['not_found'] !== [])
+		if ($requestedCovered && $missing === 0 && $categories['not_found'] === [] && ($remote['complete'] ?? false))
+		{
+			$status = 'verified';
+			$reason = $push
+				? 'Fresh native repository reads matched every selected source and tracked definition dependency on each configured write branch.'
+				: 'Fresh native repository reads matched the imported source fields, and its declared dependencies were independently read back locally.';
+		}
+		elseif ($missing > 0 || $failed > 0 || $categories['not_found'] !== [] || ($remote['failedCount'] ?? 0) > 0)
 		{
 			$status = 'partial';
 			$reason = 'Some native package targets were missing or failed; successful partial effects remain recorded.';
@@ -119,8 +175,9 @@ final class PackageResults
 		}
 
 		return ['categories' => (object) array_map(static fn (array $values): object => (object) $values, $categories),
-			'readBack' => $observations, 'verification' => ['status' => $status, 'reason' => $reason,
-				'scope' => 'local definitions', 'observedCount' => count($observations), 'missingCount' => $missing,
+			'readBack' => $observations, 'remoteReadBack' => $remote, 'verification' => ['status' => $status, 'reason' => $reason,
+				'scope' => $push ? 'repository source and definition dependencies' : 'local definitions',
+				'observedCount' => count($observations), 'missingCount' => $missing,
 				'nativeFailureCount' => $failed, 'notFoundCount' => count($categories['not_found'])]];
 	}
 

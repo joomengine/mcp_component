@@ -1,8 +1,15 @@
 <?php
-
-declare(strict_types=1);
-
+/**
+ * @package    JoomEngine.Mcp
+ * @created    17 September 2026
+ * @author     Llewellyn van der Merwe <https://dev.vdm.io>
+ * @git        JoomEngine MCP <https://github.com/joomengine/mcp_component>
+ * @copyright  Copyright (C) 2026 Vast Development Method. All rights reserved.
+ * @license    GNU General Public License version 2 or later; see LICENSES/joomla-mcp.txt
+ * @since      0.1.0
+ */
 namespace VDM\Component\JoomEngineMcp\Administrator\Native\Action;
+
 
 use VDM\Component\JoomEngineMcp\Administrator\Native\Contract\ActionInterface;
 use VDM\Component\JoomEngineMcp\Administrator\Native\Contract\NativeOperationsInterface;
@@ -10,108 +17,161 @@ use VDM\Component\JoomEngineMcp\Administrator\Native\Domain\ActionDescriptor;
 use VDM\Component\JoomEngineMcp\Administrator\Native\Domain\ActionException;
 use VDM\Component\JoomEngineMcp\Administrator\Native\Domain\Input;
 
-/** Adapts Joomla's native site:down and site:up console commands. */
-final readonly class SiteStateAction implements ActionInterface
+
+/**
+ *  Adapts Joomla's native site:down and site:up console commands.
+ *
+ * @since  0.1.0
+ */
+final class SiteStateAction implements ActionInterface
 {
-    public function __construct(
-        private NativeOperationsInterface $operations,
-        private bool $write = false,
-    ) {
-    }
+	/**
+	 * The fixed native console operation adapters.
+	 *
+	 * @var   NativeOperationsInterface
+	 *
+	 * @since  0.1.0
+	 */
+	private NativeOperationsInterface $operations;
 
-    public function descriptor(): ActionDescriptor
-    {
-        return new ActionDescriptor(
-            $this->write ? 'site.state.set' : 'site.state.get',
-            $this->write
-                ? 'Set and verify Joomla site offline state through site:down or site:up.'
-                : 'Read Joomla site offline state from native configuration.',
-            $this->write ? 'high' : 'read',
-            [['action' => 'core.admin', 'asset' => 'com_config']],
-            $this->write ? [
-                'type' => 'object',
-                'required' => ['offline'],
-                'properties' => [
-                    'offline' => ['type' => 'boolean'],
-                    'dryRun' => ['type' => 'boolean', 'default' => true],
-                    '_edgeConfirmed' => ['type' => 'boolean', 'writeOnly' => true],
-                ],
-                'additionalProperties' => false,
-            ] : ['type' => 'object', 'properties' => [], 'additionalProperties' => false],
-            $this->write ? [
-                'type' => 'object',
-                'required' => ['applied', 'dryRun', 'requestedState', 'preState', 'recovery'],
-                'properties' => [
-                    'applied' => ['type' => 'boolean'],
-                    'dryRun' => ['type' => 'boolean'],
-                    'requestedState' => ['type' => 'object'],
-                    'preState' => ['type' => 'object'],
-                    'postState' => ['type' => 'object'],
-                    'verification' => ['type' => 'object'],
-                    'recovery' => ['type' => 'object'],
-                    'requiresEdgeConfirmation' => ['type' => 'boolean'],
-                ],
-                'additionalProperties' => false,
-            ] : [
-                'type' => 'object',
-                'required' => ['offline'],
-                'properties' => ['offline' => ['type' => 'boolean']],
-                'additionalProperties' => false,
-            ],
-        );
-    }
+	/**
+	 * Whether this action may change the site state.
+	 *
+	 * @var   bool
+	 *
+	 * @since  0.1.0
+	 */
+	private bool $write;
 
-    public function execute(array $input): array
-    {
-        if (!$this->write) {
-            Input::rejectUnknown($input, []);
+	/**
+	 * Initialize the reviewed dependencies and configuration.
+	 *
+	 * @param   NativeOperationsInterface  $operations  The fixed native console operation adapters.
+	 * @param   bool                       $write       Whether this action may change the site state.
+	 *
+	 * @since  0.1.0
+	 */
+	public function __construct(
+		NativeOperationsInterface $operations,
+		bool $write = false,
+	)
+	{
+		$this->operations = $operations;
+		$this->write = $write;
+	}
 
-            return ['offline' => $this->operations->siteOfflineState()];
-        }
+	/**
+	 * Return the action identity, schemas and required Joomla permissions.
+	 *
+	 * @return  ActionDescriptor
+	 *
+	 * @since  0.1.0
+	 */
+	public function descriptor(): ActionDescriptor
+	{
+		return new ActionDescriptor(
+			$this->write ? 'site.state.set' : 'site.state.get',
+			$this->write
+				? 'Set and verify Joomla site offline state through site:down or site:up.'
+				: 'Read Joomla site offline state from native configuration.',
+			$this->write ? 'high' : 'read',
+			[['action' => 'core.admin', 'asset' => 'com_config']],
+			$this->write ? [
+				'type' => 'object',
+				'required' => ['offline'],
+				'properties' => [
+					'offline' => ['type' => 'boolean'],
+					'dryRun' => ['type' => 'boolean', 'default' => true],
+					'_edgeConfirmed' => ['type' => 'boolean', 'writeOnly' => true],
+				],
+				'additionalProperties' => false,
+			] : ['type' => 'object', 'properties' => [], 'additionalProperties' => false],
+			$this->write ? [
+				'type' => 'object',
+				'required' => ['applied', 'dryRun', 'requestedState', 'preState', 'recovery'],
+				'properties' => [
+					'applied' => ['type' => 'boolean'],
+					'dryRun' => ['type' => 'boolean'],
+					'requestedState' => ['type' => 'object'],
+					'preState' => ['type' => 'object'],
+					'postState' => ['type' => 'object'],
+					'verification' => ['type' => 'object'],
+					'recovery' => ['type' => 'object'],
+					'requiresEdgeConfirmation' => ['type' => 'boolean'],
+				],
+				'additionalProperties' => false,
+			] : [
+				'type' => 'object',
+				'required' => ['offline'],
+				'properties' => ['offline' => ['type' => 'boolean']],
+				'additionalProperties' => false,
+			],
+		);
+	}
 
-        Input::rejectUnknown($input, ['offline', 'dryRun', '_edgeConfirmed']);
-        $offline = Input::boolean($input, 'offline', false);
-        $before = $this->operations->siteOfflineState();
-        $plan = [
-            'applied' => false,
-            'dryRun' => true,
-            'requestedState' => ['offline' => $offline],
-            'preState' => ['offline' => $before],
-            'recovery' => ['action' => 'site.state.set', 'input' => ['offline' => $before]],
-            'requiresEdgeConfirmation' => true,
-        ];
+	/**
+	 * Validate the supplied input and perform this action within its native contract.
+	 *
+	 * @param   array  $input  The input value.
+	 * @return  array
+	 *
+	 * @since  0.1.0
+	 */
+	public function execute(array $input): array
+	{
+		if (!$this->write)
+		{
+			Input::rejectUnknown($input, []);
 
-        if (Input::boolean($input, 'dryRun', true)) {
-            return $plan;
-        }
+			return ['offline' => $this->operations->siteOfflineState()];
+		}
 
-        if (!Input::boolean($input, '_edgeConfirmed', false)) {
-            throw new ActionException('CONFIRMATION_REQUIRED', 'Site state changes require signed MCP edge confirmation.');
-        }
+		Input::rejectUnknown($input, ['offline', 'dryRun', '_edgeConfirmed']);
+		$offline = Input::boolean($input, 'offline', false);
+		$before = $this->operations->siteOfflineState();
+		$plan = [
+			'applied' => false,
+			'dryRun' => true,
+			'requestedState' => ['offline' => $offline],
+			'preState' => ['offline' => $before],
+			'recovery' => ['action' => 'site.state.set', 'input' => ['offline' => $before]],
+			'requiresEdgeConfirmation' => true,
+		];
 
-        $exitCode = $this->operations->setSiteOffline($offline);
-        $after = $this->operations->siteOfflineState();
+		if (Input::boolean($input, 'dryRun', true))
+		{
+			return $plan;
+		}
 
-        if ($exitCode !== 0 || $after !== $offline) {
-            throw new ActionException(
-                'POSTCONDITION_FAILED',
-                sprintf(
-                    'Joomla did not verify the requested site state (exit=%d, requested=%s, observed=%s).',
-                    $exitCode,
-                    $offline ? 'offline' : 'online',
-                    $after ? 'offline' : 'online',
-                ),
-            );
-        }
+		if (!Input::boolean($input, '_edgeConfirmed', false))
+		{
+			throw new ActionException('CONFIRMATION_REQUIRED', 'Site state changes require signed MCP edge confirmation.');
+		}
 
-        return [
-            'applied' => true,
-            'dryRun' => false,
-            'requestedState' => ['offline' => $offline],
-            'preState' => ['offline' => $before],
-            'postState' => ['offline' => $after],
-            'verification' => ['nativeExitCode' => $exitCode, 'matchesRequestedState' => $after === $offline],
-            'recovery' => ['action' => 'site.state.set', 'input' => ['offline' => $before]],
-        ];
-    }
+		$exitCode = $this->operations->setSiteOffline($offline);
+		$after = $this->operations->siteOfflineState();
+
+		if ($exitCode !== 0 || $after !== $offline)
+		{
+			throw new ActionException(
+				'POSTCONDITION_FAILED',
+				sprintf(
+					'Joomla did not verify the requested site state (exit=%d, requested=%s, observed=%s).',
+					$exitCode,
+					$offline ? 'offline' : 'online',
+					$after ? 'offline' : 'online',
+				),
+			);
+		}
+
+		return [
+			'applied' => true,
+			'dryRun' => false,
+			'requestedState' => ['offline' => $offline],
+			'preState' => ['offline' => $before],
+			'postState' => ['offline' => $after],
+			'verification' => ['nativeExitCode' => $exitCode, 'matchesRequestedState' => $after === $offline],
+			'recovery' => ['action' => 'site.state.set', 'input' => ['offline' => $before]],
+		];
+	}
 }

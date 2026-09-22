@@ -16,7 +16,7 @@ Joomla route registration requires a webservices plugin. Minimal `webservices/jo
 
 Reuse Joomla token authentication, not a second credential store. Verify both supported Joomla token header forms against the installed API authentication plugin. Static token authentication is not OAuth discovery; do not advertise an OAuth authorization server that is not implemented.
 
-Outbound API calls use a server-configured canonical same-site origin, reviewed relative routes, bounded bytes/time, verified TLS and no redirects. They preserve the caller's token and target ACL. This server-only HTTP adapter belongs in admin/src/Http, not an external client library. HTTP requests cannot invoke the trusted local CLI context. Any future HTTP exposure of a CLI-only JCB operation needs an explicit reviewed, ACL-enforcing service/job boundary, not a console bypass.
+Outbound API calls use a server-configured canonical same-site origin, reviewed relative routes, bounded bytes/time, verified TLS and no redirects. They preserve the caller's token and target ACL. This server-only HTTP adapter lives in admin/src/Http. HTTP requests cannot invoke the trusted local CLI context. JCB command jobs use a reviewed service boundary that retains and rechecks the original API user's authority inside the worker.
 
 ## Trusted console path
 
@@ -40,7 +40,7 @@ Advertise only protocol revisions/features actually implemented and tested. The 
 
 Plans, grants, idempotency, locks and audit persist in the database across PHP workers. Approvals bind principal, action, canonical validated input, definition revision and expiry. Atomically claim one-shot state, re-authorize before execution and preserve ambiguous/partial effects for reconciliation instead of replaying writes.
 
-JCB compilation and dependency synchronization may exceed one HTTP exchange. Implement durable owned jobs, worker/lease state, bounded progress, cancellation acknowledgement, artifact identifiers/hashes and reconciliation as described in integrations/JCB.md. A timed-out client connection is neither a cancelled compiler nor a rollback. Freeze effective compiler options/environment inputs in the plan; ensure fresh or correctly reset JCB mutable containers per operation.
+JCB compilation and dependency synchronization use durable owned jobs, one-use worker tickets, lease state, progress, cancellation and artifact IDs/hashes. A timed-out connection is neither cancellation nor rollback. Planning freezes native options/environment values and definition/configuration fingerprints; separate PHP execution processes isolate mutable JCB containers. Expired or ambiguous work remains uncertain for reconciliation; only never-started queued jobs can be redispatched. Artifacts are retained privately with ownership, bounded byte reads, chunk integrity and expiry enforcement.
 
 ## Administrator experience
 
@@ -50,7 +50,7 @@ JCB source-code fields remain permitted inert definition data under appropriate 
 
 ## Distribution and references
 
-Build standalone component (with routing glue/dependencies), standalone console plugin, and combined Joomla package; external client packaging is independent in mcp_client. Supply native installer preflight, MySQL/MariaDB and PostgreSQL schema/update paths, customization-preserving seed upgrades, changelog/update metadata, checksums and .octojpack. No feed entry points to an unpublished asset. Pin component/plugin versions together and retain licences.
+The builder produces the component (with routing glue/dependencies), console plugin and combined Joomla package. External client packaging remains independent. Native installer preflight, MySQL/MariaDB and PostgreSQL updates, customization-preserving seeds, changelog/update metadata, checksums and .octojpack are included. The distribution lock pins compatible component/plugin versions and immutable console source. Release automation publishes feeds only after verifying published archives. See RELEASE.md.
 
 - Original MCP: https://github.com/joomengine/joomla-mcp/tree/2cff50f4f6b440da3c684f9995a77efad32e1a36
 - Joomla/JCB layout: https://github.com/joomengine/Joomla-Component-Builder/tree/6.x

@@ -50,4 +50,6 @@ Development remains on `feature/jcb-mcp-runtime` and existing PR #1. Native admi
 
 The original migration source is pinned at `joomengine/joomla-mcp@2cff50f4f6b440da3c684f9995a77efad32e1a36`. It remains unchanged. Joomla 6 native contracts are authoritative; repository/MVC/XML placement follows JCB's extension-root layout. This is hand-authored JCB-aligned source, not an already imported JCB blueprint.
 
+Imported native handlers retain the original behavioural contracts and source attribution while following the JCB PHP style. The original implementation's deliberately unavailable operations remain explicit diagnostics; they are documented in the [migration provenance](docs/migration/README.md).
+
 Read [architecture](docs/ARCHITECTURE.md), [database design](docs/DATABASE.md), [migration plan](docs/MIGRATION.md), [security](SECURITY.md), and [agent instructions](AGENTS.md) before changing the runtime.
