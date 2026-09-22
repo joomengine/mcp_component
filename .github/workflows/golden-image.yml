@@ -40,7 +40,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           repository: joomengine/mcp_plugin
-          ref: 873c46742d1ee95d661779e73649fcedaf069ff4
+          ref: fcfa91a026fedae9d785bad4447eb0855ddee1cf
           path: build/plugin-source
           persist-credentials: false
       - name: Check out the remote client bridge under test

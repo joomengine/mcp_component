@@ -93,8 +93,19 @@ final class PackageResults
 			}
 		}
 
-		$item = (new ReflectionProperty('VDM\\Joomla\\Componentbuilder\\Abstraction\\Console\\Package', 'item'))->getValue($command);
-		$original = $item->getTable();
+		// The command's Data.Power.Item is an auto-importing facade and may not
+		// even have a selected table. Independent read-back uses only the plain
+		// database reader already initialized by the executed native builder.
+		$resource = $builder === null || $targets === [] ? null : $container->getResource($push ? 'Data.Items' : 'Data.Item');
+		$item = $resource === null ? null : (new ReflectionProperty(ContainerResource::class, 'instance'))->getValue($resource);
+		$expectedClass = $push ? 'VDM\\Joomla\\Data\\Items' : 'VDM\\Joomla\\Data\\Item';
+
+		if ($targets !== [] && (!is_object($item) || get_class($item) !== $expectedClass))
+		{
+			throw new OperationException('JCB_RESULT_UNVERIFIABLE', 'The native operation did not initialize a plain local read-back provider.');
+		}
+
+		$original = $item === null ? null : $item->getTable();
 		$observations = [];
 		$missing = 0;
 
@@ -102,7 +113,15 @@ final class PackageResults
 		{
 			foreach ($targets as $target)
 			{
-				$row = $item->table($target['entity'])->get($target['value'], $target['key']);
+				if ($push)
+				{
+					$rows = $item->table($target['entity'])->get([$target['value']], $target['key']);
+					$row = $rows === null || $rows === [] ? null : reset($rows);
+				}
+				else
+				{
+					$row = $item->table($target['entity'])->get($target['value'], $target['key']);
+				}
 				$missing += $row === null ? 1 : 0;
 				$observations[] = $target + ['persisted' => $row !== null,
 					'sha256' => $row === null ? null : hash('sha256', Json::canonical($row))];
@@ -110,7 +129,10 @@ final class PackageResults
 		}
 		finally
 		{
-			$item->table($original);
+			if ($item !== null)
+			{
+				$item->table($original);
+			}
 		}
 
 		$covered = $prepared['input']['selectors'] !== [];
@@ -135,7 +157,7 @@ final class PackageResults
 
 		$remote = [];
 
-		if ($builder !== null)
+		if ($builder !== null && $item !== null)
 		{
 			$container = (new ReflectionProperty('VDM\\Joomla\\Componentbuilder\\Package\\Builder\\' . $direction, 'container'))->getValue($builder);
 			$remote = $push ? (new RemoteResults())->inspect(array_values($targets), $container)
