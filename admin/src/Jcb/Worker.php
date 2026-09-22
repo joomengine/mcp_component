@@ -175,7 +175,23 @@ final class Worker
 
 		try
 		{
-			$exit = $this->application->invokeNativeCommand($command, $input, $output);
+			$nativeError = null;
+			try
+			{
+				$exit = $this->application->invokeNativeCommand($command, $input, $output);
+			}
+			catch (\Throwable $error)
+			{
+				// Native installation can throw after compilation or a partial install.
+				// Continue independent read-back and retain already-produced archives.
+				$exit = 2;
+				$nativeError = ['code' => 'JCB_NATIVE_FAILED'];
+				if ($principal->isLocal())
+				{
+					$nativeError += ['type' => get_class($error), 'message' => substr($error->getMessage(), 0, 4096),
+						'file' => basename($error->getFile()), 'line' => $error->getLine()];
+				}
+			}
 			$artifacts = [];
 			$messages = ['success' => [], 'warning' => [], 'error' => []];
 			$package = [];
@@ -261,7 +277,7 @@ final class Worker
 				$verification['reason'] = 'Persisted results were observed, but the native operation also reported warnings requiring review.';
 			}
 
-			return ['protocol' => 'joomengine-worker/1', 'exitCode' => $exit,
+			return ['protocol' => 'joomengine-worker/1', 'exitCode' => $exit, 'nativeError' => $nativeError,
 				'stdout' => $principal->isLocal() ? $output->contents() : '',
 				'stderr' => $principal->isLocal() ? $output->getErrorOutput()->contents() : '',
 				'messages' => $principal->isLocal() ? $messages : array_map('count', $messages),
