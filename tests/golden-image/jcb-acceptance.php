@@ -176,7 +176,7 @@ try
 		// This disposable fixture contains no repository credentials. Native
 		// command diagnostics are needed to distinguish execution from read-back.
 		$native = $package['result']['mutation'] ?? [];
-		fwrite(STDERR, json_encode(['nativeExitCode' => $native['exitCode'] ?? null,
+		fwrite(STDERR, json_encode(['nativeExitCode' => $native['exitCode'] ?? null, 'nativeError' => $native['nativeError'] ?? null,
 			'stdout' => substr((string) ($native['stdout'] ?? ''), 0, 8192),
 			'stderr' => substr((string) ($native['stderr'] ?? ''), 0, 8192)], JSON_THROW_ON_ERROR) . PHP_EOL);
 	}
@@ -204,7 +204,7 @@ try
 	if ($track === 'cli' && $compile['status'] !== 'completed')
 	{
 		$native = $compile['result']['mutation'] ?? [];
-		fwrite(STDERR, json_encode(['nativeExitCode' => $native['exitCode'] ?? null,
+		fwrite(STDERR, json_encode(['nativeExitCode' => $native['exitCode'] ?? null, 'nativeError' => $native['nativeError'] ?? null,
 			'stdout' => substr((string) ($native['stdout'] ?? ''), 0, 8192),
 			'stderr' => substr((string) ($native['stderr'] ?? ''), 0, 8192)], JSON_THROW_ON_ERROR) . PHP_EOL);
 	}
