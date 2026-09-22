@@ -40,14 +40,14 @@ jobs:
         uses: actions/checkout@v7
         with:
           repository: joomengine/mcp_plugin
-          ref: fcfa91a026fedae9d785bad4447eb0855ddee1cf
+          ref: e9a97f2b0871058522670b28485ff19f68102b1c
           path: build/plugin-source
           persist-credentials: false
       - name: Check out the remote client bridge under test
         uses: actions/checkout@v7
         with:
           repository: joomengine/mcp_client
-          ref: feature/standalone-php-client
+          ref: 7a84f92b18438fe1e2f893d2aacbf34f03d60606
           path: build/client-source
           persist-credentials: false
       - name: Install the client dependencies for the remote acceptance scenario
