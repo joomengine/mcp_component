@@ -2,7 +2,9 @@
 # This isolated stack is destructive test infrastructure, never production config.
 services:
   joomla:
-    image: octoleo/joomengine:6.1.6-php8.4-apache
+    build:
+      context: .
+      dockerfile: Dockerfile
     environment:
       JOOMLA_DB_HOST: mariadb:3306
       JOOMLA_DB_USER: joomengine
