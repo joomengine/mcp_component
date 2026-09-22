@@ -196,6 +196,13 @@ try
 	$client->disconnect();
 	$client = new JcbStdioFixture();
 	$compile = $wait($compileJob);
+	if ($track === 'cli' && $compile['status'] !== 'completed')
+	{
+		$native = $compile['result']['mutation'] ?? [];
+		fwrite(STDERR, json_encode(['nativeExitCode' => $native['exitCode'] ?? null,
+			'stdout' => substr((string) ($native['stdout'] ?? ''), 0, 8192),
+			'stderr' => substr((string) ($native['stderr'] ?? ''), 0, 8192)], JSON_THROW_ON_ERROR) . PHP_EOL);
+	}
 	echo json_encode(['compilerOutcome' => ['status' => $compile['status'], 'verification' => $compile['result']['verification'] ?? null,
 		'error' => $compile['result']['error']['code'] ?? null]], JSON_THROW_ON_ERROR) . PHP_EOL;
 	$check($compile['status'] === 'completed' && ($compile['result']['verification']['status'] ?? '') === 'verified'

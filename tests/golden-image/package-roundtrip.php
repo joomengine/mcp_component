@@ -84,6 +84,13 @@ $execute = static function (string $operation, array $options = [], bool $succes
 	$completed = $result['status'] === 'completed' && ($result['result']['verification']['status'] ?? '') === 'verified';
 	if ($success && !$completed)
 	{
+		if ($track === 'cli')
+		{
+			$native = $result['result']['mutation'] ?? [];
+			fwrite(STDERR, json_encode(['nativeExitCode' => $native['exitCode'] ?? null,
+				'stdout' => substr((string) ($native['stdout'] ?? ''), 0, 8192),
+				'stderr' => substr((string) ($native['stderr'] ?? ''), 0, 8192)], JSON_THROW_ON_ERROR) . PHP_EOL);
+		}
 		fwrite(STDERR, json_encode(['operation' => $operation, 'status' => $result['status'],
 			'verification' => $result['result']['verification'] ?? null,
 			'readBack' => $result['result']['mutation']['package']['remoteReadBack'] ?? null,
