@@ -23,22 +23,27 @@ final class CompiledArchives
 {
 	/** @var string Configured compiler output root. @since 0.1.0 */
 	private string $root;
+	/** @var string Reviewed private parent of archives awaiting durable retention. @since 0.1.1 */
+	private string $stagingRoot;
 	/** @var ?string Private staging directory when installation consumes the ZIP. @since 0.1.0 */
 	private ?string $directory = null;
 	/** @var array<string,array> Verified outputs keyed by native path. @since 0.1.0 */
 	private array $captured = [];
 
-	/** @param string $root Native Joomla tmp_path. @since 0.1.0 */
-	public function __construct(string $root)
+	/** @param string $root Private native compiler tmp_path. @param string|null $stagingRoot Separate private parent when compiler scratch is removed. @since 0.1.0 */
+	public function __construct(string $root, ?string $stagingRoot = null)
 	{
 		$real = realpath($root);
+		$staging = realpath($stagingRoot ?? $root);
 
-		if ($real === false || !is_dir($real) || !is_writable($real))
+		if ($real === false || !is_dir($real) || !is_writable($real)
+			|| $staging === false || !is_dir($staging) || !is_writable($staging))
 		{
 			throw new OperationException('JCB_ARTIFACT_ROOT', 'The native compiler output directory is unavailable.');
 		}
 
 		$this->root = rtrim($real, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+		$this->stagingRoot = rtrim($staging, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
 	}
 
 	/**
@@ -104,7 +109,7 @@ final class CompiledArchives
 			{
 				if ($this->directory === null)
 				{
-					$this->directory = $this->root . 'joomengine-mcp-jcb-' . bin2hex(random_bytes(16));
+					$this->directory = $this->stagingRoot . 'joomengine-mcp-jcb-' . bin2hex(random_bytes(16));
 
 					if (!mkdir($this->directory, 0700))
 					{

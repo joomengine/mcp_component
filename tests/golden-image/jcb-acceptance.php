@@ -121,6 +121,7 @@ $check($sorted($apiRoutes) === $sorted(array_map([Json::class, 'canonical'], $in
 $demo = '1c20aec5-bf1a-44e7-9deb-d1c920ca591d';
 $check((bool) $db->setQuery('SELECT id FROM ' . $db->quoteName('#__componentbuilder_joomla_component')
 	. ' WHERE guid = ' . $db->quote($demo))->loadResult(), 'The native installer supplied the complete Demo J6 component');
+$previousUmask = umask(0022);
 $client = new JcbStdioFixture();
 $http = null;
 $evidence = ['track' => $track, 'nativeCommands' => count($registered), 'executableCommands' => count($supported),
@@ -219,6 +220,7 @@ try
 	$installedManifests = [];
 	if ($track === 'cli')
 	{
+		echo json_encode(['nativeInstallations' => $installations], JSON_THROW_ON_ERROR) . PHP_EOL;
 		$check(count($installations) === count($artifacts)
 			&& ($compile['result']['verification']['installationCount'] ?? 0) === count($artifacts)
 			&& count(array_unique(array_column($installations, 'extensionId'))) === count($artifacts),
@@ -236,16 +238,37 @@ try
 				'Independent Joomla extension read-back matches the native installation event');
 			$cache = $decode($row['manifest_cache']);
 			$installedManifests[Json::canonical([$row['type'], $cache['name'], $row['folder']])] = $cache['version'];
+			if ($row['type'] === 'component')
+			{
+				$phpFiles = 0;
+				$readable = true;
+				foreach ([JPATH_ROOT . '/components/', JPATH_ADMINISTRATOR . '/components/'] as $directory)
+				{
+					$directory .= $row['element'];
+					if (!is_dir($directory))
+					{
+						continue;
+					}
+					foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($directory, FilesystemIterator::SKIP_DOTS)) as $file)
+					{
+						if ($file->isFile() && strtolower($file->getExtension()) === 'php')
+						{
+							$phpFiles++;
+							// The fixture installs as root and serves as Apache's user.
+							// Root's is_readable() would incorrectly accept mode 0600.
+							$readable = $readable && ($file->getPerms() & 0004) !== 0;
+						}
+					}
+				}
+				$check($phpFiles > 0 && $readable, 'Native CLI installation leaves component PHP readable by the web server under fixture mask 0022');
+			}
 		}
 		$check(count($installedManifests) === count($artifacts), 'Installed extension manifests have distinct native identities');
 	}
 	foreach ($artifacts as $artifact)
 	{
-		if ($track === 'cli')
-		{
-			$check(!is_file(rtrim((string) $app->get('tmp_path'), '/\\') . '/' . $artifact['name']),
-				'Native installation consumed its original ZIP while the owned job retains a downloadable archive');
-		}
+		$check(!is_file(rtrim((string) $app->get('tmp_path'), '/\\') . '/' . $artifact['name']),
+			'Compiler jobs leave no generated archive in the public Joomla temporary directory');
 		$temporary = tempnam(sys_get_temp_dir(), 'mcp-jcb-download-');
 		$stream = fopen($temporary, 'wb');
 		try
@@ -336,6 +359,7 @@ finally
 {
 	$client->disconnect();
 	$http?->disconnect();
+	umask($previousUmask);
 }
 $evidence['checks'] = $checks;
 echo json_encode($evidence, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES) . PHP_EOL;

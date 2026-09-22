@@ -116,7 +116,8 @@ try
 	}
 
 	ob_start(static fn (string $buffer): string => '');
-	umask(0077);
+	// Preserve the host's native installation permissions. Private MCP storage
+	// applies explicit directory/file modes at its own filesystem boundary.
 	set_time_limit(0);
 	define('_JEXEC', 1);
 	define('JPATH_BASE', $root);

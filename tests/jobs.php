@@ -10,6 +10,7 @@
 use VDM\Component\JoomEngineMcp\Administrator\Domain\OperationException;
 use VDM\Component\JoomEngineMcp\Administrator\Job\Artifacts;
 use VDM\Component\JoomEngineMcp\Administrator\Job\Jobs;
+use VDM\Component\JoomEngineMcp\Administrator\Job\Storage;
 use VDM\Component\JoomEngineMcp\Administrator\Security\Envelope;
 use VDM\Component\JoomEngineMcp\Administrator\Service\Json;
 use VDM\Component\JoomEngineMcp\Administrator\Service\Settings;
@@ -112,6 +113,27 @@ try
 	$check($configuration->get('php_cli_binary') === PHP_BINARY && $configuration->get('artifact_directory') === $base && $configuration->get('job_timeout') === 3600, 'Trusted worker configuration retains its exact validated paths and timeout.');
 	mkdir($base . '/public', 0700);
 	define('JPATH_ROOT', $base . '/public');
+	$private = Storage::directory($base, JPATH_ROOT, 'installation-secret', $owner->getId());
+	$compiler = Storage::compilerDirectory($private);
+	$identity = function_exists('posix_geteuid') ? (string) posix_geteuid() : 'local';
+	$check($private === $base . '/joomengine-mcp-' . hash('sha256', JPATH_ROOT . "\0installation-secret\0" . $owner->getId() . "\0" . $identity)
+		&& Storage::directory($base, JPATH_ROOT, 'installation-secret', $owner->getId()) === $private,
+		'HTTP and native workers resolve the unchanged installation, principal and OS-owner partition.');
+	$check($compiler === $private . '/compiler' && (fileperms($private) & 0777) === 0700 && (fileperms($compiler) & 0777) === 0700,
+		'Compiled workspaces and artifacts share a private directory boundary outside the web root.');
+	$check(Storage::directory($base, JPATH_ROOT, 'installation-secret', $other->getId()) !== $private,
+		'Different authenticated principals cannot share a compiler workspace root.');
+	mkdir($base . '/public/nested', 0700);
+	$reject(static fn () => Storage::directory(JPATH_ROOT, JPATH_ROOT, 'installation-secret', $owner->getId()), 'ARTIFACT_STORAGE');
+	$reject(static fn () => Storage::directory(JPATH_ROOT . '/nested', JPATH_ROOT, 'installation-secret', $owner->getId()), 'ARTIFACT_STORAGE');
+	symlink($base, $base . '/linked');
+	$reject(static fn () => Storage::directory($base . '/linked', JPATH_ROOT, 'installation-secret', $owner->getId()), 'ARTIFACT_STORAGE');
+	$reject(static fn () => Storage::directory($base . '/linked/public/nested', JPATH_ROOT, 'installation-secret', $owner->getId()), 'ARTIFACT_STORAGE');
+	rmdir($compiler);
+	symlink(JPATH_ROOT, $compiler);
+	$reject(static fn () => Storage::compilerDirectory($private), 'ARTIFACT_STORAGE');
+	unlink($compiler);
+	Storage::compilerDirectory($private);
 
 	foreach ([['php_cli_binary' => 'php'], ['php_cli_binary' => PHP_BINARY . "\n"], ['job_timeout' => 3601],
 		['artifact_directory' => $base . '/public'], ['artifact_directory' => $base . '/missing']] as $invalid)

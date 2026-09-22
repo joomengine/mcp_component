@@ -10,12 +10,16 @@ namespace VDM\Component\JoomEngineMcp\Administrator\Jcb;
 
 
 use Joomla\Database\DatabaseInterface;
+use Joomla\CMS\Component\ComponentHelper;
 use Joomla\CMS\Event\Extension\AfterInstallEvent;
+use Joomla\CMS\Installer\Installer;
+use Joomla\CMS\Factory;
 use ReflectionProperty;
 use Symfony\Component\Console\Input\ArrayInput;
 use VDM\Component\JoomEngineMcp\Administrator\Console\WorkerApplication;
 use VDM\Component\JoomEngineMcp\Administrator\Contract\PrincipalInterface;
 use VDM\Component\JoomEngineMcp\Administrator\Domain\OperationException;
+use VDM\Component\JoomEngineMcp\Administrator\Job\Storage;
 use VDM\Component\JoomEngineMcp\Administrator\Service\Json;
 
 
@@ -139,7 +143,19 @@ final class Worker
 		}
 
 		$compile = $prepared['command'] === 'componentbuilder:compile:component';
-		$archives = $compile ? new CompiledArchives((string) $this->application->get('tmp_path')) : null;
+		$workspace = null;
+		$archives = null;
+		$nativeConfig = null;
+		$originalTemporaryPath = $this->application->get('tmp_path');
+		$originalNativeTemporaryPath = null;
+		if ($compile)
+		{
+			$directory = Storage::directory((string) ComponentHelper::getParams('com_joomengine_mcp')->get('artifact_directory', ''),
+				JPATH_ROOT, (string) $this->application->get('secret'), $principal->getId());
+			$compilerRoot = Storage::compilerDirectory($directory);
+			$workspace = new CompilerWorkspace($compilerRoot, JPATH_ROOT);
+			$archives = new CompiledArchives($workspace->path(), $compilerRoot);
+		}
 		$installations = [];
 		$beforeInstall = null;
 		$afterInstall = null;
@@ -168,13 +184,33 @@ final class Worker
 				$installations[] = ['persisted' => is_array($row), 'extensionId' => is_int($id) ? $id : null,
 					'element' => $row['element'] ?? null, 'type' => $row['type'] ?? null,
 					'sha256' => $row === null ? null : hash('sha256', Json::canonical($row))];
+
+				// JCB installs several archives through one native Installer instance.
+				// Its cached adapter retains the preceding extension table identity.
+				// Keep the registered adapter class, but instantiate fresh state for
+				// the next archive through Joomla's public adapter registration API.
+				$installer = $event->getInstaller();
+				$type = (string) $installer->getManifest()['type'];
+				if (in_array($type, ['component', 'module', 'plugin'], true))
+				{
+					Installer::getInstance()->setAdapter($type, get_class($installer->getAdapter($type)));
+				}
 			};
 			$this->application->getDispatcher()->addListener('onExtensionBeforeInstall', $beforeInstall);
-			$this->application->getDispatcher()->addListener('onExtensionAfterInstall', $afterInstall);
+			$this->application->getDispatcher()->addListener('onExtensionAfterInstall', $afterInstall, -1000);
 		}
 
 		try
 		{
+			if ($workspace !== null)
+			{
+				// Native compiler Config reads Factory::getConfig(); its installer
+				// reads the application. Both use this fixed private workspace.
+				$nativeConfig = Factory::getConfig();
+				$originalNativeTemporaryPath = $nativeConfig->get('tmp_path');
+				$this->application->set('tmp_path', $workspace->path());
+				$nativeConfig->set('tmp_path', $workspace->path());
+			}
 			$nativeError = null;
 			try
 			{
@@ -204,7 +240,7 @@ final class Worker
 
 				try
 				{
-					$artifacts = $archives->capture($paths);
+					$artifacts = $archives->capture($paths, true);
 				}
 				catch (OperationException $error)
 				{
@@ -259,7 +295,8 @@ final class Worker
 
 				if (CommandInput::requestsInstallation($prepared['input']))
 				{
-					$verifiedInstalls = count(array_filter($installations, static fn (array $row): bool => $row['persisted']));
+					$verifiedInstalls = count(array_unique(array_column(array_filter($installations,
+						static fn (array $row): bool => $row['persisted']), 'extensionId')));
 					$verification['installationCount'] = $verifiedInstalls;
 					$verification['scope'] = 'compiled archives and installed extension records';
 
@@ -287,6 +324,12 @@ final class Worker
 		}
 		finally
 		{
+			if ($nativeConfig !== null)
+			{
+				$this->application->set('tmp_path', $originalTemporaryPath);
+				$nativeConfig->set('tmp_path', $originalNativeTemporaryPath);
+			}
+			$workspace?->close();
 			if ($beforeInstall !== null)
 			{
 				$this->application->getDispatcher()->removeListener('onExtensionBeforeInstall', $beforeInstall);
