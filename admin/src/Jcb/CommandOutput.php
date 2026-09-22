@@ -10,9 +10,7 @@ namespace VDM\Component\JoomEngineMcp\Administrator\Jcb;
 
 
 use Symfony\Component\Console\Output\Output;
-use Symfony\Component\Console\Output\ConsoleOutputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
-use Symfony\Component\Console\Output\ConsoleSectionOutput;
 use VDM\Component\JoomEngineMcp\Administrator\Domain\OperationException;
 
 
@@ -23,7 +21,7 @@ use VDM\Component\JoomEngineMcp\Administrator\Domain\OperationException;
  *
  * @since  0.1.0
  */
-final class CommandOutput extends Output implements ConsoleOutputInterface
+final class CommandOutput extends Output
 {
 	/** @var string Captured native stream. @since 0.1.0 */
 	private string $buffer = '';
@@ -53,22 +51,16 @@ final class CommandOutput extends Output implements ConsoleOutputInterface
 		$this->buffer .= $text;
 	}
 
-	/** @inheritDoc */
+	/** @return OutputInterface The separately bounded native diagnostic stream. @since 0.1.0 */
 	public function getErrorOutput(): OutputInterface
 	{
 		return $this->error ?? $this;
 	}
 
-	/** @inheritDoc */
+	/** @param OutputInterface $error Inject a native diagnostic stream. @return void @since 0.1.0 */
 	public function setErrorOutput(OutputInterface $error): void
 	{
 		$this->error = $error;
-	}
-
-	/** @inheritDoc */
-	public function section(): ConsoleSectionOutput
-	{
-		throw new OperationException('WORKER_OUTPUT_UNSUPPORTED', 'Interactive console sections are unavailable in a bounded worker.');
 	}
 
 	/** @return string Captured data; callers decide redaction before disclosure. @since 0.1.0 */

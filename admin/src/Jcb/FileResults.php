@@ -99,7 +99,8 @@ final class FileResults
 				}
 
 				$base = 'VDM\\Joomla\\Abstraction\\Remote\\' . $direction;
-				$grep = (new ReflectionProperty($base, 'grep'))->getValue($service);
+				$grep = clone (new ReflectionProperty($base, 'grep'))->getValue($service);
+				$grep->setBranchField($push ? 'write_branch' : 'read_branch');
 				$git = (new ReflectionProperty('VDM\\Joomla\\Abstraction\\Grep', 'contents'))->getValue($grep);
 				$repos = $push ? $service->repos : ($repository === null ? (array) $grep->paths : [$repository]);
 				$targeted = 0;
@@ -107,6 +108,13 @@ final class FileResults
 
 				foreach ($repos as $repo)
 				{
+					$repo = clone $repo;
+
+					if (!$push && !$grep->validRepo($repo))
+					{
+						throw new OperationException('JCB_VERIFY_REPOSITORY', 'The native file repository is no longer readable.');
+					}
+
 					if ($push && (empty($repo->write_branch) || $repo->write_branch === 'default'
 						|| !(new ReflectionMethod($service, 'targetRepo'))->invoke($service, (object) $dependency, $repo)))
 					{

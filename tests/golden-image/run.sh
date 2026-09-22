@@ -78,6 +78,7 @@ for suite in installation administration http catalogue-mcp acl-mcp stdio browse
 done
 fixture /tmp/mcp-plugin/tests/installed.php > "$out/console-plugin.log" 2>&1
 fixture /tmp/mcp-component/tests/jcb-files.php > "$out/jcb-files.log" 2>&1
+fixture /tmp/mcp-component/tests/jcb-output.php > "$out/jcb-output.log" 2>&1
 fixture /tmp/mcp-component/tests/golden-image/jcb-acceptance.php > "$out/jcb-acceptance.log" 2>&1
 fixture /tmp/mcp-component/tests/golden-image/package-roundtrip.php > "$out/package-roundtrip.log" 2>&1
 if [[ -n "${MCP_CLIENT_SOURCE:-}" ]]; then
