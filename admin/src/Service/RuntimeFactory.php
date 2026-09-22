@@ -27,6 +27,7 @@ use VDM\Component\JoomEngineMcp\Administrator\Jcb\DefinitionSnapshot;
 use VDM\Component\JoomEngineMcp\Administrator\Job\Artifacts;
 use VDM\Component\JoomEngineMcp\Administrator\Job\Jobs;
 use VDM\Component\JoomEngineMcp\Administrator\Job\ProcessLauncher;
+use VDM\Component\JoomEngineMcp\Administrator\Job\Storage;
 use VDM\Component\JoomEngineMcp\Administrator\Process\PhpProcess;
 use VDM\Component\JoomEngineMcp\Administrator\Security\ConsoleIdentity;
 use VDM\Component\JoomEngineMcp\Administrator\Console\Inspector;
@@ -228,8 +229,9 @@ final class RuntimeFactory
 		$audit = new Audit($store, $principal, $clock);
 		$permissions = new Permissions($store, $principal, $catalogue, $settings, $audit, $clock);
 		$executions = new Executions($store, $principal, $envelope, $permissions, $settings, $audit, $clock);
-		$artifacts = new Artifacts($store, $principal, $this->artifactDirectory($application, $principal),
-			[(string) $application->get('tmp_path', JPATH_ROOT . '/tmp')], $clock);
+		$artifactDirectory = $this->artifactDirectory($application, $principal);
+		$compilerDirectory = Storage::compilerDirectory($artifactDirectory);
+		$artifacts = new Artifacts($store, $principal, $artifactDirectory, [$compilerDirectory], $clock);
 		$jobs = new Jobs($store, $principal, $envelope, $artifacts, $clock, $launcher, [$executions, 'finish'],
 			static function (string $name, string $track) use ($catalogue): void
 			{
@@ -348,25 +350,8 @@ final class RuntimeFactory
 	/** @param CMSApplicationInterface $application Native configuration. @param PrincipalInterface $principal Owner. @return string Private storage outside the served Joomla tree. @since 0.1.1 */
 	private function artifactDirectory(CMSApplicationInterface $application, PrincipalInterface $principal): string
 	{
-		$configured = $this->settings($application)->get('artifact_directory');
-		if ($configured !== '' && !is_dir($configured) && !mkdir($configured, 0700, true))
-		{
-			throw new OperationException('ARTIFACT_STORAGE', 'The private artifact storage parent could not be created.');
-		}
-
-		$base = realpath($configured !== '' ? $configured : sys_get_temp_dir());
-		$root = realpath(JPATH_ROOT);
-
-		if ($base === false || $root === false || !is_dir($base) || $base === $root
-			|| str_starts_with($base, $root . DIRECTORY_SEPARATOR))
-		{
-			throw new OperationException('ARTIFACT_STORAGE', 'The artifact storage parent must exist outside the Joomla web root.');
-		}
-
-		$owner = function_exists('posix_geteuid') ? (string) posix_geteuid() : 'local';
-
-		return $base . DIRECTORY_SEPARATOR . 'joomengine-mcp-' . hash('sha256',
-			$root . "\0" . $application->get('secret') . "\0" . $principal->getId() . "\0" . $owner);
+		return Storage::directory($this->settings($application)->get('artifact_directory'), JPATH_ROOT,
+			(string) $application->get('secret'), $principal->getId());
 	}
 
 	/**

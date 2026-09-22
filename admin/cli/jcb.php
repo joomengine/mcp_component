@@ -40,7 +40,8 @@ if (PHP_SAPI !== 'cli')
 }
 
 ini_set('display_errors', 'stderr');
-umask(0077);
+// Native compiler/installer effects retain the hosting process's normal mask.
+// MCP artifact storage applies its own explicit private directory/file modes.
 $level = ob_get_level();
 ob_start(static fn (string $output): string => '', 4096);
 
