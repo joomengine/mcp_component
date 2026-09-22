@@ -66,7 +66,23 @@ final class JcbStdioFixture
 
 		if ($result->isError)
 		{
-			throw new RuntimeException('Installed JCB tool ' . $name . ' failed: ' . ($data['error']['code'] ?? 'MCP_TOOL_ERROR'));
+			foreach ($result->content as $content)
+			{
+				if ($content instanceof \Mcp\Schema\Content\TextContent)
+				{
+					$decoded = json_decode($content->text, true);
+
+					if (is_array($decoded) && isset($decoded['error']))
+					{
+						$data = $decoded;
+						break;
+					}
+				}
+			}
+
+			throw new RuntimeException('Installed JCB tool ' . $name . ' failed: '
+				. ($data['error']['code'] ?? 'MCP_TOOL_ERROR') . ': '
+				. substr((string) ($data['error']['message'] ?? 'No structured server diagnostic.'), 0, 1024));
 		}
 
 		return $data;

@@ -196,7 +196,8 @@ final class CommandRegistry
 			throw new OperationException('JCB_COMMAND_SOURCE', 'The installed JCB factory source is unavailable.');
 		}
 
-		$root = dirname($file, 2);
+		// Include sibling VDM Git/Gitea libraries used by native package calls.
+		$root = dirname($file, 4);
 		$files = [];
 		$bytes = 0;
 

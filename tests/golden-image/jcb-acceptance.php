@@ -10,11 +10,14 @@
 use Joomla\Application\ApplicationEvents;
 use Joomla\Application\Event\ApplicationEvent;
 use Joomla\CMS\Plugin\PluginHelper;
+use Joomla\CMS\User\UserFactoryInterface;
 use Joomla\Database\DatabaseInterface;
+use VDM\Component\JoomEngineMcp\Administrator\Administration\Operations;
 use VDM\Component\JoomEngineMcp\Administrator\Database\JoomlaStore;
 use VDM\Component\JoomEngineMcp\Administrator\Jcb\DefinitionSnapshot;
 use VDM\Component\JoomEngineMcp\Administrator\Process\PhpProcess;
 use VDM\Component\JoomEngineMcp\Administrator\Security\LocalPrincipal;
+use VDM\Component\JoomEngineMcp\Administrator\Security\Envelope;
 use VDM\Component\JoomEngineMcp\Administrator\Service\Json;
 
 require dirname(__DIR__) . '/integration/bootstrap.php';
@@ -247,6 +250,7 @@ try
 		}
 	}
 
+	$beforeFailure = $snapshot->fingerprint();
 	[$failedJob, $failedToken] = $start('jcb.compile.component', ['component' => Json::uuid(), 'joomla-version' => '6']);
 	$failed = $wait($failedJob);
 	$check(in_array($failed['status'], ['partial', 'uncertain'], true) && $failed['reconciliationRequired'] === true
@@ -255,6 +259,15 @@ try
 	$replay = $client->tool('joomla_write_apply', ['confirmationToken' => $failedToken]);
 	$check(($replay['idempotentReplay'] ?? false) === true && count($store->find('job', ['execution_uuid' => $failed['executionId']], 10)) === 1,
 		'An uncertain native result remains retained and cannot silently rerun');
+	$check(hash_equals($beforeFailure, $snapshot->fingerprint()), 'Independent inspection confirms the missing-component attempt changed no JCB definition');
+	$execution = $store->one('execution', ['uuid' => $failed['executionId']]);
+	$admin = $container->get(UserFactoryInterface::class)->loadUserByUsername('mcp_test_admin');
+	(new Operations($store, new Envelope((string) $app->get('secret'))))->reconcile($admin,
+		(int) $execution['id'], (int) $execution['version'], 'verified_no_effect',
+		'The selected component was absent. Independent definition hashes are unchanged and the actual job retained no compiled archives.', true);
+	$check($store->one('lease', ['owner_uuid' => $failed['executionId']]) === null
+		&& $client->tool('joomla_job_status', ['jobId' => $failedJob])['status'] === 'reconciled',
+		'Authorized inspection reconciles the failed job and releases its exact retained write lease');
 	$evidence['jobs']['failedCompiler'] = ['jobId' => $failedJob, 'status' => $failed['status']];
 	$client->sdk()->ping();
 }
