@@ -23,6 +23,7 @@ use Joomla\Event\DispatcherInterface;
 use Joomla\Session\SessionInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Console\Input\ArrayInput;
+use VDM\Component\JoomEngineMcp\Administrator\Console\Bootstrap;
 use VDM\Component\JoomEngineMcp\Administrator\Console\WorkerApplication;
 use VDM\Component\JoomEngineMcp\Administrator\Domain\OperationException;
 use VDM\Component\JoomEngineMcp\Administrator\Jcb\ApiRegistry;
@@ -62,6 +63,8 @@ try
 	}
 
 	define('_JEXEC', 1);
+	require dirname(__DIR__) . '/src/Console/Bootstrap.php';
+	Bootstrap::initialize($root);
 	define('JPATH_BASE', $root);
 	require JPATH_BASE . '/includes/defines.php';
 	require JPATH_BASE . '/includes/framework.php';
