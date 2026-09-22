@@ -191,8 +191,13 @@ try
 		'Package success retains native categories and independent persisted definition hashes');
 	$evidence['jobs']['package'] = ['jobId' => $packageJob, 'status' => $package['status'], 'verification' => $package['result']['verification']];
 
-	[$compileJob] = $start('jcb.compile.component', ['component' => $demo, 'joomla-version' => '6',
-		'add-build-date' => '2', 'build-date' => '2026-01-01']);
+	$compileOptions = ['component' => $demo, 'joomla-version' => '6',
+		'add-build-date' => '2', 'build-date' => '2026-01-01'];
+	if ($track === 'cli')
+	{
+		$compileOptions['install'] = true;
+	}
+	[$compileJob] = $start('jcb.compile.component', $compileOptions);
 	$client->disconnect();
 	$client = new JcbStdioFixture();
 	$compile = $wait($compileJob);
@@ -210,8 +215,37 @@ try
 		'Actual native Demo compilation survives stdio disconnection and verifies completion');
 	$artifacts = $client->tool('joomla_job_artifacts', ['jobId' => $compileJob])['artifacts'] ?? [];
 	$check($artifacts !== [], 'Real compiler job retains generated archives');
+	$installations = $compile['result']['mutation']['installations'] ?? [];
+	$installedManifests = [];
+	if ($track === 'cli')
+	{
+		$check(count($installations) === count($artifacts)
+			&& ($compile['result']['verification']['installationCount'] ?? 0) === count($artifacts)
+			&& count(array_unique(array_column($installations, 'extensionId'))) === count($artifacts),
+			'Native compile-install records one verified installation for every retained archive');
+		foreach ($installations as $installation)
+		{
+			$query = $db->createQuery()->select($db->quoteName(['extension_id', 'type', 'element', 'folder', 'manifest_cache']))
+				->from($db->quoteName('#__extensions'))
+				->where($db->quoteName('extension_id') . ' = ' . (int) ($installation['extensionId'] ?? 0));
+			$row = $db->setQuery($query)->loadAssoc();
+			$check(is_array($row) && ($installation['persisted'] ?? false) === true
+				&& $row['element'] === ($installation['element'] ?? null)
+				&& $row['type'] === ($installation['type'] ?? null)
+				&& hash_equals((string) ($installation['sha256'] ?? ''), hash('sha256', Json::canonical($row))),
+				'Independent Joomla extension read-back matches the native installation event');
+			$cache = $decode($row['manifest_cache']);
+			$installedManifests[Json::canonical([$row['type'], $cache['name'], $row['folder']])] = $cache['version'];
+		}
+		$check(count($installedManifests) === count($artifacts), 'Installed extension manifests have distinct native identities');
+	}
 	foreach ($artifacts as $artifact)
 	{
+		if ($track === 'cli')
+		{
+			$check(!is_file(rtrim((string) $app->get('tmp_path'), '/\\') . '/' . $artifact['name']),
+				'Native installation consumed its original ZIP while the owned job retains a downloadable archive');
+		}
 		$temporary = tempnam(sys_get_temp_dir(), 'mcp-jcb-download-');
 		$stream = fopen($temporary, 'wb');
 		try
@@ -233,6 +267,7 @@ try
 			$zip = new ZipArchive();
 			$check($zip->open($temporary, ZipArchive::CHECKCONS) === true && $zip->numFiles > 0, 'Downloaded compiler artifact is a valid nonempty ZIP');
 			$manifest = false;
+			$installed = false;
 			for ($index = 0; $index < $zip->numFiles; $index++)
 			{
 				$name = $zip->getNameIndex($index);
@@ -240,10 +275,19 @@ try
 				{
 					$xml = @simplexml_load_string($zip->getFromIndex($index));
 					$manifest = $manifest || ($xml !== false && $xml->getName() === 'extension');
+					if ($track === 'cli' && $xml !== false && $xml->getName() === 'extension')
+					{
+						$key = Json::canonical([(string) $xml['type'], (string) $xml->name, (string) $xml['group']]);
+						$installed = $installed || ($installedManifests[$key] ?? null) === (string) $xml->version;
+					}
 				}
 			}
 			$zip->close();
 			$check($manifest, 'Downloaded real JCB output contains a Joomla extension manifest');
+			if ($track === 'cli')
+			{
+				$check($installed, 'Retained archive manifest identity and version match its independently read installed extension');
+			}
 		}
 		finally
 		{
@@ -254,7 +298,8 @@ try
 			unlink($temporary);
 		}
 	}
-	$evidence['jobs']['compiler'] = ['jobId' => $compileJob, 'status' => $compile['status'], 'artifacts' => $artifacts];
+	$evidence['jobs']['compiler'] = ['jobId' => $compileJob, 'status' => $compile['status'],
+		'artifacts' => $artifacts, 'installations' => $installations];
 	if ($track === 'cli')
 	{
 		$http = new HttpFixture((string) getenv('MCP_TEST_BASE_URL'), trim(file_get_contents((string) getenv('MCP_TEST_TOKEN_FILE'))));

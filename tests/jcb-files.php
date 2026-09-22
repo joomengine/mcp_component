@@ -78,7 +78,8 @@ final class FileProofContents extends VDM\Joomla\Gitea\Repository\Contents
 	public function get(string $owner, string $repo, string $filepath, ?string $ref = null)
 	{
 		$this->reads[] = [$repo, $filepath, $ref];
-		return $this->indexes[$repo . ':' . $ref] ?? null;
+		return $filepath === 'index/file_folder.json' ? ($this->indexes[$repo . ':' . $ref] ?? null)
+			: ($this->content[$repo . ':' . $ref . ':' . $filepath] ?? null);
 	}
 
 	public function metadata(string $owner, string $repo, string $filepath, ?string $ref = null): null|array|object
@@ -235,6 +236,51 @@ try
 	$result = $verifier->inspect([$bad], $container, false);
 	$check(!$result['complete'] && $result['unverifiedCount'] === 1, 'Native path reconstruction cannot authorize files outside Joomla.');
 	$check($verifier->inspect([$file, $file], $container, false, $second)['complete'], 'Repeated identical native dependencies are verified once.');
+
+	// Exercise the exact native method called by GetContent::reset(). Native
+	// writers provide the actual index; only external repository I/O is replaced.
+	foreach ([[$file, '{"native":"exact file bytes"}'], [$folder, $zipBytes]] as [$dependency, $remoteBytes])
+	{
+		$area = ucfirst($dependency['entity']);
+		$writer = $container->get($area . '.Remote.Set');
+		$reader = $container->get($area . '.Remote.Get');
+		$nativeIndex = $writer->getIndexItem((object) $dependency);
+		$check(array_keys($nativeIndex) === ['name', 'path', 'guid']
+			&& !isset($nativeIndex['value'], $nativeIndex['target']),
+			$area . ' native writer index omits the restoration path and target consumed by reset.');
+		$nativeRepo = clone $second;
+		unset($nativeRepo->index);
+		$git->indexes['two:read-second'] = (object) [$dependency['key'] => (object) $nativeIndex];
+		$git->content['two:read-second:' . $nativeIndex['path']] = $remoteBytes;
+		$grep = (new ReflectionProperty($reader, 'grep'))->getValue($reader);
+		$set($grep, 'entity', 'file_system');
+		$set($grep, 'tracker', new VDM\Joomla\Componentbuilder\Package\Dependency\Tracker());
+		$set($reader, 'normalize', $normalizer);
+		$set($reader, 'messages', new VDM\Joomla\Componentbuilder\Package\MessageBus());
+		$set($reader, 'tracker', new VDM\Joomla\Componentbuilder\Package\Dependency\Tracker());
+		$nativePath = $normalizer->full($dependency['value'], $dependency['target']);
+		$observedFile = $dependency['entity'] === 'file' ? $nativePath : $nativePath . '/code.php';
+		file_put_contents($observedFile, 'locally divergent native ' . $dependency['entity']);
+		$before = hash_file('sha256', $observedFile);
+		$restored = $reader->item($dependency['key'], ['remote'], $nativeRepo);
+		$check($restored === false && hash_file('sha256', $observedFile) === $before,
+			$area . ' native reset item leaves divergent local bytes untouched with its writer-generated index.');
+		$result = $verifier->inspect([$dependency], $container, false, $second);
+		$check(!$result['complete'] && $result['failedCount'] === 1,
+			$area . ' native reset failure cannot become a verified MCP completion.');
+
+		// Adding only the missing native metadata makes the same real store path
+		// restore the file/archive. No upstream implementation is changed.
+		$git->indexes['two:read-second'] = (object) [$dependency['key'] => (object) ($nativeIndex
+			+ ['value' => $dependency['value'], 'target' => $dependency['target']])];
+		unset($nativeRepo->index);
+		$set($reader, 'tracker', new VDM\Joomla\Componentbuilder\Package\Dependency\Tracker());
+		$restored = $reader->item($dependency['key'], ['remote'], $nativeRepo);
+		$check($restored === true && hash_file('sha256', $observedFile) !== $before,
+			$area . ' native reset item restores bytes once its index supplies value and target.');
+		$check($verifier->inspect([$dependency], $container, false, $second)['complete'],
+			$area . ' independently restored native bytes satisfy the same MCP read-back verifier.');
+	}
 
 	echo 'Native JCB file verification: ' . $checks . ' checks passed.' . PHP_EOL;
 }
