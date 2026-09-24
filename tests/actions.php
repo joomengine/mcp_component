@@ -72,9 +72,16 @@ $http = new class implements ClientInterface
 	public bool $uncertain = false;
 	/** @var bool Simulate Joomla filtering a requested field. */
 	public bool $filter = false;
+	/** @var ?ResponseInterface Optional native response for error contract checks. */
+	public ?ResponseInterface $response = null;
 	/** @inheritDoc */
 	public function sendRequest(RequestInterface $request): ResponseInterface
 	{
+		if ($this->response !== null)
+		{
+			return $this->response;
+		}
+
 		$id = (int) basename($request->getUri()->getPath());
 		if ($request->getMethod() === 'GET')
 		{
@@ -162,4 +169,51 @@ $writes = $http->writes;
 $result = $executor->apply($plan['confirmationToken']);
 $check($result['idempotentReplay'] && $http->writes === $writes, 'Uncertain write was reissued.');
 $check(!str_contains(Json::encode($result), 'private database failure'), 'Private API diagnostic leaked.');
+
+// Error feedback must survive the same adapter used by generic entity actions.
+$errorDetails = static function (ResponseInterface $response) use ($http, $handler, $catalogue, $principal): array
+{
+	$http->response = $response;
+	try
+	{
+		$handler->execute(['id' => 1], $catalogue->action('content.articles.get')['binding'], $principal);
+	}
+	catch (OperationException $error)
+	{
+		if ($error->getIdentifier() !== 'JOOMLA_API_ERROR')
+		{
+			throw $error;
+		}
+
+		return $error->toArray()['details'];
+	}
+	throw new RuntimeException('An unsuccessful Joomla response was accepted.');
+};
+$validation = ['errors' => [['title' => 'Field required: Target Admin View<br />Model Header',
+	'detail' => 'Select a target admin view before saving.', 'source' => ['pointer' => '/data/attributes/admin_view', 'parameter' => 'admin_view', 'header' => 'Authorization'],
+	'meta' => ['trace' => '/var/www/private.php', 'token' => 'server-secret'], 'links' => ['about' => 'https://private.example/error']]]];
+$details = $errorDetails(new Response(422, ['Content-Type' => 'application/vnd.api+json; charset=utf-8'], Json::encode($validation)));
+$check($details === ['httpStatus' => 422, 'errors' => [['title' => 'Field required: Target Admin View Model Header',
+	'detail' => 'Select a target admin view before saving.', 'source' => ['pointer' => '/data/attributes/admin_view', 'parameter' => 'admin_view']]]],
+	'Native validation title, detail and field source must survive without private metadata or HTML.');
+$details = $errorDetails(new Response(409, ['Content-Type' => 'application/json'], '{"errors":[{"title":"This item is checked out by another user."}]}'));
+$check($details['errors'][0]['title'] === 'This item is checked out by another user.', 'Native checkout conflicts lost their corrective diagnostic.');
+
+foreach ([
+	new Response(500, ['Content-Type' => 'application/json'], Json::encode($validation)),
+	new Response(400, ['Content-Type' => 'text/html'], '<html>private server diagnostic</html>'),
+	new Response(400, ['Content-Type' => 'application/json'], '{malformed'),
+	new Response(400, ['Content-Type' => 'application/json'], Json::encode(['errors' => [['title' => str_repeat('x', 65537)]]])),
+	new Response(401, ['Content-Type' => 'application/json'], '{"errors":[{"title":"Authorization: Bearer test-token"}]}'),
+	new Response(400, ['Content-Type' => 'application/json'], '{"errors":[{"title":"File /var/www/private.php failed"},{"title":"SQLSTATE failed"},{"detail":"UPDATE users SET password=value"},{"title":"Rejected test-token"}]}'),
+] as $response)
+{
+	$details = $errorDetails($response);
+	$check($details === ['httpStatus' => $response->getStatusCode()], 'Unsafe, malformed, oversized or server error content escaped the safe diagnostic boundary.');
+}
+$details = $errorDetails(new Response(400, ['Content-Type' => 'application/json'], Json::encode(['errors' => array_fill(0, 50,
+	['title' => str_repeat('é', 400), 'source' => ['pointer' => 'https://private.example/', 'parameter' => 'Authorization: secret']])])));
+$check(count($details['errors']) <= 8 && strlen(Json::encode($details['errors'])) <= 2048
+	&& mb_check_encoding(Json::encode($details), 'UTF-8') && !isset($details['errors'][0]['source']), 'Error summaries must be bounded, UTF-8-safe and use only valid field references.');
+
 echo Json::encode(['checks' => $checks, 'confirmedActionContracts' => 'passed with recording API and transactional memory doubles', 'liveJoomla' => 'not run by this unit suite']) . PHP_EOL;
