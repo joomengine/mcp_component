@@ -133,17 +133,19 @@ final class Runtime implements ConsoleRuntimeInterface
 					throw new OperationException('REQUEST_LIMIT', 'The NDJSON command limit was exceeded.');
 				}
 
+				if (strlen($line) > RequestDecoder::MAX_BYTES)
+				{
+					// Enforce the wire bound before ignoring blank frames. Whitespace
+					// is still input and must not turn an oversized request into EOF.
+					return $this->dispatch($line);
+				}
+
 				if (trim($line) === '')
 				{
 					continue;
 				}
 
 				$status = max($status, $this->dispatch($line));
-
-				if (strlen($line) > RequestDecoder::MAX_BYTES)
-				{
-					return 1;
-				}
 			}
 
 			return $status;
