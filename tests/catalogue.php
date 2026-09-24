@@ -101,6 +101,49 @@ foreach ($runtime['tools'] as $tool)
 	$check($actualToolRows[$tool['name']]['seed_revision'] === hash_file('sha256', $root . '/data/runtime-tools.json'), 'Runtime tool provenance differs from its declaration.');
 }
 
+// Explicit input extensions upgrade shipped tools but preserve administrator
+// references to the original schema, including deliberately narrower scopes.
+foreach ($runtime['inputSchemaOverrides'] ?? [] as $override)
+{
+	$sourceTool = array_column($source['tools'], null, 'name')[$override['name']];
+	$legacySchema = null;
+	foreach ($entities['schema'] as $schema)
+	{
+		if (Json::canonical(Json::decode($schema['document'])) === Json::canonical($sourceTool['inputSchema']))
+		{
+			$legacySchema = $schema;
+			break;
+		}
+	}
+	$check($legacySchema !== null, 'An explicit schema extension removed the original administrator-referenced schema.');
+	$legacySeed = $seed;
+	foreach ($legacySeed['entities']['tool'] as &$tool)
+	{
+		if ($tool['name'] === $override['name'])
+		{
+			$tool['input_schema_id'] = $legacySchema['id'];
+			$tool['seed_revision'] = $seed['source'];
+		}
+	}
+	unset($tool);
+	foreach ([false, true] as $customized)
+	{
+		$upgradeStore = new MemoryStore();
+		$upgrade = new SeedUpdater($upgradeStore);
+		$upgrade->apply($legacySeed);
+		$before = $upgradeStore->one('tool', ['name' => $override['name']]);
+		if ($customized)
+		{
+			$upgradeStore->update('tool', ['customized' => 1, 'title' => 'Operator-owned permission policy'], ['id' => $before['id']]);
+		}
+		$upgrade->apply($seed);
+		$after = $upgradeStore->one('tool', ['id' => $before['id']]);
+		$check(($after['input_schema_id'] === $before['input_schema_id']) === $customized
+			&& (int) $upgradeStore->one('schema', ['id' => $after['input_schema_id']])['published'] === 1,
+			'Schema extension upgrades untouched tools and preserves customized permission policy.');
+	}
+}
+
 foreach (['mysql', 'postgresql'] as $driver)
 {
 	$install = file_get_contents($root . '/admin/sql/install.' . $driver . '.utf8.sql');

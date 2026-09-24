@@ -19,13 +19,19 @@ $source = json_decode(file_get_contents($root . '/data/upstream-contracts.json')
 $runtime = json_decode(file_get_contents($root . '/data/runtime-tools.json'), false, 128, JSON_THROW_ON_ERROR);
 $tools = array_column($seed['entities']['tool'], null, 'name');
 $documents = array_column($seed['entities']['schema'], 'document', 'id');
+$overrides = array_column($runtime->inputSchemaOverrides ?? [], null, 'name');
 $checks = 0;
 foreach (array_merge($source->tools, $runtime->tools) as $original)
 {
 	$stored = json_decode($documents[$tools[$original->name]['input_schema_id']], false, 64, JSON_THROW_ON_ERROR);
-	if (Json::canonical($stored) !== Json::canonical($original->inputSchema))
+	$expected = $overrides[$original->name]->inputSchema ?? $original->inputSchema;
+	if (Json::canonical($stored) !== Json::canonical($expected))
 	{
-		throw new RuntimeException('Migration changed the JSON Schema object/default shape for ' . $original->name);
+		throw new RuntimeException('Migration changed the declared JSON Schema object/default shape for ' . $original->name);
+	}
+	if (isset($overrides[$original->name]) && $tools[$original->name]['seed_revision'] !== $seed['runtimeSource'])
+	{
+		throw new RuntimeException('An explicit schema extension lost its component runtime provenance.');
 	}
 	$checks++;
 }
@@ -36,4 +42,4 @@ if ($validated['input'] !== $nested)
 {
 	throw new RuntimeException('Generic action planning lost arbitrary JSON-valued native arguments.');
 }
-echo Json::encode(['checks' => $checks + 1, 'sourceSchemaObjects' => 'preserved', 'nestedWriteArguments' => 'passed']) . PHP_EOL;
+echo Json::encode(['checks' => $checks + 1, 'sourceSchemaObjects' => 'preserved except declared runtime extensions', 'nestedWriteArguments' => 'passed']) . PHP_EOL;

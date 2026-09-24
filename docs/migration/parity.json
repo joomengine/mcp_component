@@ -1,6 +1,6 @@
 {
     "source": "2cff50f4f6b440da3c684f9995a77efad32e1a36",
-    "runtimeSource": "b2cf1895555d6c540a3761298a0b10d411c6ae35265b78defc09e6fd45c46ef4",
+    "runtimeSource": "aea715af08fd23319343c704cf5726cb7d7f79bd45f169671a0d6f729801a7c6",
     "tools": [
         "joomla_sites_list",
         "joomla_capabilities",
@@ -67,6 +67,9 @@
         "joomla_job_artifacts",
         "joomla_job_artifact_read"
     ],
+    "runtimeSchemaOverrides": {
+        "joomla_permission_request": "Permission scopes come from enabled, authorized write actions in the installed database catalogue, including extension providers. The immutable source enum described only the original core catalogue; Permissions remains the authoritative scope and ACL check."
+    },
     "actions": [
         {
             "action": "banners.banner-history.delete",
@@ -2073,7 +2076,7 @@
     },
     "counts": {
         "provider": 1,
-        "schema": 410,
+        "schema": 411,
         "action": 285,
         "binding": 467,
         "tool": 30,

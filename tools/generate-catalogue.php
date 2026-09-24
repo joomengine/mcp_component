@@ -27,18 +27,22 @@ $runtime = json_decode(file_get_contents($runtimeFile), true, 128, JSON_THROW_ON
 $runtimeObjects = json_decode(file_get_contents($runtimeFile), false, 128, JSON_THROW_ON_ERROR);
 $runtimeRevision = hash_file('sha256', $runtimeFile);
 
-if (($runtime['version'] ?? null) !== 1 || !is_array($runtime['tools'] ?? null))
+if (($runtime['version'] ?? null) !== 1 || !is_array($runtime['tools'] ?? null)
+	|| !is_array($runtime['inputSchemaOverrides'] ?? []))
 {
 	throw new RuntimeException('Component runtime tools require the supported declaration schema.');
 }
 
-foreach ($runtimeObjects->tools as $index => $tool)
+foreach (['tools', 'inputSchemaOverrides'] as $collection)
 {
-	foreach (['inputSchema', 'outputSchema'] as $field)
+	foreach ($runtimeObjects->{$collection} ?? [] as $index => $tool)
 	{
-		if (isset($tool->{$field}))
+		foreach (['inputSchema', 'outputSchema'] as $field)
 		{
-			$runtime['tools'][$index][$field] = $tool->{$field};
+			if (isset($tool->{$field}))
+			{
+				$runtime[$collection][$index][$field] = $tool->{$field};
+			}
 		}
 	}
 }
@@ -341,6 +345,31 @@ foreach ($upstream['tools'] as $tool)
 // Component-owned additions extend the immutable migration source explicitly.
 $knownTools = array_fill_keys(array_column($rows['tool'], 'name'), true);
 $sourceSchemaCount = count($rows['schema']);
+$overriddenTools = [];
+
+// Retain original schemas for administrator-owned tools that still reference
+// them. Only untouched shipped tools move to the declared runtime extension.
+foreach ($runtime['inputSchemaOverrides'] ?? [] as $override)
+{
+	$name = $override['name'] ?? null;
+	if (!is_string($name) || !isset($knownTools[$name]) || isset($overriddenTools[$name])
+		|| !is_string($override['reason'] ?? null) || trim($override['reason']) === ''
+		|| !($override['inputSchema'] ?? null) instanceof stdClass)
+	{
+		throw new RuntimeException('Runtime schema extensions require a unique upstream tool, schema and explicit reason.');
+	}
+	$overriddenTools[$name] = $override['reason'];
+	foreach ($rows['tool'] as &$row)
+	{
+		if ($row['name'] === $name)
+		{
+			$row['input_schema_id'] = $addSchema($override['inputSchema']);
+			$row['seed_revision'] = $runtimeRevision;
+			break;
+		}
+	}
+	unset($row);
+}
 
 foreach ($runtime['tools'] as $tool)
 {
@@ -563,5 +592,5 @@ foreach (['mysql', 'postgresql'] as $driver)
 }
 
 file_put_contents($root . '/data/catalogue-seed.json', json_encode(['source' => $commit, 'runtimeSource' => $runtimeRevision, 'entities' => $rows], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . "\n");
-file_put_contents($root . '/docs/migration/parity.json', json_encode(['source' => $commit, 'runtimeSource' => $runtimeRevision, 'tools' => array_column($rows['tool'], 'name'), 'upstreamTools' => array_column($upstream['tools'], 'name'), 'runtimeTools' => array_column($runtime['tools'], 'name'), 'actions' => $parity, 'sourceOnlyGates' => $gates, 'counts' => array_map('count', $rows)], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n");
+file_put_contents($root . '/docs/migration/parity.json', json_encode(['source' => $commit, 'runtimeSource' => $runtimeRevision, 'tools' => array_column($rows['tool'], 'name'), 'upstreamTools' => array_column($upstream['tools'], 'name'), 'runtimeTools' => array_column($runtime['tools'], 'name'), 'runtimeSchemaOverrides' => (object) $overriddenTools, 'actions' => $parity, 'sourceOnlyGates' => $gates, 'counts' => array_map('count', $rows)], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n");
 echo json_encode(['seedCounts' => array_map('count', $rows), 'drivers' => ['mysql', 'postgresql'], 'liveEvidence' => 'not implied by generated definitions'], JSON_PRETTY_PRINT) . PHP_EOL;

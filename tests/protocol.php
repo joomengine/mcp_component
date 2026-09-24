@@ -12,7 +12,9 @@ use Nyholm\Psr7\ServerRequest;
 use Symfony\Component\Uid\Uuid;
 use VDM\Component\JoomEngineMcp\Administrator\Contract\HandlerInterface;
 use VDM\Component\JoomEngineMcp\Administrator\Contract\PrincipalInterface;
+use VDM\Component\JoomEngineMcp\Administrator\Domain\OperationException;
 use VDM\Component\JoomEngineMcp\Administrator\Handler\ApiRequestBuilder;
+use VDM\Component\JoomEngineMcp\Administrator\Jcb\CatalogueSynchronizer;
 use VDM\Component\JoomEngineMcp\Administrator\Protocol\DatabaseRegistry;
 use VDM\Component\JoomEngineMcp\Administrator\Protocol\ServerFactory;
 use VDM\Component\JoomEngineMcp\Administrator\Protocol\SessionStore;
@@ -47,6 +49,21 @@ $check = static function (bool $value, string $message) use (&$checks): void
 	{
 		throw new RuntimeException($message);
 	}
+};
+$reject = static function (callable $operation, string $identifier) use ($check): void
+{
+	try
+	{
+		$operation();
+	}
+	catch (OperationException $error)
+	{
+		$check($error->getIdentifier() === $identifier, 'Expected ' . $identifier . ', got ' . $error->getIdentifier());
+
+		return;
+	}
+
+	throw new RuntimeException('Expected operation rejection: ' . $identifier);
 };
 $seed = Json::decode(file_get_contents(dirname(__DIR__) . '/data/catalogue-seed.json'))['entities'];
 $store = new MemoryStore($seed);
@@ -179,6 +196,66 @@ $modern = $modernExchange('tools/list', [], ['Mcp-Method' => 'tools/call']);
 $check($modern['status'] === 400, 'Mismatched modern method header accepted.');
 $modern = $modernExchange('initialize');
 $check(($modern['body']['error']['code'] ?? null) === -32601, 'Modern era incorrectly accepted the removed initialize method.');
+
+// Exercise the complete SDK schema -> database catalogue -> permission boundary.
+// The old core-only schema rejected JCB before the authorization service ran.
+$permissionCall = static fn (string $name, array $arguments): array => $modernExchange('tools/call', ['name' => $name, 'arguments' => $arguments]);
+$scopeInput = ['toolsets' => ['jcb.execute'], 'duration' => 'once', 'reason' => 'Approve an installed provider scope'];
+$unavailable = $permissionCall('joomla_permission_request', $scopeInput);
+$check(($unavailable['body']['result']['isError'] ?? false) === true && $store->find('permission_request') === [],
+	'An absent extension scope is rejected by current authorization without creating a request.');
+$inventory = ['commands' => [['name' => 'componentbuilder:compile:component', 'description' => 'Observed compiler fixture',
+	'arguments' => (object) [], 'options' => (object) [], 'fingerprint' => str_repeat('a', 64), 'implementation' => str_repeat('b', 64)]], 'unsupported' => []];
+(new CatalogueSynchronizer($store, static function (): void {}))->synchronize($inventory, ['routes' => [], 'unsupported' => []], $principal);
+$request = $permissionCall('joomla_permission_request', $scopeInput)['body']['result']['structuredContent'] ?? [];
+$check(is_string($request['requestId'] ?? null) && $permissions->list() === [],
+	'An installed JCB scope passes SDK validation while requesting permission grants nothing.');
+$wrongAcknowledgement = $permissionCall('joomla_permission_approve', ['requestId' => $request['requestId'], 'acknowledgement' => 'not the operator phrase']);
+$check(($wrongAcknowledgement['body']['result']['isError'] ?? false) === true && $permissions->list() === [],
+	'Extension scopes retain exact operator acknowledgement enforcement.');
+$grant = $permissionCall('joomla_permission_approve', ['requestId' => $request['requestId'], 'acknowledgement' => $request['acknowledgement']])['body']['result']['structuredContent'] ?? [];
+$check(($grant['toolsets'] ?? []) === ['jcb.execute'] && ($grant['remainingUses'] ?? 0) === 1
+	&& $permissions->authorize('jcb.execute') === $grant['id'], 'The approved extension grant authorizes exactly its one-use scope.');
+$requestCount = count($store->find('permission_request'));
+foreach ([['extension.not_installed'], ['*'], ['jcb.*'], ['content.read'], ['jcb.execute', 'extension.not_installed']] as $scopes)
+{
+	$unknown = $permissionCall('joomla_permission_request', array_replace($scopeInput, ['toolsets' => $scopes]));
+	$check(($unknown['body']['result']['isError'] ?? false) === true
+		&& count($store->find('permission_request')) === $requestCount,
+		'Permission requests require every exact scope to identify an authorized write toolset.');
+}
+$reject(static fn () => $permissions->authorize('content.write'), 'PERMISSION_REQUIRED');
+$reject(static fn () => $permissions->consume($grant['id'], 'content.write'), 'GRANT_UNAVAILABLE');
+$check($permissions->list()[0]['remainingUses'] === 1, 'An extension grant cannot be consumed for another authorized write toolset.');
+$oversized = $permissionCall('joomla_permission_request', array_replace($scopeInput, ['toolsets' => [str_repeat('x', 191)]]));
+$check(isset($oversized['body']['error']), 'The SDK rejects scope names exceeding the database column bound.');
+$pending = $permissionCall('joomla_permission_request', $scopeInput)['body']['result']['structuredContent'];
+$jcbAction = $store->one('action', ['name' => 'jcb.compile.component']);
+$store->update('action', ['published' => 0], ['id' => $jcbAction['id']]);
+$hidden = $permissionCall('joomla_permission_approve', ['requestId' => $pending['requestId'], 'acknowledgement' => $pending['acknowledgement']]);
+$check(($hidden['body']['result']['isError'] ?? false) === true && count($permissions->list()) === 1,
+	'Approval rechecks whether the provider write scope remains published.');
+$reject(static fn () => $permissions->authorize('jcb.execute'), 'PERMISSION_DENIED');
+$reject(static fn () => $permissions->consume($grant['id'], 'jcb.execute'), 'PERMISSION_DENIED');
+$store->update('action', ['published' => 1], ['id' => $jcbAction['id']]);
+$revoked = $permissionCall('joomla_permission_revoke', ['grantId' => $grant['id']]);
+$check(($revoked['body']['result']['structuredContent']['revoked'] ?? false) === true && $permissions->list() === [],
+	'Extension grants retain principal-owned revocation.');
+$reject(static fn () => $permissions->authorize('jcb.execute'), 'PERMISSION_REQUIRED');
+$grant = $permissionCall('joomla_permission_approve', ['requestId' => $pending['requestId'], 'acknowledgement' => $pending['acknowledgement']])['body']['result']['structuredContent'];
+$store->transaction(static fn () => $permissions->consume($grant['id'], 'jcb.execute'));
+$check($permissions->list() === [], 'An installed extension grant retains one-shot consumption.');
+$reject(static fn () => $permissions->consume($grant['id'], 'jcb.execute'), 'GRANT_UNAVAILABLE');
+$pending = $permissionCall('joomla_permission_request', $scopeInput)['body']['result']['structuredContent'];
+$grant = $permissionCall('joomla_permission_approve', ['requestId' => $pending['requestId'], 'acknowledgement' => $pending['acknowledgement']])['body']['result']['structuredContent'];
+$pending = $permissionCall('joomla_permission_request', $scopeInput)['body']['result']['structuredContent'];
+$principal->deny('mcp.write', 'com_joomengine_mcp.action.' . $jcbAction['id']);
+$deniedScope = $permissionCall('joomla_permission_request', $scopeInput);
+$check(($deniedScope['body']['result']['isError'] ?? false) === true, 'A visible JCB action cannot bypass its current write asset denial.');
+$deniedApproval = $permissionCall('joomla_permission_approve', ['requestId' => $pending['requestId'], 'acknowledgement' => $pending['acknowledgement']]);
+$check(($deniedApproval['body']['result']['isError'] ?? false) === true, 'Scope approval rechecks a revoked write permission.');
+$reject(static fn () => $permissions->authorize('jcb.execute'), 'PERMISSION_DENIED');
+$reject(static fn () => $permissions->consume($grant['id'], 'jcb.execute'), 'PERMISSION_DENIED');
 
 $common = \VDM\Component\JoomEngineMcp\Administrator\Database\Structure::common();
 $record = [];
