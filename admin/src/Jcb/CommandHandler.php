@@ -11,6 +11,7 @@ namespace VDM\Component\JoomEngineMcp\Administrator\Jcb;
 
 use Closure;
 use VDM\Component\JoomEngineMcp\Administrator\Contract\DeferredHandlerInterface;
+use VDM\Component\JoomEngineMcp\Administrator\Contract\PlanPreviewInterface;
 use VDM\Component\JoomEngineMcp\Administrator\Contract\PrincipalInterface;
 use VDM\Component\JoomEngineMcp\Administrator\Domain\OperationException;
 use VDM\Component\JoomEngineMcp\Administrator\Service\Json;
@@ -22,7 +23,7 @@ use VDM\Component\JoomEngineMcp\Administrator\Service\Json;
  *
  * @since 0.1.0
  */
-final class CommandHandler implements DeferredHandlerInterface
+final class CommandHandler implements DeferredHandlerInterface, PlanPreviewInterface
 {
 	/** @var Closure(array):array Native registry inspection in an isolated context. @since 0.1.0 */
 	private Closure $inspect;
@@ -67,6 +68,12 @@ final class CommandHandler implements DeferredHandlerInterface
 			'input' => $frozen, 'contractFingerprint' => $contract['fingerprint'],
 			'implementation' => $contract['implementation'], 'snapshot' => ($this->snapshot)(),
 			'principal' => $principal->getId(), 'local' => $principal->isLocal()];
+	}
+
+	/** @inheritDoc */
+	public function preview(array $prepared): array
+	{
+		return (new CommandPreview())->describe($prepared);
 	}
 
 	/** @inheritDoc */
