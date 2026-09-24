@@ -1,7 +1,9 @@
 {
   "schemaVersion": 1,
-  "purpose": "Required JCB integration planning inventory; not an executable seed catalogue",
+  "purpose": "Required JCB integration contract and measured installed evidence; not an executable seed catalogue",
   "runtimeEnabled": false,
+  "runtimeEnabledMeaning": "This documentation file is never loaded as runtime seed data. The implemented server synchronizes its database catalogue from actual installed registries.",
+  "runtimeImplementation": "installed-registry-synchronization-and-reviewed-native-jobs",
   "integrationRequired": true,
   "providerExtension": "com_componentbuilder",
   "sources": {
@@ -28,18 +30,22 @@
   },
   "api": {
     "required": true,
-    "status": "actual-installed-route-inventory-required",
+    "status": "installed-inventory-verified-no-native-routes-in-pinned-distribution",
+    "observedRouteCount": 0,
     "routes": [],
-    "note": "The pinned implementation root has API-generation code but no installed API tree or JCB API webservices registration. Obtain the actual distribution/plugin/controller inventory; do not infer paths from entity names or claim JCB has no API."
+    "note": "The golden-image installation of the pinned distribution registered zero JCB API routes. The server correctly publishes none. Native ApiRouter contract tests exercise supported CRUD mappings and explicit unsupported diagnostics, but are not installed JCB endpoint execution. A separately generated JCB API distribution requires its own pinned registration/controller inventory and live CRUD acceptance; do not infer paths or claim JCB has no API."
   },
   "cli": {
     "required": true,
-    "status": "documented-families-inspected-installed-registration-required",
+    "status": "installed-registrations-mapped-cli-package-and-compiler-acceptance-passed",
+    "observedCommandCount": 111,
+    "observedExecutableCommandCount": 111,
+    "observedUnsupportedCommandCount": 0,
     "documentedCompileCommand": "componentbuilder:compile:component",
     "documentedPackageFamilies": ["get", "init", "pull", "push", "reset"],
     "registrationPlugin": "ComponentBuilderCommands",
     "commands": [],
-    "note": "Enumerate actual installed names, aliases, InputDefinitions and implementations. Factory entities are not evidence that every family/entity pair is registered. Additional real commands are in scope.",
+    "note": "The installed acceptance compared every registered command with its persisted native InputDefinition and implementation identity on both CLI and authenticated API tracks. The empty commands array deliberately avoids a second static catalogue. 111 mapped registrations are not 111 executed scenarios: CLI acceptance executed package get/init/pull/push/reset and Demo J6 compilation/install, while remote bridge acceptance still required a successful rerun at this evidence revision.",
     "compilerOptions": ["component", "components", "components-file", "options", "backup", "repository", "add-placeholders", "debug-line-nr", "minify", "powers", "joomla-version", "powers-repository", "indentation-value", "add-build-date", "build-date", "install"],
     "targetJoomlaMajors": [3, 4, 5, 6]
   },
@@ -57,17 +63,41 @@
   ],
   "specializedFactoryEntities": ["fieldtype", "power", "joomla_power", "repository", "snippet"],
   "assetQueuePseudoEntities": ["File", "Folder"],
+  "installedEvidence": {
+    "componentCommit": "4109cd371beb66183157d344da651a143a10037c",
+    "observedAt": "2026-09-22",
+    "finalRevisionRerunRequired": true,
+    "coreMatrix": {
+      "run": "https://github.com/joomengine/mcp_component/actions/runs/35756932400",
+      "conclusion": "success",
+      "joomla": "6.1.3",
+      "php": ["8.3", "8.4"],
+      "databases": ["MySQL 8.4", "PostgreSQL 16"],
+      "boundary": "Four installed core combinations including HTTP, ACL, administration, stdio, durable workers and component/combined-package lifecycle. This does not establish JCB or standalone-client acceptance on all four platforms."
+    },
+    "jcbGoldenImage": {
+      "run": "https://github.com/joomengine/mcp_component/actions/runs/35756932424",
+      "artifact": "https://github.com/joomengine/mcp_component/actions/runs/35756932424/artifacts/10708972188",
+      "conclusion": "failure",
+      "image": "octoleo/joomengine:6.1.6-php8.4-apache",
+      "database": "MariaDB 11.4",
+      "cliCompilerAndJobsChecks": 299,
+      "cliPackageRoundtripChecks": 30,
+      "generatedAndInstalledArchives": 3,
+      "blocker": "The remote HTTPS bridge reached discovery but the permission-request input schema rejected the synchronized jcb.execute toolset. Remote compiler/package acceptance and subsequent golden upgrade/uninstall did not run to completion."
+    }
+  },
   "requiredWorkstreams": [
-    {"id": "installed-api-inventory", "status": "pending"},
-    {"id": "installed-cli-inventory", "status": "pending"},
-    {"id": "database-provider-schema-action-binding-seeds", "status": "pending"},
-    {"id": "complete-api-entity-and-special-actions", "status": "pending"},
-    {"id": "complete-package-cli-families", "status": "pending"},
-    {"id": "compiler-options-targets-install-and-verification", "status": "pending"},
-    {"id": "durable-jobs-artifacts-cancellation-reconciliation", "status": "pending"},
-    {"id": "console-native-registration-and-state-isolation", "status": "pending"},
-    {"id": "administrator-lifecycle-and-seed-upgrades", "status": "pending"},
-    {"id": "live-core-and-jcb-parity-acceptance", "status": "pending"},
-    {"id": "standalone-client-interoperability", "status": "pending", "owner": "joomengine/mcp_client"}
+    {"id": "installed-api-inventory", "status": "verified-pinned-distribution-has-zero-routes"},
+    {"id": "installed-cli-inventory", "status": "verified-111-registrations"},
+    {"id": "database-provider-schema-action-binding-seeds", "status": "implemented-installed-synchronization-verified"},
+    {"id": "complete-api-entity-and-special-actions", "status": "reviewed-crud-adapter-implemented-live-api-distribution-unavailable", "boundary": "Specialized or unsupported contracts remain explicit unavailable diagnostics. No live JCB entity API pass is claimed."},
+    {"id": "complete-package-cli-families", "status": "implemented-five-family-cli-roundtrip-passed", "boundary": "Pinned native filesystem reset indexes omit destination metadata; divergence remains incomplete rather than verified success."},
+    {"id": "compiler-options-targets-install-and-verification", "status": "implemented-demo-j6-cli-compile-and-install-passed", "boundary": "Native option contracts are mapped; the live compiler scenario targets Joomla 6, not every target/option combination."},
+    {"id": "durable-jobs-artifacts-cancellation-reconciliation", "status": "implemented-installed-worker-and-cli-recovery-tests-passed"},
+    {"id": "console-native-registration-and-state-isolation", "status": "implemented-installed-cli-acceptance-passed"},
+    {"id": "administrator-lifecycle-and-seed-upgrades", "status": "core-installed-matrix-passed-golden-lifecycle-awaits-rerun"},
+    {"id": "live-core-and-jcb-parity-acceptance", "status": "core-matrix-and-jcb-cli-passed-final-full-golden-rerun-required"},
+    {"id": "standalone-client-interoperability", "status": "remote-https-discovery-passed-jcb-permission-schema-blocked", "owner": "joomengine/mcp_client"}
   ]
 }
