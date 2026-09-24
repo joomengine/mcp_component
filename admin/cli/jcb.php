@@ -28,6 +28,7 @@ use VDM\Component\JoomEngineMcp\Administrator\Console\WorkerApplication;
 use VDM\Component\JoomEngineMcp\Administrator\Domain\OperationException;
 use VDM\Component\JoomEngineMcp\Administrator\Jcb\ApiRegistry;
 use VDM\Component\JoomEngineMcp\Administrator\Jcb\CommandOutput;
+use VDM\Component\JoomEngineMcp\Administrator\Jcb\RegistrationObserver;
 use VDM\Component\JoomEngineMcp\Administrator\Jcb\Worker;
 use VDM\Component\JoomEngineMcp\Administrator\Security\ConsoleIdentity;
 use VDM\Component\JoomEngineMcp\Administrator\Security\JoomlaPrincipal;
@@ -124,8 +125,19 @@ try
 		PluginHelper::importPlugin($group, null, true, $dispatcher);
 	}
 
-	$dispatcher->dispatch(ApplicationEvents::BEFORE_EXECUTE, new ApplicationEvent(ApplicationEvents::BEFORE_EXECUTE, $app));
-	$worker = new Worker($app, $container->get(DatabaseInterface::class));
+	$event = new ApplicationEvent(ApplicationEvents::BEFORE_EXECUTE, $app);
+	$observer = new RegistrationObserver();
+	$owners = null;
+
+	if ($request['operation'] === 'jcb.inventory')
+	{
+		$owners = $observer->dispatch($dispatcher, $event, static fn (): array => $app->getAllCommands());
+	}
+	else
+	{
+		$dispatcher->dispatch(ApplicationEvents::BEFORE_EXECUTE, $event);
+	}
+	$worker = new Worker($app, $container->get(DatabaseInterface::class), $owners);
 
 	if ($request['operation'] === 'jcb.inventory')
 	{
@@ -138,8 +150,9 @@ try
 		{
 			$router = new ApiRouter($api);
 			PluginHelper::importPlugin('webservices', null, true, $dispatcher);
-			$dispatcher->dispatch('onBeforeApiRoute', new BeforeApiRouteEvent('onBeforeApiRoute', ['router' => $router, 'subject' => $api]));
-			$result = ['commands' => $commands, 'api' => (new ApiRegistry($router))->inventory()];
+			$owners = $observer->dispatch($dispatcher, new BeforeApiRouteEvent('onBeforeApiRoute', ['router' => $router, 'subject' => $api]),
+				static fn (): array => $router->getRoutes());
+			$result = ['commands' => $commands, 'api' => (new ApiRegistry($router, $owners))->inventory()];
 		}
 		finally
 		{

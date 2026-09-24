@@ -74,7 +74,8 @@ final class CatalogueBuilder
 
 			$input = $schema($identity . '.input', ['type' => 'object', 'properties' => (object) [
 				'options' => ['type' => 'object', 'properties' => (object) $properties, 'additionalProperties' => false]], 'additionalProperties' => false]);
-			$definition = ['required_permissions' => $permissions, 'nativeCommand' => $name, 'aliases' => $command['aliases'] ?? []];
+			$definition = ['required_permissions' => $permissions, 'required_extensions' => $command['required_extensions'] ?? [],
+				'nativeCommand' => $name, 'aliases' => $command['aliases'] ?? []];
 			$action = $add('action', ['provider_id' => $provider, 'name' => $identity, 'title' => $name,
 				'description' => $command['description'] ?? $name, 'domain' => 'jcb', 'toolset' => 'jcb.execute',
 				'effect' => 'write', 'risk' => 'high', 'input_schema_id' => $input, 'output_schema_id' => $output,
@@ -151,7 +152,8 @@ final class CatalogueBuilder
 			$input = $schema($name . '.input', ['type' => 'object', 'properties' => (object) $properties,
 				'required' => $required, 'additionalProperties' => false]);
 			$operation = match ($task) { 'displayList' => 'list', 'displayItem' => 'get', 'add' => 'create', 'edit' => 'update', 'delete' => 'delete', default => $task };
-			$definition = ['nativeRoute' => $route, 'required_permissions' => [['action' => 'core.manage', 'asset' => 'com_componentbuilder']]];
+			$definition = ['nativeRoute' => $route, 'required_extensions' => $route['required_extensions'] ?? [],
+				'required_permissions' => [['action' => 'core.manage', 'asset' => 'com_componentbuilder']]];
 			$action = $add('action', ['provider_id' => $provider, 'name' => $name, 'title' => $route['controller'] . ' (' . $method . ')',
 				'description' => 'Installed JCB API: ' . $method . ' ' . $route['route'], 'domain' => 'jcb',
 				'toolset' => $method === 'GET' ? 'jcb.read' : 'jcb.write', 'effect' => $method === 'GET' ? 'read' : 'write',

@@ -40,11 +40,11 @@ final class Worker
 	/** @var DatabaseInterface Independent native installation read-back. @since 0.1.0 */
 	private DatabaseInterface $database;
 
-	/** @param WorkerApplication $application Isolated application. @param DatabaseInterface $database Installed Joomla database. @since 0.1.0 */
-	public function __construct(WorkerApplication $application, DatabaseInterface $database)
+	/** @param WorkerApplication $application Isolated application. @param DatabaseInterface $database Installed Joomla database. @param ?array $owners Observed command registration provenance. @since 0.1.0 */
+	public function __construct(WorkerApplication $application, DatabaseInterface $database, ?array $owners = null)
 	{
 		$this->application = $application;
-		$this->registry = new CommandRegistry($application);
+		$this->registry = new CommandRegistry($application, $owners);
 		$this->snapshot = new DefinitionSnapshot($database);
 		$this->database = $database;
 	}

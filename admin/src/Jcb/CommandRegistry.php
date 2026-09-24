@@ -32,14 +32,17 @@ final class CommandRegistry
 	private ConsoleApplication $application;
 	/** @var ?string Read-only installed JCB source hash, shared across one inventory. @since 0.1.0 */
 	private ?string $libraryFingerprint = null;
+	/** @var ?array<int,string[]> Native plugin provenance captured by the registration event. @since 0.1.1 */
+	private ?array $owners;
 
 	/**
 	 * Inject the genuine local registry; HTTP dispatch cannot construct it.
 	 *
 	 * @param   ConsoleApplication  $application  Booted Joomla console.
+	 * @param   ?array  $owners  Observed plugin dependencies indexed by command object ID.
 	 * @since   0.1.0
 	 */
-	public function __construct(ConsoleApplication $application)
+	public function __construct(ConsoleApplication $application, ?array $owners = null)
 	{
 		if (PHP_SAPI !== 'cli')
 		{
@@ -47,6 +50,7 @@ final class CommandRegistry
 		}
 
 		$this->application = $application;
+		$this->owners = $owners;
 	}
 
 	/**
@@ -100,9 +104,16 @@ final class CommandRegistry
 			try
 			{
 				$native = $this->get($name);
+				$dependencies = $this->owners === null ? [] : ($this->owners[spl_object_id($native)] ?? []);
+
+				if ($this->owners !== null && $dependencies === [])
+				{
+					throw new OperationException('JCB_COMMAND_OWNER_UNAVAILABLE', 'The registered command has no observed owning plugin.');
+				}
+
 				$contract = CommandContract::describe($native);
 				$commands[$name] = $this->inspect(['command' => $name, 'contract' => $contract])
-					+ ['description' => $native->getDescription(), 'aliases' => $native->getAliases()];
+					+ ['description' => $native->getDescription(), 'aliases' => $native->getAliases(), 'required_extensions' => $dependencies];
 			}
 			catch (OperationException $error)
 			{
