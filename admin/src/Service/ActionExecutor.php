@@ -13,6 +13,7 @@ use Closure;
 use Throwable;
 use VDM\Component\JoomEngineMcp\Administrator\Contract\DeferredHandlerInterface;
 use VDM\Component\JoomEngineMcp\Administrator\Contract\PlannedHandlerInterface;
+use VDM\Component\JoomEngineMcp\Administrator\Contract\PlanPreviewInterface;
 use VDM\Component\JoomEngineMcp\Administrator\Contract\PrincipalInterface;
 use VDM\Component\JoomEngineMcp\Administrator\Domain\OperationException;
 use VDM\Component\JoomEngineMcp\Administrator\Handler\ApiHandler;
@@ -177,6 +178,12 @@ final class ActionExecutor
 			'summary' => $resolved['action']['description'], 'fields' => array_keys($input['data'] ?? []),
 			'idempotencyKey' => $idempotencyKey, 'preconditions' => $before === null ? 'handler-preflight' : 'resource-snapshot',
 		];
+
+		if ($handler instanceof PlanPreviewInterface)
+		{
+			$preview['details'] = $handler->preview($preflight);
+			$preview['definitionRevision'] = $resolved['revision'];
+		}
 
 		if ($dryRun)
 		{
