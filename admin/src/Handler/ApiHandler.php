@@ -153,7 +153,20 @@ final class ApiHandler implements HandlerInterface
 
 		if (($status < 200 || $status >= 300) && !($allowMissing && $status === 404))
 		{
-			throw new OperationException('JOOMLA_API_ERROR', 'Joomla rejected the API operation.', ['httpStatus' => $status]);
+			$details = ['httpStatus' => $status];
+
+			if ($status >= 400 && $status < 500
+				&& preg_match('/\Aapplication\/(?:vnd\.api\+json|json)(?:\s*;|\z)/i', $response->getHeaderLine('content-type')) === 1)
+			{
+				$errors = $this->validationErrors($response->getBody()->read(65537), $credential);
+
+				if ($errors !== [])
+				{
+					$details['errors'] = $errors;
+				}
+			}
+
+			throw new OperationException('JOOMLA_API_ERROR', 'Joomla rejected the API operation.', $details);
 		}
 
 		$stream = $response->getBody();
@@ -191,6 +204,94 @@ final class ApiHandler implements HandlerInterface
 		}
 
 		return ['status' => $status, 'headers' => $selected, 'data' => $data];
+	}
+
+	/**
+	 * Preserve bounded native validation feedback without exposing raw API errors.
+	 *
+	 * Only JSON:API public error fields are eligible. Debug metadata, HTML pages,
+	 * server failures, credentials, filesystem diagnostics and SQL are withheld.
+	 * Joomla's translated form errors may contain simple HTML line separators.
+	 *
+	 * @param string $body Bounded client-error body.
+	 * @param string $credential Credential used for this exchange.
+	 * @return array<int,array<string,mixed>> Safe errors suitable for input correction.
+	 * @since 0.1.1
+	 */
+	private function validationErrors(string $body, string $credential): array
+	{
+		if (strlen($body) > 65536)
+		{
+			return [];
+		}
+
+		$data = json_decode($body, true, 16);
+
+		if (!is_array($data) || !is_array($data['errors'] ?? null) || !array_is_list($data['errors']))
+		{
+			return [];
+		}
+
+		$errors = [];
+		$bytes = 0;
+
+		foreach (array_slice($data['errors'], 0, 8) as $error)
+		{
+			if (!is_array($error))
+			{
+				continue;
+			}
+
+			$safe = [];
+
+			foreach (['title', 'detail'] as $field)
+			{
+				$value = $error[$field] ?? null;
+
+				if (!is_string($value) || strlen($value) > 4096 || !mb_check_encoding($value, 'UTF-8'))
+				{
+					continue;
+				}
+
+				$value = html_entity_decode(strip_tags(preg_replace('/<br\s*\/?\s*>/i', ' ', $value)), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+				$value = trim(preg_replace('/\s+/u', ' ', $value));
+
+				if ($value === '' || str_contains($value, $credential)
+					|| preg_match('~[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]|\b(?:authorization|bearer|token|password|passwd|secret|credential|SQLSTATE|PDOException|stack trace|thrown in)\b|\b(?:SELECT\s.+\sFROM|INSERT\s+INTO|UPDATE\s.+\sSET|DELETE\s+FROM)\b|(?:https?|file)://|(?:^|\s|[\x22\x27(])(?:/[A-Za-z0-9_.-]+/|[A-Za-z]:[\\\\/])~i', $value) === 1)
+				{
+					continue;
+				}
+
+				$safe[$field] = mb_strcut($value, 0, 512, 'UTF-8');
+			}
+
+			if ($safe === [])
+			{
+				continue;
+			}
+
+			foreach (['pointer' => '~\A/(?:data/)?(?:attributes/)?[A-Za-z0-9_\~/-]{1,190}\z~D',
+				'parameter' => '~\A[A-Za-z][A-Za-z0-9_.\[\]-]{0,127}\z~D'] as $field => $pattern)
+			{
+				$value = is_array($error['source'] ?? null) ? ($error['source'][$field] ?? null) : null;
+
+				if (is_string($value) && preg_match($pattern, $value) === 1)
+				{
+					$safe['source'][$field] = $value;
+				}
+			}
+
+			$bytes += strlen(Json::encode($safe));
+
+			if ($bytes > 2048)
+			{
+				break;
+			}
+
+			$errors[] = $safe;
+		}
+
+		return $errors;
 	}
 
 	/**
