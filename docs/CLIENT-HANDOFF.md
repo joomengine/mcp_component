@@ -1,4 +1,4 @@
-# External client separation — 22 September 2026
+# External client separation — 24 September 2026
 
 ## Ownership
 
@@ -20,7 +20,7 @@ A workstation stdio-to-HTTP bridge does not acquire the server's trusted CLI aut
 
 ## Handoff and acceptance
 
-The independent client now provides the Composer SDK, remote stdio executable and private per-site token configuration. Shared installed tests exercise the real authenticated endpoint through both the SDK and executable, with trusted TLS and server-discovered contracts. Final verification runs against the completed component, including newly synchronized JCB definitions; no client catalogue changes are required for those definitions.
+The independent client provides the Composer SDK, remote stdio executable, Docker Compose URL/token launcher and private per-site token configuration. Shared installed tests pass against the real authenticated endpoint through both the SDK and executable, with trusted TLS and server-discovered contracts. The JCB golden-image run additionally passes actual package/compiler jobs, failure recovery and hash-verified artifact downloads through that generic HTTPS bridge; no client catalogue changes are required for synchronized JCB definitions. The client's PHP 8.3/8.4 container workflow separately verifies real Compose startup, TLS, authentication, discovery and session cleanup.
 
 The component's [implementation status](IMPLEMENTATION.md) records server acceptance. Client checks and publishing automation remain in the client repository. Packagist publication and GitHub releases are intentional post-merge actions, not missing component source files.
 

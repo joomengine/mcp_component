@@ -42,62 +42,191 @@
     "observedExecutableCommandCount": 111,
     "observedUnsupportedCommandCount": 0,
     "documentedCompileCommand": "componentbuilder:compile:component",
-    "documentedPackageFamilies": ["get", "init", "pull", "push", "reset"],
+    "documentedPackageFamilies": [
+      "get",
+      "init",
+      "pull",
+      "push",
+      "reset"
+    ],
     "registrationPlugin": "ComponentBuilderCommands",
     "commands": [],
-    "note": "The installed acceptance compared every registered command with its persisted native InputDefinition and implementation identity on both CLI and authenticated API tracks. The empty commands array deliberately avoids a second static catalogue. 111 mapped registrations are not 111 executed scenarios: CLI acceptance executed package get/init/pull/push/reset and Demo J6 compilation/install, while remote bridge acceptance still required a successful rerun at this evidence revision.",
-    "compilerOptions": ["component", "components", "components-file", "options", "backup", "repository", "add-placeholders", "debug-line-nr", "minify", "powers", "joomla-version", "powers-repository", "indentation-value", "add-build-date", "build-date", "install"],
-    "targetJoomlaMajors": [3, 4, 5, 6]
+    "note": "Installed acceptance compared every registered command with persisted native InputDefinitions and implementation identity on both CLI and authenticated API tracks. The empty commands array avoids a duplicate static catalogue. Native and remote suites executed all five package families and Demo J6 compilation; CLI also installed three generated archives. The command count does not claim 111 independent execution scenarios.",
+    "compilerOptions": [
+      "component",
+      "components",
+      "components-file",
+      "options",
+      "backup",
+      "repository",
+      "add-placeholders",
+      "debug-line-nr",
+      "minify",
+      "powers",
+      "joomla-version",
+      "powers-repository",
+      "indentation-value",
+      "add-build-date",
+      "build-date",
+      "install"
+    ],
+    "targetJoomlaMajors": [
+      3,
+      4,
+      5,
+      6
+    ]
   },
   "factoryEntityCount": 45,
   "factoryEntities": [
-    "joomla_component", "component_admin_views", "component_custom_admin_views", "component_site_views",
-    "component_router", "component_config", "component_placeholders", "component_updates",
-    "component_files_folders", "component_custom_admin_menus", "component_dashboard", "component_modules", "component_plugins",
-    "joomla_module", "joomla_module_updates", "joomla_module_files_folders_urls",
-    "joomla_plugin", "joomla_plugin_group", "joomla_plugin_updates", "joomla_plugin_files_folders_urls",
-    "admin_view", "admin_fields", "admin_fields_relations", "admin_fields_conditions", "admin_custom_tabs",
-    "custom_admin_view", "site_view", "template", "layout", "dynamic_get", "custom_code", "field", "validation_rule",
-    "fieldtype", "library", "library_config", "library_files_folders_urls", "class_method", "class_property", "class_extends",
-    "placeholder", "power", "joomla_power", "repository", "snippet"
+    "joomla_component",
+    "component_admin_views",
+    "component_custom_admin_views",
+    "component_site_views",
+    "component_router",
+    "component_config",
+    "component_placeholders",
+    "component_updates",
+    "component_files_folders",
+    "component_custom_admin_menus",
+    "component_dashboard",
+    "component_modules",
+    "component_plugins",
+    "joomla_module",
+    "joomla_module_updates",
+    "joomla_module_files_folders_urls",
+    "joomla_plugin",
+    "joomla_plugin_group",
+    "joomla_plugin_updates",
+    "joomla_plugin_files_folders_urls",
+    "admin_view",
+    "admin_fields",
+    "admin_fields_relations",
+    "admin_fields_conditions",
+    "admin_custom_tabs",
+    "custom_admin_view",
+    "site_view",
+    "template",
+    "layout",
+    "dynamic_get",
+    "custom_code",
+    "field",
+    "validation_rule",
+    "fieldtype",
+    "library",
+    "library_config",
+    "library_files_folders_urls",
+    "class_method",
+    "class_property",
+    "class_extends",
+    "placeholder",
+    "power",
+    "joomla_power",
+    "repository",
+    "snippet"
   ],
-  "specializedFactoryEntities": ["fieldtype", "power", "joomla_power", "repository", "snippet"],
-  "assetQueuePseudoEntities": ["File", "Folder"],
+  "specializedFactoryEntities": [
+    "fieldtype",
+    "power",
+    "joomla_power",
+    "repository",
+    "snippet"
+  ],
+  "assetQueuePseudoEntities": [
+    "File",
+    "Folder"
+  ],
   "installedEvidence": {
-    "componentCommit": "4109cd371beb66183157d344da651a143a10037c",
-    "observedAt": "2026-09-22",
-    "finalRevisionRerunRequired": true,
+    "componentCommit": "75d9685268332241de846935aad2edc2e92c8459",
+    "observedAt": "2026-09-24",
+    "currentRevisionEvidence": "https://github.com/joomengine/mcp_component/pull/1#issuecomment-5732685349",
     "coreMatrix": {
-      "run": "https://github.com/joomengine/mcp_component/actions/runs/35756932400",
+      "run": "https://github.com/joomengine/mcp_component/actions/runs/35983426742",
       "conclusion": "success",
       "joomla": "6.1.3",
-      "php": ["8.3", "8.4"],
-      "databases": ["MySQL 8.4", "PostgreSQL 16"],
-      "boundary": "Four installed core combinations including HTTP, ACL, administration, stdio, durable workers and component/combined-package lifecycle. This does not establish JCB or standalone-client acceptance on all four platforms."
+      "php": [
+        "8.3",
+        "8.4"
+      ],
+      "databases": [
+        "MySQL 8.4",
+        "PostgreSQL 16"
+      ],
+      "boundary": "Four installed core combinations including HTTP, ACL, administration, native stdio, durable workers, standalone plugin/HTTPS client and component/combined-package lifecycle. JCB itself is verified in the separate golden image."
     },
     "jcbGoldenImage": {
-      "run": "https://github.com/joomengine/mcp_component/actions/runs/35756932424",
-      "artifact": "https://github.com/joomengine/mcp_component/actions/runs/35756932424/artifacts/10708972188",
-      "conclusion": "failure",
+      "run": "https://github.com/joomengine/mcp_component/actions/runs/35983422644",
+      "pullRequestRun": "https://github.com/joomengine/mcp_component/actions/runs/35983427068",
+      "artifact": "https://github.com/joomengine/mcp_component/actions/runs/35983422644/artifacts/10801311856",
+      "conclusion": "success",
       "image": "octoleo/joomengine:6.1.6-php8.4-apache",
-      "database": "MariaDB 11.4",
+      "observedJoomla": "6.1.3",
+      "observedPhp": "8.4.25",
+      "observedDatabase": "MariaDB 11.4.13",
+      "pluginCommit": "3526cae818803a02971374c044a2e2184f1c2c61",
+      "clientCommit": "72d02491fe80dadc581d3d9d67b1dfbc917d095d",
       "cliCompilerAndJobsChecks": 299,
+      "httpsCompilerAndJobsChecks": 288,
       "cliPackageRoundtripChecks": 30,
-      "generatedAndInstalledArchives": 3,
-      "blocker": "The remote HTTPS bridge reached discovery but the permission-request input schema rejected the synchronized jcb.execute toolset. Remote compiler/package acceptance and subsequent golden upgrade/uninstall did not run to completion."
+      "httpsPackageRoundtripChecks": 30,
+      "generatedAndDownloadedArchivesPerTrack": 3,
+      "installedArchivesByCli": 3,
+      "workerRecoveryChecks": 17,
+      "installedPluginChecks": 18,
+      "upgradeChecks": 7,
+      "upgradedSeedChecks": 5430,
+      "uninstallChecks": 23,
+      "boundary": "The image tag is not the observed Joomla version. Native JCB API routes are absent. Remote compilation verifies downloads; local CLI additionally verifies installation. Native filesystem-reset limitations remain explicitly incomplete."
     }
   },
   "requiredWorkstreams": [
-    {"id": "installed-api-inventory", "status": "verified-pinned-distribution-has-zero-routes"},
-    {"id": "installed-cli-inventory", "status": "verified-111-registrations"},
-    {"id": "database-provider-schema-action-binding-seeds", "status": "implemented-installed-synchronization-verified"},
-    {"id": "complete-api-entity-and-special-actions", "status": "reviewed-crud-adapter-implemented-live-api-distribution-unavailable", "boundary": "Specialized or unsupported contracts remain explicit unavailable diagnostics. No live JCB entity API pass is claimed."},
-    {"id": "complete-package-cli-families", "status": "implemented-five-family-cli-roundtrip-passed", "boundary": "Pinned native filesystem reset indexes omit destination metadata; divergence remains incomplete rather than verified success."},
-    {"id": "compiler-options-targets-install-and-verification", "status": "implemented-demo-j6-cli-compile-and-install-passed", "boundary": "Native option contracts are mapped; the live compiler scenario targets Joomla 6, not every target/option combination."},
-    {"id": "durable-jobs-artifacts-cancellation-reconciliation", "status": "implemented-installed-worker-and-cli-recovery-tests-passed"},
-    {"id": "console-native-registration-and-state-isolation", "status": "implemented-installed-cli-acceptance-passed"},
-    {"id": "administrator-lifecycle-and-seed-upgrades", "status": "core-installed-matrix-passed-golden-lifecycle-awaits-rerun"},
-    {"id": "live-core-and-jcb-parity-acceptance", "status": "core-matrix-and-jcb-cli-passed-final-full-golden-rerun-required"},
-    {"id": "standalone-client-interoperability", "status": "remote-https-discovery-passed-jcb-permission-schema-blocked", "owner": "joomengine/mcp_client"}
+    {
+      "id": "installed-api-inventory",
+      "status": "verified-pinned-distribution-has-zero-routes"
+    },
+    {
+      "id": "installed-cli-inventory",
+      "status": "verified-111-registrations"
+    },
+    {
+      "id": "database-provider-schema-action-binding-seeds",
+      "status": "implemented-installed-synchronization-verified"
+    },
+    {
+      "id": "complete-api-entity-and-special-actions",
+      "status": "reviewed-crud-adapter-implemented-live-api-distribution-unavailable",
+      "boundary": "Specialized or unsupported contracts remain explicit unavailable diagnostics. No live JCB entity API pass is claimed."
+    },
+    {
+      "id": "complete-package-cli-families",
+      "status": "implemented-five-family-cli-and-https-roundtrips-passed",
+      "boundary": "Pinned native filesystem reset indexes omit destination metadata; divergence remains incomplete rather than verified success."
+    },
+    {
+      "id": "compiler-options-targets-install-and-verification",
+      "status": "implemented-cli-install-and-https-compile-artifacts-passed",
+      "boundary": "Native option contracts are mapped; the live compiler scenario targets Joomla 6, not every target/option combination."
+    },
+    {
+      "id": "durable-jobs-artifacts-cancellation-reconciliation",
+      "status": "installed-worker-cli-and-https-recovery-tests-passed"
+    },
+    {
+      "id": "console-native-registration-and-state-isolation",
+      "status": "implemented-installed-cli-acceptance-passed"
+    },
+    {
+      "id": "administrator-lifecycle-and-seed-upgrades",
+      "status": "core-matrix-and-full-golden-lifecycle-passed"
+    },
+    {
+      "id": "live-core-and-jcb-parity-acceptance",
+      "status": "core-matrix-and-full-golden-acceptance-passed"
+    },
+    {
+      "id": "standalone-client-interoperability",
+      "status": "installed-https-package-compiler-job-artifact-roundtrip-passed",
+      "owner": "joomengine/mcp_client"
+    }
   ]
 }
