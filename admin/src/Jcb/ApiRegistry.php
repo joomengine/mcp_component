@@ -24,11 +24,14 @@ final class ApiRegistry
 {
 	/** @var ApiRouter Registered native API router. @since 0.1.0 */
 	private ApiRouter $router;
+	/** @var ?array<int,string[]> Observed plugin provenance, required when supplied by the installed inventory. @since 0.1.1 */
+	private ?array $owners;
 
-	/** @param ApiRouter $router Router after onBeforeApiRoute. @since 0.1.0 */
-	public function __construct(ApiRouter $router)
+	/** @param ApiRouter $router Router after onBeforeApiRoute. @param ?array $owners Observed native registration provenance. @since 0.1.0 */
+	public function __construct(ApiRouter $router, ?array $owners = null)
 	{
 		$this->router = $router;
+		$this->owners = $owners;
 	}
 
 	/** @return array Exact registered methods, paths, defaults and variables. @since 0.1.0 */
@@ -62,6 +65,17 @@ final class ApiRegistry
 				$key = $method . ' ' . $path;
 				$definition = ['method' => $method, 'route' => $path, 'controller' => $controller,
 					'defaults' => $defaults, 'variables' => $route->getRouteVariables(), 'rules' => $route->getRules()];
+
+				if ($this->owners !== null)
+				{
+					$definition['required_extensions'] = $this->owners[spl_object_id($route)] ?? [];
+
+					if ($definition['required_extensions'] === [])
+					{
+						$unsupported[$key] = 'The native route has no observed owning plugin; synchronize through its registration event.';
+						continue;
+					}
+				}
 
 				if (isset($registered[$key]) && Json::canonical($registered[$key]) !== Json::canonical($definition))
 				{

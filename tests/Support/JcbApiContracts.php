@@ -8,11 +8,16 @@
  */
 
 use Joomla\CMS\Router\ApiRouter;
+use Joomla\CMS\Plugin\CMSPlugin;
+use Joomla\Event\Dispatcher;
+use Joomla\Event\Event;
+use Joomla\Event\EventInterface;
 use Joomla\Router\Route;
 use VDM\Component\JoomEngineMcp\Administrator\Domain\OperationException;
 use VDM\Component\JoomEngineMcp\Administrator\Handler\ApiRequestBuilder;
 use VDM\Component\JoomEngineMcp\Administrator\Jcb\ApiRegistry;
 use VDM\Component\JoomEngineMcp\Administrator\Jcb\CatalogueBuilder;
+use VDM\Component\JoomEngineMcp\Administrator\Jcb\RegistrationObserver;
 use VDM\Component\JoomEngineMcp\Administrator\Security\SchemaValidator;
 use VDM\Component\JoomEngineMcp\Administrator\Service\Json;
 
@@ -117,6 +122,37 @@ return static function (ApiRouter $router): int
 	$check((new ApiRegistry($router))->inventory()['fingerprint'] !== $before, 'Unsupported registration changes alter the inventory fingerprint.');
 	$router->addRoutes([new Route(['GET'], 'v1/jcb-fixture/a', 'compiler.compile', [], $defaults)]);
 	$reject(static fn () => (new ApiRegistry($router))->inventory(), 'JCB_ROUTE_AMBIGUOUS');
+
+	$dispatcher = new Dispatcher();
+	$plugin = new class(['name' => 'NativeBuilder', 'type' => 'webservices']) extends CMSPlugin
+	{
+		/** @var array Native registered objects retained by this fixture. */
+		public array $objects = [];
+		/** @param EventInterface $event Native registration event. @return void */
+		public function register(EventInterface $event): void
+		{
+			$this->objects[] = new Route(['GET'], 'v1/jcb-fixture/owned', 'entities.displayList', [], ['component' => 'com_componentbuilder']);
+		}
+		/** @return Closure Legacy Joomla listeners remain bound to the original plugin. */
+		public function legacy(): Closure
+		{
+			return function (EventInterface $event): void { $this->register($event); };
+		}
+	};
+	$native = [$plugin, 'register'];
+	$legacy = $plugin->legacy();
+	$dispatcher->addListener('native.registration', $native, 10);
+	$dispatcher->addListener('native.registration', $legacy, 0);
+	$owners = (new RegistrationObserver())->dispatch($dispatcher, new Event('native.registration'), static fn (): array => $plugin->objects);
+	$check(count($owners) === 2 && array_unique(array_merge(...array_values($owners))) === ['webservices/NativeBuilder'],
+		'Native and legacy listeners retain the exact owning plugin element, including case.');
+	$check($dispatcher->getListeners('native.registration') === [$native, $legacy]
+		&& $dispatcher->getListenerPriority('native.registration', $native) === 10,
+		'Provenance observation restores original listener identity, ordering and priority.');
+	$router->addRoutes([$plugin->objects[0]]);
+	$owned = (new ApiRegistry($router, [spl_object_id($plugin->objects[0]) => ['webservices/NativeBuilder']]))->inventory();
+	$check(count($owned['routes']) === 1 && $owned['routes'][0]['required_extensions'] === ['webservices/NativeBuilder']
+		&& count($owned['unsupported']) > 0, 'Only registrations with observed provenance become installed plugin-dependent API bindings.');
 
 	return $checks;
 };

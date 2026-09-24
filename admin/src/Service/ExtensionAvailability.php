@@ -44,7 +44,7 @@ final class ExtensionAvailability
 			$element = $name;
 			$folder = '';
 		}
-		elseif (preg_match('/\A([a-z][a-z0-9_-]*)\/([a-z][a-z0-9_-]*)\z/D', $name, $matches) === 1)
+		elseif (preg_match('/\A([a-z][a-z0-9_-]*)\/([A-Za-z][A-Za-z0-9_-]*)\z/D', $name, $matches) === 1)
 		{
 			$type = 'plugin';
 			$folder = $matches[1];
