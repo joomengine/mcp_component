@@ -31,14 +31,30 @@ Follow the native [git-user](https://github.com/octoleo/git-user#workflows), Oct
 
 ## Release sequence
 
-Tag reviewed releases of both plugins first. Then run **Release component with OctoJPack and OctoShoom** on `main`, entering the next unused version, such as `1.2.3` or `v1.2.3`.
+All three extension repositories provide a manual version release. In each repository, open **Actions**, select the workflow below, choose **Run workflow**, select `main` and enter the release version. The workflow creates the tag; pushing a tag by itself does not start a release.
+
+For the first package, run these in order and wait for each to succeed:
+
+| Order | Repository and workflow | Result |
+| --- | --- | --- |
+| 1 | [mcp_plugin — Release console plugin with OctoShoom](https://github.com/joomengine/mcp_plugin/actions/workflows/release.yml) | Console tag, plugin update entry and checksum. |
+| 2 | [mcp_webservices — Release webservices plugin with OctoShoom](https://github.com/joomengine/mcp_webservices/actions/workflows/release.yml) | Webservices tag, plugin update entry and checksum. |
+| 3 | [mcp_component — Release component with OctoJPack and OctoShoom](https://github.com/joomengine/mcp_component/actions/workflows/release.yml) | Component tag, combined package tag, package update entry and checksum. |
+
+Choose an unused version above the development baselines. For example, `0.1.2` is suitable for all three first releases; `v0.1.2` is also accepted. The component's `0.1.0` and `0.1.1` changelog entries already describe development baselines and cannot be reused. Plugin versions may differ from the component version; the combined package always follows the component.
+
+The six Git identity/signing/SSH secrets above must be available to **each extension repository**. An organization secret can be shared with all three. The component additionally needs `GIT_TOKEN`; its SSH identity must be able to push to both `mcp_component` and `mcp_package`. Each plugin's SSH identity must be able to push to its own repository. The package repository needs no separate release workflow or secrets: OctoJPack publishes it from the component workflow.
+
+Once plugin tags exist, subsequent package releases can reuse them. Release a plugin again only when its source changes. Keep a pending changelog section in each repository being released.
+
+The component workflow performs these steps:
 
 1. Freeze component/changelog metadata, commit and create its version tag.
 2. OctoJPack builds and publishes the three-extension package using the component version.
 3. Update this repository's feed with the package version and tagged package URL, clearing the previous archive hash.
 4. OctoShoom hashes the published package archive and commits the checksum here.
 
-The package must exist before its hash can be calculated. A failed packaging step stops feed publication and hashing. Neither shared tool's work is duplicated locally. Rerunning keeps existing tags and preserves a matching feed entry/hash.
+The package must exist before its hash can be calculated. A failed packaging step stops feed publication and hashing. Neither shared tool's work is duplicated locally. Rerunning keeps existing tags and preserves a matching feed entry/hash. A successful component workflow makes the package tag ZIP installable from `mcp_package` and publishes its checksum in this repository's update feed; no manual packaging or XML editing is needed.
 
 ## Changelogs and dependencies
 

@@ -10,6 +10,7 @@
       <item>Point component update discovery to the maintained native XML feed.</item>
     </fix>
     <addition>
+      <item>Document the complete first-package workflow order, valid first versions and secret scope for both plugins and the component.</item>
       <item>Add manual version releases with changelog freezing, immutable tags, OctoJPack package publication and subsequent OctoShoom package hashing.</item>
       <item>Document release secrets and source installation requirements for maintainers and agents.</item>
     </addition>
