@@ -11,6 +11,7 @@
 
 ### Addition
 
+- Document the complete first-package workflow order, valid first versions and secret scope for both plugins and the component.
 - Add a manual version release workflow that freezes both changelogs, creates an immutable tag, publishes the package with OctoJPack, updates the package feed and runs OctoShoom against the published package.
 - Document GitHub secrets and the source-installation contract for future agents.
 

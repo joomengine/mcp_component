@@ -2,7 +2,7 @@
 
 ## Repository and source baseline
 
-The migration PR #1 is merged; source-installation and release realignment is on `fix/standalone-octojpack`. Original MCP source: `2cff50f4f6b440da3c684f9995a77efad32e1a36`. JCB source: `extension-builder/joomla@5ee658dd07eb749dca43ed4722f6cca7eb8208cf`. The development component version is 0.1.1. OctoJPack selects the tagged component and independent plugins from its fixed configuration and publishes to `joomengine/mcp_package`.
+The migration PR #1 and release realignment PR #3 are merged. Original MCP source: `2cff50f4f6b440da3c684f9995a77efad32e1a36`. JCB source: `extension-builder/joomla@5ee658dd07eb749dca43ed4722f6cca7eb8208cf`. The development component version is 0.1.1. OctoJPack selects the tagged component and independent plugins from its fixed configuration and publishes to `joomengine/mcp_package`.
 
 ## Implemented server
 
@@ -25,6 +25,8 @@ The administrator Operations screen includes jobs/artifact metadata and cancella
 The tracked component source contains production dependencies, installation data and its administrator licence. Source ZIP installation replaces local archive builders. The manual release freezes metadata and tags the component, then OctoJPack publishes the package with that version. Its current-version update feed and shared changelog stay in this component repository; OctoShoom hashes the published package ZIP. See [RELEASE.md](RELEASE.md).
 
 PR #3 uses the native Octoleo actions with one Git setup and fully concrete `.octojpack` values. The feed is populated with the current 0.1.1 metadata; the first release run replaces it with the published package version and adds the real hash. No package tag has been published by this PR. The webservices plugin is extracted into `joomengine/mcp_webservices`, PR #1. Installed CI checks use its exact source revision to verify independent plugin install, upgrade and uninstall. Local metadata, source-installation, ownership, PHP and workflow syntax checks pass; the latest installed run is recorded in PR #3.
+
+The first-package follow-up adds the missing webservices version/feed/OctoShoom workflow and completes the rollout instructions in [RELEASE.md](RELEASE.md). Release both plugins through their manual workflows, then release the component; no hand-edited release metadata is required. Repository secrets and an authorized release run remain deployment setup, not something inferred from green source/installation CI. This follow-up does not create release tags or publish a package.
 
 ## Historical verified runtime evidence
 

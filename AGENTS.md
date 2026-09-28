@@ -39,6 +39,7 @@ PHP style authority: https://github.com/extension-builder/joomla/blob/main/docs/
 - Update **both** `CHANGELOG.md` and `changelog.xml` with every meaningful change. Put pending entries under the exact literal `[[[NEXT_VERSION]]]`; create a new pending section after the previous one is released. Do not invent a version or modify historical released entries. The workflow replaces this marker with its input version in both files.
 - Joomla changelog identity is `com_joomengine_mcp` / `component`. Use native categories `security`, `fix`, `language`, `addition`, `change`, `remove`, and `note`, each containing `item` children. Use matching human headings in Markdown. Record compatibility warnings under Note, errors fixed under Fix, and security fixes under Security. Keep both changelogs consistent and the manifest's `changelogurl` valid.
 - Check workflow syntax and changed metadata behavior. Source installation checks inspect the tracked source archive. Do not copy upstream action tests or restore package builders to make a test pass. See `docs/RELEASE.md`.
+- First-package readiness includes working manual release workflows for both independent plugins. Run their version/update-feed/OctoShoom workflows before the component workflow; never leave manual manifest editing or tag creation as an undocumented prerequisite. Keep the exact first-release order and secret scope in `docs/RELEASE.md`. CI success verifies code and installation; only a successful release run verifies publication credentials and the published package.
 
 ## Verification
 
