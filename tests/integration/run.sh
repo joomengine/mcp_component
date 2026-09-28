@@ -7,6 +7,7 @@ root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 : "${MCP_TEST_DB_HOST:?Set the test database host and port}"
 : "${MCP_TEST_DB_USER:?Set the isolated test database user}"
 : "${MCP_TEST_DB_NAME:?Set the disposable database name}"
+: "${MCP_WEBSERVICES_SOURCE:?Set the independent webservices plugin checkout}"
 [[ "$MCP_TEST_ALLOW_DESTRUCTIVE" == 1 ]]
 [[ "$MCP_TEST_DB_TYPE" == mysqli || "$MCP_TEST_DB_TYPE" == pgsql ]]
 export JOOMLA_ROOT="$(realpath -m -- "$JOOMLA_ROOT")"
@@ -51,6 +52,10 @@ git -C "$root" archive --format=zip --prefix=component-source/ --output="$root/b
 php "$root/tests/package.php" "$root/build/component-source.zip"
 php "$JOOMLA_ROOT/cli/joomla.php" extension:install --path="$root/build/component-source.zip" --no-interaction --no-ansi \
   | tee "$root/build/evidence/install-component.log"
+MCP_WEBSERVICES_SOURCE="$(realpath -- "$MCP_WEBSERVICES_SOURCE")"
+git -C "$MCP_WEBSERVICES_SOURCE" archive --format=zip --prefix=webservices-source/ --output="$root/build/webservices-plugin-source.zip" HEAD
+php "$JOOMLA_ROOT/cli/joomla.php" extension:install --path="$root/build/webservices-plugin-source.zip" --no-interaction --no-ansi \
+  | tee "$root/build/evidence/install-webservices-plugin.log"
 if [[ -n "${MCP_PLUGIN_SOURCE:-}" ]]; then
   export MCP_PLUGIN_SOURCE="$(realpath -- "$MCP_PLUGIN_SOURCE")"
   export MCP_COMPONENT_SOURCE="$root"
@@ -94,9 +99,11 @@ if [[ -n "${MCP_CLIENT_SOURCE:-}" ]]; then
 fi
 export MCP_TEST_LIFECYCLE_FILE="$work/lifecycle.json"
 php "$root/tests/integration/lifecycle.php" prepare | tee "$root/build/evidence/live-upgrade-prepare.log"
-# Upgrading the same package must retain definitions and operator configuration.
+# Upgrading each extension must retain definitions and operator configuration.
 php "$JOOMLA_ROOT/cli/joomla.php" extension:install --path="$root/build/component-source.zip" --no-interaction --no-ansi \
   | tee "$root/build/evidence/upgrade-component.log"
+php "$JOOMLA_ROOT/cli/joomla.php" extension:install --path="$root/build/webservices-plugin-source.zip" --no-interaction --no-ansi \
+  | tee "$root/build/evidence/upgrade-webservices-plugin.log"
 php "$root/tests/integration/lifecycle.php" verify | tee "$root/build/evidence/live-upgrade.log"
 php "$root/tests/integration/installation.php" | tee "$root/build/evidence/live-upgrade-seed.log"
 php "$root/tests/integration/lifecycle.php" uninstall | tee "$root/build/evidence/live-uninstall.log"

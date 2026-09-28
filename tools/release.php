@@ -19,7 +19,7 @@ function mcpReleaseXml(string $path): SimpleXMLElement
 	return $xml;
 }
 
-/** Freeze the pending version or add its tag archive to the component update feed. */
+/** Freeze the pending version or add its tag archive to the package update feed. */
 function mcpRelease(array $arguments, string $root): void
 {
 	[$command, $version] = array_pad($arguments, 2, '');
@@ -47,56 +47,33 @@ function mcpRelease(array $arguments, string $root): void
 			throw new RuntimeException('Choose an unreleased version at least as new as the manifest, with one pending section in both changelogs.');
 		}
 
-		$routingPath = 'plugins/webservices/joomengine_mcp/joomengine_mcp.xml';
-		$routing = mcpReleaseXml($root . '/' . $routingPath);
-		$manifest->version = $routing->version = $version;
-		$manifest->creationDate = $routing->creationDate = gmdate('F Y');
+		$manifest->version = $version;
+		$manifest->creationDate = gmdate('F Y');
 		$writes['joomengine_mcp.xml'] = $manifest->asXML();
-		$writes[$routingPath] = $routing->asXML();
 		$writes['changelog.xml'] = str_replace('[[[NEXT_VERSION]]]', $version, file_get_contents($root . '/changelog.xml'));
 		$writes['CHANGELOG.md'] = str_replace('[[[NEXT_VERSION]]]', $version, $markdown);
 	}
 	else
 	{
 		$feed = mcpReleaseXml($root . '/joomengine_mcp_update_server.xml');
-		$existing = $feed->xpath('update[version="' . $version . '"]');
-		$archive = 'https://github.com/joomengine/mcp_component/archive/refs/tags/v' . $version . '.zip';
+		$entry = $feed->update;
+		$archive = 'https://github.com/joomengine/mcp_package/archive/refs/tags/v' . $version . '.zip';
 
-		if (count($existing) > 1 || version_compare($version, (string) $manifest->version, '>'))
+		if (count($feed->update) !== 1 || (string) $entry->element !== 'pkg_joomengine_mcp'
+			|| (string) $entry->type !== 'package' || version_compare($version, (string) $manifest->version, '>'))
 		{
-			throw new RuntimeException('Duplicate update versions or update newer than the prepared manifest.');
+			throw new RuntimeException('Expected the current package update entry and a prepared component version.');
 		}
 
-		if ($existing)
+		if ((string) $entry->version === $version && (string) $entry->downloads->downloadurl === $archive)
 		{
-			if ((string) $existing[0]->element !== 'com_joomengine_mcp'
-				|| (string) $existing[0]->type !== 'component'
-				|| (string) $existing[0]->downloads->downloadurl !== $archive)
-			{
-				throw new RuntimeException('Existing update identity or tag URL differs; refusing to overwrite it.');
-			}
-
 			return;
 		}
 
-		$entry = $feed->addChild('update');
-
-		foreach (['name' => 'JoomEngine MCP', 'description' => 'JoomEngine MCP component.',
-			'element' => 'com_joomengine_mcp', 'type' => 'component', 'version' => $version, 'client' => '1'] as $name => $value)
-		{
-			$entry->addChild($name, $value);
-		}
-
-		$download = $entry->addChild('downloads')->addChild('downloadurl', $archive);
-		$download->addAttribute('type', 'full');
-		$download->addAttribute('format', 'zip');
-		$entry->addChild('tags')->addChild('tag', 'stable');
-		$platform = $entry->addChild('targetplatform');
-		$platform->addAttribute('name', 'joomla');
-		$platform->addAttribute('version', '6\\.[1-9][0-9]*');
-		$entry->addChild('php_minimum', '8.3.0');
-		$entry->addChild('detailsurl', 'https://github.com/joomengine/mcp_component/tree/v' . $version);
-		$entry->addChild('changelogurl', 'https://raw.githubusercontent.com/joomengine/mcp_component/main/changelog.xml');
+		$entry->version = $version;
+		$entry->downloads->downloadurl = $archive;
+		$entry->infourl = 'https://github.com/joomengine/mcp_package/tree/v' . $version;
+		unset($entry->md5, $entry->sha256, $entry->sha384, $entry->sha512);
 		$writes['joomengine_mcp_update_server.xml'] = $feed->asXML();
 	}
 

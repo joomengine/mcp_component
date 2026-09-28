@@ -1,4 +1,4 @@
-name: Release component with OctoShoom and OctoJPack
+name: Release component with OctoJPack and OctoShoom
 
 on:
   workflow_dispatch:
@@ -40,7 +40,7 @@ jobs:
         with:
           php-version: '8.3'
           coverage: none
-      - name: Publish the version and Joomla update entry
+      - name: Publish the component version
         env:
           VERSION: ${{ inputs.version }}
         run: |
@@ -49,24 +49,29 @@ jobs:
           git remote set-url origin git@github.com:joomengine/mcp_component.git
           if ! git show-ref --verify --quiet "refs/tags/$tag"; then
             php tools/release.php prepare "$version"
-            git add joomengine_mcp.xml CHANGELOG.md changelog.xml plugins/webservices/joomengine_mcp/joomengine_mcp.xml
+            git add joomengine_mcp.xml CHANGELOG.md changelog.xml
             git commit -m "Release $tag"
             git tag -a "$tag" -m "Release $tag"
             git push --atomic origin HEAD:main "refs/tags/$tag"
           fi
-          php tools/release.php feed "$version"
-          git add joomengine_mcp_update_server.xml
-          if ! git diff --cached --quiet; then
-            git commit -m "Add $tag to the Joomla update server"
-            git push origin HEAD:main
-          fi
-      - name: Update hashes
-        uses: octoleo/octoshoom@master
-        with:
-          config-json: |
-            {"update_servers":[{"owner":"joomengine","repo":"mcp_component","branch":"main","path":"joomengine_mcp_update_server.xml"}]}
       - name: Build and push the package
+        id: package
         uses: octoleo/octojpack@master
         with:
           config: .octojpack
           push: 'true'
+      - name: Update the package download entry
+        env:
+          VERSION: ${{ steps.package.outputs.version }}
+        run: |
+          php tools/release.php feed "$VERSION"
+          git add joomengine_mcp_update_server.xml
+          if ! git diff --cached --quiet; then
+            git commit -m "Publish package $VERSION update metadata"
+            git push origin HEAD:main
+          fi
+      - name: Hash the published package
+        uses: octoleo/octoshoom@master
+        with:
+          config-json: |
+            {"update_servers":[{"owner":"joomengine","repo":"mcp_component","branch":"main","path":"joomengine_mcp_update_server.xml"}]}

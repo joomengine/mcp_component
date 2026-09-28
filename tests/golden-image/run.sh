@@ -3,7 +3,9 @@ set -euo pipefail
 root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$root"
 : "${MCP_PLUGIN_SOURCE:?Set the reviewed console plugin checkout}"
+: "${MCP_WEBSERVICES_SOURCE:?Set the independent webservices plugin checkout}"
 MCP_PLUGIN_SOURCE="$(realpath -- "$MCP_PLUGIN_SOURCE")"
+MCP_WEBSERVICES_SOURCE="$(realpath -- "$MCP_WEBSERVICES_SOURCE")"
 [[ -f "$MCP_PLUGIN_SOURCE/joomengine_mcp.xml" && -f "$MCP_PLUGIN_SOURCE/tests/installed.php" ]]
 out="$root/build/evidence/golden"
 mkdir -p "$out"
@@ -56,6 +58,10 @@ actual="$(compose exec -T joomla sha256sum /var/www/html/libraries/vendor_jcb/VD
 [[ "$actual" == "$expected" ]] || { echo 'The native JCB install did not deploy the tested source.' >&2; exit 1; }
 printf '%s\n' "$actual" > "$out/installed-jcb-compiler.sha256"
 compose exec -T joomla php /var/www/html/cli/joomla.php extension:install --path=/tmp/mcp-component.zip --no-interaction --no-ansi > "$out/install-mcp.log" 2>&1
+git -C "$MCP_WEBSERVICES_SOURCE" archive --format=zip --prefix=webservices-source/ --output="$root/build/webservices-plugin-source.zip" HEAD
+git -C "$MCP_WEBSERVICES_SOURCE" rev-parse HEAD > "$out/webservices-plugin-source.txt"
+compose cp "$root/build/webservices-plugin-source.zip" joomla:/tmp/mcp-webservices-plugin.zip
+compose exec -T joomla php /var/www/html/cli/joomla.php extension:install --path=/tmp/mcp-webservices-plugin.zip --no-interaction --no-ansi > "$out/install-webservices-plugin.log" 2>&1
 git -C "$MCP_PLUGIN_SOURCE" archive --format=zip --prefix=plugin-source/ --output="$root/build/console-plugin-source.zip" HEAD
 git -C "$MCP_PLUGIN_SOURCE" rev-parse HEAD > "$out/console-plugin-source.txt"
 compose exec -T joomla mkdir -p /tmp/mcp-plugin/tests
@@ -126,6 +132,7 @@ fixture /tmp/mcp-component/tests/golden-image/registry.php > "$out/jcb-command-r
 php -r '$v=json_decode(file_get_contents($argv[1]),true,512,JSON_THROW_ON_ERROR); $c=array_filter($v["commands"]??[],static fn($c)=>str_starts_with($c["name"],"componentbuilder:")); if(count($c)<2)throw new RuntimeException("The installed JCB command registry is empty."); echo "Verified ",count($c)," native JCB command definitions\n";' "$out/jcb-command-registry.json" > "$out/registry.log"
 fixture /tmp/mcp-component/tests/integration/lifecycle.php prepare > "$out/upgrade-prepare.log" 2>&1
 compose exec -T joomla php /var/www/html/cli/joomla.php extension:install --path=/tmp/mcp-component.zip --no-interaction --no-ansi > "$out/upgrade-mcp.log" 2>&1
+compose exec -T joomla php /var/www/html/cli/joomla.php extension:install --path=/tmp/mcp-webservices-plugin.zip --no-interaction --no-ansi > "$out/upgrade-webservices-plugin.log" 2>&1
 fixture /tmp/mcp-component/tests/integration/lifecycle.php verify > "$out/upgrade-verify.log" 2>&1
 fixture /tmp/mcp-component/tests/integration/installation.php > "$out/upgraded-installation.log" 2>&1
 fixture /tmp/mcp-component/tests/integration/lifecycle.php uninstall > "$out/uninstall.log" 2>&1

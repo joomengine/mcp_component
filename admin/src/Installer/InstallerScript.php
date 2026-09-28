@@ -10,13 +10,10 @@ namespace VDM\Component\JoomEngineMcp\Administrator\Installer;
 
 
 use Joomla\CMS\Application\CMSApplicationInterface;
-use Joomla\CMS\Installer\Installer;
 use Joomla\CMS\Installer\InstallerAdapter;
 use Joomla\CMS\Installer\InstallerScriptInterface;
-use Joomla\CMS\Table\Extension;
 use Joomla\CMS\Version;
 use Joomla\Database\DatabaseInterface;
-use Joomla\Registry\Registry;
 use RuntimeException;
 use Throwable;
 use VDM\Component\JoomEngineMcp\Administrator\Database\JoomlaStore;
@@ -24,9 +21,9 @@ use VDM\Component\JoomEngineMcp\Administrator\Service\Json;
 
 
 /**
- * Native Joomla installer owning the component's routing glue and catalogue assets.
+ * Native Joomla installer owning the component's catalogue assets.
  *
- * Update preserves operator settings, plugin enabled state, custom rows and ACL.
+ * Update preserves operator settings, custom rows and ACL.
  * The distributed archive already contains its complete PHP dependency tree.
  *
  * @since 0.1.0
@@ -72,7 +69,7 @@ final class InstallerScript implements InstallerScriptInterface
 
 			$source = $adapter->getParent()->getPath('source');
 
-			foreach (['admin/autoload.php', 'admin/vendor/autoload.php', 'admin/data/catalogue-seed.json', 'plugins/webservices/joomengine_mcp/joomengine_mcp.xml'] as $file)
+			foreach (['admin/autoload.php', 'admin/vendor/autoload.php', 'admin/data/catalogue-seed.json'] as $file)
 			{
 				if (!is_file($source . '/' . $file))
 				{
@@ -80,7 +77,7 @@ final class InstallerScript implements InstallerScriptInterface
 				}
 			}
 
-			$current = $this->extension('component', 'com_joomengine_mcp');
+			$current = $this->component();
 
 			if ($current !== null)
 			{
@@ -134,34 +131,6 @@ final class InstallerScript implements InstallerScriptInterface
 			}
 
 			(new Assets($this->database, $store))->synchronize();
-			$previous = $this->extension('plugin', 'joomengine_mcp', 'webservices');
-			$installer = new Installer();
-			$installer->setDatabase($this->database);
-
-			if (!$installer->install($adapter->getParent()->getPath('source') . '/plugins/webservices/joomengine_mcp'))
-			{
-				throw new RuntimeException('The required MCP webservices routing plugin could not be installed.');
-			}
-
-			$row = $this->extension('plugin', 'joomengine_mcp', 'webservices');
-
-			if ($row === null)
-			{
-				throw new RuntimeException('The installed MCP webservices plugin is missing.');
-			}
-
-			$table = new Extension($this->database);
-			$table->load((int) $row['extension_id']);
-			$params = new Registry($table->params);
-			$params->set('joomengine_mcp_owner', 'com_joomengine_mcp');
-			$table->params = (string) $params;
-			$table->enabled = $previous === null ? 1 : (int) $previous['enabled'];
-
-			if (!$table->store())
-			{
-				throw new RuntimeException('The MCP routing plugin state could not be stored.');
-			}
-
 			$this->application->enqueueMessage('JoomEngine MCP is installed. Configure its canonical API URL and Joomla permissions in Components → JoomEngine MCP → Options.');
 
 			return true;
@@ -177,31 +146,16 @@ final class InstallerScript implements InstallerScriptInterface
 	/** @inheritDoc */
 	public function uninstall(InstallerAdapter $adapter): bool
 	{
-		$row = $this->extension('plugin', 'joomengine_mcp', 'webservices');
-
-		if ($row !== null && (new Registry($row['params']))->get('joomengine_mcp_owner') === 'com_joomengine_mcp')
-		{
-			$installer = new Installer();
-			$installer->setDatabase($this->database);
-			$installer->setPackageUninstall($adapter->getParent()->isPackageUninstall());
-
-			if (!$installer->uninstall('plugin', (int) $row['extension_id']))
-			{
-				$this->application->enqueueMessage('Remove the owned JoomEngine MCP webservices plugin manually; its automatic uninstall failed.', 'warning');
-			}
-		}
-
 		return true;
 	}
 
-	/** @param string $type Native extension type. @param string $element Native element. @param string $folder Optional plugin group. @return ?array<string,mixed> Native extension record. @since 0.1.0 */
-	private function extension(string $type, string $element, string $folder = ''): ?array
+	/** @return ?array<string,mixed> Installed component record. @since 0.1.0 */
+	private function component(): ?array
 	{
 		$db = $this->database;
 		$query = $db->createQuery()->select('*')->from($db->quoteName('#__extensions'))
-			->where($db->quoteName('type') . ' = :type')->where($db->quoteName('element') . ' = :element')
-			->where($db->quoteName('folder') . ' = :folder')
-			->bind(':type', $type)->bind(':element', $element)->bind(':folder', $folder);
+			->where($db->quoteName('type') . ' = ' . $db->quote('component'))
+			->where($db->quoteName('element') . ' = ' . $db->quote('com_joomengine_mcp'));
 
 		return $db->setQuery($query)->loadAssoc() ?: null;
 	}

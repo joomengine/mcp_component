@@ -9,7 +9,7 @@
 /** Exercise component release metadata without publishing or building packages. */
 require dirname(__DIR__) . '/tools/release.php';
 $root = sys_get_temp_dir() . '/mcp-release-' . bin2hex(random_bytes(8));
-mkdir($root . '/plugins/webservices/joomengine_mcp', 0700, true);
+mkdir($root, 0700);
 $checks = 0;
 $check = static function (bool $condition, string $message) use (&$checks): void
 {
@@ -27,12 +27,10 @@ try
 		. '<version>[[[NEXT_VERSION]]]</version><fix><item>Preserve existing releases.</item></fix></changelog>';
 	$metadata = [
 		'joomengine_mcp.xml' => '<extension type="component"><version>1.0.0</version><creationDate>January 2026</creationDate></extension>',
-		'plugins/webservices/joomengine_mcp/joomengine_mcp.xml' => '<extension type="plugin" group="webservices">'
-			. '<version>1.0.0</version><creationDate>January 2026</creationDate></extension>',
 		'.octojpack' => '{"package":{"version_id":"com_joomengine_mcp"}}',
 		'changelog.xml' => '<changelogs>' . $pending . '</changelogs>',
 		'CHANGELOG.md' => "# Changelog\n\n## [[[NEXT_VERSION]]]\n\n### Fix\n\n- Preserve updates.\n",
-		'joomengine_mcp_update_server.xml' => '<updates/>',
+		'joomengine_mcp_update_server.xml' => file_get_contents(dirname(__DIR__) . '/joomengine_mcp_update_server.xml'),
 	];
 
 	foreach ($metadata as $path => $contents)
@@ -63,8 +61,7 @@ try
 
 	mcpRelease(['prepare', 'v1.1.0'], $root);
 	$manifest = mcpReleaseXml($root . '/joomengine_mcp.xml');
-	$routing = mcpReleaseXml($root . '/plugins/webservices/joomengine_mcp/joomengine_mcp.xml');
-	$check((string) $manifest->version === '1.1.0' && (string) $routing->version === '1.1.0', 'Component and routing versions agree.');
+	$check((string) $manifest->version === '1.1.0', 'Component receives the selected version.');
 	$check((string) $manifest->creationDate === gmdate('F Y'), 'Release refreshes the manifest date.');
 	$check((string) mcpReleaseXml($root . '/changelog.xml')->changelog->version === '1.1.0'
 		&& str_contains(file_get_contents($root . '/CHANGELOG.md'), '## 1.1.0'), 'Both changelogs freeze the pending version.');
@@ -73,9 +70,9 @@ try
 		'Preparing a tag does not advertise its download before the tag exists.');
 	mcpRelease(['feed', '1.1.0'], $root);
 	$feed = mcpReleaseXml($root . '/joomengine_mcp_update_server.xml');
-	$check((string) $feed->update->downloads->downloadurl === 'https://github.com/joomengine/mcp_component/archive/refs/tags/v1.1.0.zip',
-		'Update uses the immutable tag ZIP.');
-	$check((string) $feed->update->client === '1' && (string) $feed->update->php_minimum === '8.3.0'
+	$check((string) $feed->update->downloads->downloadurl === 'https://github.com/joomengine/mcp_package/archive/refs/tags/v1.1.0.zip',
+		'Update uses the immutable package tag ZIP.');
+	$check((string) $feed->update->client === 'site' && (string) $feed->update->element === 'pkg_joomengine_mcp' && (string) $feed->update->type === 'package' && (string) $feed->update->php_minimum === '8.3.0'
 		&& (string) $feed->update->targetplatform['version'] === '6\\.[1-9][0-9]*', 'Update carries supported Joomla/PHP versions.');
 	$check(!isset($feed->update->sha512), 'OctoShoom supplies the checksum.');
 	$feed->update->addChild('sha512', str_repeat('a', 128));
@@ -90,8 +87,9 @@ try
 	mcpRelease(['prepare', '1.2.0'], $root);
 	mcpRelease(['feed', '1.2.0'], $root);
 	$feed = mcpReleaseXml($root . '/joomengine_mcp_update_server.xml');
-	$check(count($feed->update) === 2 && (string) $feed->update[0]->sha512 === str_repeat('a', 128),
-		'Next release retains the previous update and checksum.');
+	$check(count($feed->update) === 1 && (string) $feed->update->version === '1.2.0' && !isset($feed->update->sha512),
+		'Next package release replaces the current feed entry and clears the previous archive checksum.');
+	$check((string) $feed->update->downloads->downloadurl === 'https://github.com/joomengine/mcp_package/archive/refs/tags/v1.2.0.zip', 'The next download stays in the package repository.');
 	$check((string) mcpReleaseXml($root . '/changelog.xml')->changelog[1]->version === '1.1.0', 'Next release retains the previous changelog.');
 
 	echo json_encode(['checks' => $checks, 'metadataTransitions' => 'passed'], JSON_THROW_ON_ERROR) . "\n";

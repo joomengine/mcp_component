@@ -44,7 +44,7 @@ if ($phase === 'prepare')
 	$provider = $store->one('provider', ['name' => 'joomla.core']);
 	$editor = $factory->createModel('Provider', 'Administrator', ['ignore_request' => true]);
 	$editor->setCurrentUser($admin);
-	$check($editor->save(['id' => (int) $provider['id'], 'version' => (int) $provider['version'], 'description' => 'Operator customization must survive package upgrade.']), 'Customize a shipped definition through native administration');
+	$check($editor->save(['id' => (int) $provider['id'], 'version' => (int) $provider['version'], 'description' => 'Operator customization must survive component upgrade.']), 'Customize a shipped definition through native administration');
 	$external = $provider;
 	unset($external['id']);
 	$external['name'] = 'fixture.external.provider';
@@ -62,8 +62,9 @@ if ($phase === 'prepare')
 	$component->params = (string) $params;
 	$check($component->store(), 'Store operator-owned component configuration');
 	$plugin = new Extension($db);
-	$check($plugin->load(['type' => 'plugin', 'folder' => 'webservices', 'element' => 'joomengine_mcp']), 'Owned routing plugin exists');
+	$check($plugin->load(['type' => 'plugin', 'folder' => 'webservices', 'element' => 'joomengine_mcp']), 'Independently installed routing plugin exists');
 	$enabled = (int) $plugin->enabled;
+	$check($enabled === 1, 'The standalone routing plugin enables itself on first installation');
 	$plugin->enabled = 0;
 	$check($plugin->store(), 'Operator disables the routing plugin before upgrade');
 	$asset = new Asset($db);
@@ -83,8 +84,8 @@ elseif ($phase === 'verify')
 {
 	$expected = json_decode(file_get_contents($file), true, 64, JSON_THROW_ON_ERROR);
 	$provider = $store->one('provider', ['id' => (int) $expected['provider']['id']]);
-	$check($provider['description'] === 'Operator customization must survive package upgrade.' && (int) $provider['customized'] === 1, 'Real package upgrade preserves modified shipped rows');
-	$check((int) $store->one('provider', ['id' => (int) $expected['externalId']])['published'] === 1, 'Real package upgrade does not retire another extension provider');
+	$check($provider['description'] === 'Operator customization must survive component upgrade.' && (int) $provider['customized'] === 1, 'Real component upgrade preserves modified shipped rows');
+	$check((int) $store->one('provider', ['id' => (int) $expected['externalId']])['published'] === 1, 'Real component upgrade does not retire another extension provider');
 	$component = new Extension($db);
 	$component->load(['type' => 'component', 'element' => 'com_joomengine_mcp']);
 	$check((int) (new Registry($component->params))->get('timeout') === 31, 'Real upgrade preserves component options');
@@ -115,6 +116,8 @@ elseif ($phase === 'uninstall')
 	$check($component->load(['type' => 'component', 'element' => 'com_joomengine_mcp']), 'Resolve exact installed component for removal');
 	$console = new Extension($db);
 	$hasConsole = $console->load(['type' => 'plugin', 'folder' => 'console', 'element' => 'joomengine_mcp']);
+	$routing = new Extension($db);
+	$check($routing->load(['type' => 'plugin', 'folder' => 'webservices', 'element' => 'joomengine_mcp']), 'Resolve the independent routing plugin before component removal');
 	$coreArticles = (int) $db->setQuery('SELECT COUNT(*) FROM ' . $db->quoteName('#__content'))->loadResult();
 	$ownedEntities = array_merge(array_keys(Structure::definitions()), array_keys(Structure::state()));
 	$ownedTables = [];
@@ -131,9 +134,13 @@ elseif ($phase === 'uninstall')
 		$check(!in_array($table, $tables, true), 'Uninstall removes owned ' . $entity . ' table');
 	}
 	$check(!(bool) $db->setQuery('SELECT id FROM ' . $db->quoteName('#__assets') . ' WHERE name LIKE ' . $db->quote('com_joomengine_mcp%'))->loadResult(), 'Uninstall removes native component and row assets');
-	$check(!(bool) $db->setQuery('SELECT extension_id FROM ' . $db->quoteName('#__extensions') . ' WHERE element = ' . $db->quote('joomengine_mcp') . ' AND folder = ' . $db->quote('webservices'))->loadResult(), 'Uninstall removes only the owned routing extension');
+	$check($routing->load((int) $routing->extension_id) && is_dir(JPATH_PLUGINS . '/webservices/joomengine_mcp'), 'Component removal preserves the independently installed routing plugin');
 	$check(!is_dir(JPATH_ADMINISTRATOR . '/components/com_joomengine_mcp') && !is_dir(JPATH_API . '/components/com_joomengine_mcp'), 'Uninstall removes administrator and API runtime');
 	$check((int) $db->setQuery('SELECT COUNT(*) FROM ' . $db->quoteName('#__content'))->loadResult() === $coreArticles, 'Removing MCP does not delete Joomla content');
+	$installer = new Installer();
+	$installer->setDatabase($db);
+	$check($installer->uninstall('plugin', (int) $routing->extension_id), 'The independent routing plugin can be uninstalled separately');
+	$check(!is_dir(JPATH_PLUGINS . '/webservices/joomengine_mcp'), 'Routing plugin uninstall removes its own runtime directory');
 
 	if ($hasConsole)
 	{
