@@ -10,7 +10,7 @@
 use VDM\Component\JoomEngineMcp\Administrator\Domain\OperationException;
 use VDM\Component\JoomEngineMcp\Administrator\Handler\ApiRequestBuilder;
 
-require dirname(__DIR__) . '/vendor/autoload.php';
+require dirname(__DIR__) . '/admin/autoload.php';
 $builder = new ApiRequestBuilder();
 $checks = 0;
 

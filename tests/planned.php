@@ -28,7 +28,7 @@ use VDM\Component\JoomEngineMcp\Administrator\State\Permissions;
 use VDM\Component\JoomEngineMcp\Tests\Support\MemoryStore;
 use VDM\Component\JoomEngineMcp\Tests\Support\Principal;
 
-require dirname(__DIR__) . '/vendor/autoload.php';
+require dirname(__DIR__) . '/admin/autoload.php';
 require __DIR__ . '/Support/MemoryStore.php';
 require __DIR__ . '/Support/Principal.php';
 set_error_handler(static function (int $severity, string $message, string $file, int $line): never
@@ -116,7 +116,7 @@ $reject = static function (callable $operation, string $code) use ($check): void
 $directories = [];
 $fixture = static function (bool $deferred = false, string $track = 'api') use (&$directories): array
 {
-	$seed = Json::decode(file_get_contents(dirname(__DIR__) . '/data/catalogue-seed.json'))['entities'];
+	$seed = Json::decode(file_get_contents(dirname(__DIR__) . '/admin/data/catalogue-seed.json'))['entities'];
 	$schema = $seed['schema'][0];
 	$schema['id'] = 99999;
 	$schema['name'] = 'fixture.lifecycle.input';

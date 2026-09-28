@@ -42,10 +42,11 @@ if [[ "$ready" != 1 ]]; then
   echo 'The golden image did not finish its native Joomla/JCB installation.' >&2
   exit 1
 fi
-version="$(php -r 'echo (string) simplexml_load_file($argv[1])->version;' joomengine_mcp.xml)"
+git archive --format=zip --prefix=component-source/ --output="$root/build/component-source.zip" HEAD
+php tests/package.php "$root/build/component-source.zip"
 compose exec -T joomla mkdir -p /tmp/mcp-component/tests /tmp/mcp-evidence
 compose cp tests/. joomla:/tmp/mcp-component/tests/
-compose cp "build/com_joomengine_mcp-$version.zip" joomla:/tmp/mcp-component.zip
+compose cp "build/component-source.zip" joomla:/tmp/mcp-component.zip
 # JCB installs its library tree through its own installer, not a test-side copy.
 (cd build/jcb-source && zip -qr "$root/build/jcb-under-test.zip" . -x '.git/*' '.github/*' 'libraries/vendor_jcb/tests/*')
 compose cp build/jcb-under-test.zip joomla:/tmp/jcb-under-test.zip
@@ -55,12 +56,11 @@ actual="$(compose exec -T joomla sha256sum /var/www/html/libraries/vendor_jcb/VD
 [[ "$actual" == "$expected" ]] || { echo 'The native JCB install did not deploy the tested source.' >&2; exit 1; }
 printf '%s\n' "$actual" > "$out/installed-jcb-compiler.sha256"
 compose exec -T joomla php /var/www/html/cli/joomla.php extension:install --path=/tmp/mcp-component.zip --no-interaction --no-ansi > "$out/install-mcp.log" 2>&1
-php "$MCP_PLUGIN_SOURCE/build.php"
-plugin_version="$(php -r 'echo (string) simplexml_load_file($argv[1])->version;' "$MCP_PLUGIN_SOURCE/joomengine_mcp.xml")"
+git -C "$MCP_PLUGIN_SOURCE" archive --format=zip --prefix=plugin-source/ --output="$root/build/console-plugin-source.zip" HEAD
 git -C "$MCP_PLUGIN_SOURCE" rev-parse HEAD > "$out/console-plugin-source.txt"
 compose exec -T joomla mkdir -p /tmp/mcp-plugin/tests
 compose cp "$MCP_PLUGIN_SOURCE/tests/installed.php" joomla:/tmp/mcp-plugin/tests/installed.php
-compose cp "$MCP_PLUGIN_SOURCE/build/plg_console_joomengine_mcp-$plugin_version.zip" joomla:/tmp/mcp-console-plugin.zip
+compose cp "$root/build/console-plugin-source.zip" joomla:/tmp/mcp-console-plugin.zip
 compose exec -T joomla php /var/www/html/cli/joomla.php extension:install --path=/tmp/mcp-console-plugin.zip --no-interaction --no-ansi > "$out/install-console-plugin.log" 2>&1
 compose exec -T joomla touch /var/www/html/.mcp-test-fixture
 compose exec -T joomla php /var/www/html/cli/joomla.php joomla:mcp:jcb-sync --no-interaction --no-ansi > "$out/jcb-catalogue-sync.json" 2> "$out/jcb-catalogue-sync-errors.log"

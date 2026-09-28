@@ -32,20 +32,25 @@ jobs:
           coverage: none
       - name: Validate Composer metadata
         run: composer validate --no-check-publish
-      - name: Install PHP dependencies
-        run: composer install --no-interaction --prefer-dist --no-progress
+      - name: Verify the committed source ZIP and relocated runtime
+        run: |
+          mkdir -p build
+          git archive --format=zip --prefix=component-source/ --output=build/component-source.zip HEAD
+          php tests/package.php build/component-source.zip
+      - name: Verify locked dependencies are already installed
+        run: composer install --no-dev --no-interaction --no-scripts --dry-run
       - name: PHP syntax
         run: find . -type d \( -name vendor -o -name .git -o -name .reference -o -name build \) -prune -o -type f -name '*.php' -print0 | xargs -0 -r -n1 php -l
       - name: Verify source-pinned seed reproducibility
         run: |
           set -euo pipefail
           php tools/generate-catalogue.php
-          git diff --exit-code -- admin/sql data/catalogue-seed.json docs/migration/parity.json
+          git diff --exit-code -- admin/sql admin/data/catalogue-seed.json docs/migration/parity.json
       - name: Behavioural and source-parity contracts
         run: |
           set -euo pipefail
           mkdir -p build/evidence
-          for suite in run catalogue schema-shapes execution actions planned jobs process job-process jcb jcb-plan-preview protocol http ownership native/run; do
+          for suite in run catalogue schema-shapes execution actions planned jobs process job-process jcb jcb-plan-preview protocol http ownership native/run release; do
             php "tests/$suite.php" | tee "build/evidence/${suite//\//-}.log"
           done
       - name: Preserve the tested PHP runtime for reproducible investigation

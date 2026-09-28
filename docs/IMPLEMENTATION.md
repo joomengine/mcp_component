@@ -1,8 +1,8 @@
-# Implementation status — 24 September 2026
+# Implementation status — 28 September 2026
 
 ## Repository and source baseline
 
-Continue the existing `feature/jcb-mcp-runtime` branch and PR #1. Original MCP source: `2cff50f4f6b440da3c684f9995a77efad32e1a36`. JCB source: `extension-builder/joomla@5ee658dd07eb749dca43ed4722f6cca7eb8208cf`. Component version is 0.1.1; the exact console source and independent version are in `distribution.lock.json`.
+The migration PR #1 is merged; source-installation and release realignment is on `fix/octo-release-workflow`. Original MCP source: `2cff50f4f6b440da3c684f9995a77efad32e1a36`. JCB source: `extension-builder/joomla@5ee658dd07eb749dca43ed4722f6cca7eb8208cf`. The development component version is 0.1.1. Releases select an immutable console tag through GitHub configuration; the package repository is separate.
 
 ## Implemented server
 
@@ -22,9 +22,11 @@ Approval previews show the selected definitions, frozen option layers, repositor
 
 The administrator Operations screen includes jobs/artifact metadata and cancellation. The `joomla_job_*` tools expose owned listing, status, cancellation, queued redispatch and bounded artifact reads. An API worker reloads the requesting Joomla user and rechecks authority; it does not become the trusted console owner.
 
-Component, console and combined package ZIPs contain their required files and dependencies. `.octojpack`, immutable plugin pins, checksums, provenance and deterministic archives are implemented. Publication is manual from `main`, requires successful exact-commit CI and publishes verified update feeds only after released downloads match the built archives. See [RELEASE.md](RELEASE.md).
+The tracked component source now contains production dependencies, installation data and its administrator licence. Source ZIP installation replaces local archive builders. The manual next-version release freezes changelogs and manifest metadata, creates an immutable tag, updates the native feed, waits for OctoShoom to commit its checksum, and then invokes external OctoJPack. Combined package manifests and publication belong to a separate configured repository. See [RELEASE.md](RELEASE.md).
 
-## Verified runtime evidence
+## Historical verified runtime evidence
+
+The following results belong to the recorded September 24 revisions. Their distribution builders have since been removed; they do not certify the current release workflow. Current source/release verification is recorded separately in the release-alignment PR.
 
 | Evidence | Verified result |
 | --- | --- |

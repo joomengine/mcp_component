@@ -25,7 +25,7 @@ use VDM\Component\JoomEngineMcp\Tests\Support\Principal;
 
 
 $root = dirname(__DIR__);
-require $root . '/vendor/autoload.php';
+require $root . '/admin/autoload.php';
 require __DIR__ . '/Support/MemoryStore.php';
 require __DIR__ . '/Support/Principal.php';
 $checks = 0;
@@ -50,7 +50,7 @@ $rejects = static function (callable $operation, string $code) use ($check): voi
 		$check($error->getIdentifier() === $code, 'Unexpected operation rejection: ' . $error->getIdentifier());
 	}
 };
-$seed = Json::decode(file_get_contents($root . '/data/catalogue-seed.json'), maximum: 16777216);
+$seed = Json::decode(file_get_contents($root . '/admin/data/catalogue-seed.json'), maximum: 16777216);
 $source = Json::decode(file_get_contents($root . '/data/upstream-contracts.json'), maximum: 16777216);
 $native = Json::decode(file_get_contents($root . '/data/upstream-native.json'), maximum: 16777216);
 $runtime = Json::decode(file_get_contents($root . '/data/runtime-tools.json'), maximum: 16777216);

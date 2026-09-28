@@ -52,7 +52,7 @@ JCB source-code fields remain permitted inert definition data under appropriate 
 
 ## Distribution and references
 
-The builder produces the component (with routing glue/dependencies), console plugin and combined Joomla package. External client packaging remains independent. Native installer preflight, MySQL/MariaDB and PostgreSQL updates, customization-preserving seeds, changelog/update metadata, checksums and .octojpack are included. The distribution lock pins compatible component/plugin versions and immutable console source. Release automation publishes feeds only after verifying published archives. See RELEASE.md.
+This repository is a directly installable component source tree, with routing glue, locked production dependencies and installation data committed in place. MySQL/MariaDB and PostgreSQL schema updates and customization-preserving JSON seed updates remain installer-owned. The console plugin is independently installable. Manual version releases freeze both changelogs, tag source, update the native feed and wait for OctoShoom. Only then does external OctoJPack use `.octojpack` and the configured immutable console tag to assemble a combined package in a separate repository. No package builder or combined-package manifest belongs here. See RELEASE.md.
 
 - Original MCP: https://github.com/joomengine/joomla-mcp/tree/2cff50f4f6b440da3c684f9995a77efad32e1a36
 - Joomla/JCB layout: https://github.com/joomengine/Joomla-Component-Builder/tree/6.x

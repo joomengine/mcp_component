@@ -4,7 +4,7 @@
 
 Complete the PHP migration of `joomengine/joomla-mcp` into this component and `joomengine/mcp_plugin`, preserving all documented tools, resources, prompts, core API operations, CLI actions, approval/plan semantics, compatibility, verification, recovery and distribution behaviours unless explicitly superseded. **Also implement complete first-class Joomla Component Builder API and CLI coverage as specified in docs/integrations/JCB.md.** Joomla core alone does not satisfy this project. Catalogue presence is not executable parity.
 
-Use existing `feature/jcb-mcp-runtime` / PR #1 in both server repositories. Commit and push cohesive increments. Do not create replacement branches, rewrite others' commits, change the TypeScript or JCB source repositories, merge PRs or publish releases without a separate instruction. Documentation precedes new runtime objectives. Maintain docs/IMPLEMENTATION.md with actual outcomes and exact remaining work.
+The migration PR #1 has been merged. Branch new work from current `main`, or continue the relevant open PR branch. Commit and push cohesive increments. Do not rewrite others' commits, change the TypeScript or JCB source repositories, merge PRs or run a production release without instruction. Documentation precedes new runtime objectives. Maintain docs/IMPLEMENTATION.md with actual outcomes and exact remaining work.
 
 ## Repository ownership
 
@@ -28,6 +28,17 @@ PHP style authority: https://github.com/extension-builder/joomla/blob/main/docs/
 8. JCB package get/init/pull/push/reset and compilation have effects; do not classify `get` as an ordinary read. Preserve compiler option/global/environment semantics, dependency queues and categorized results. Long operations require durable owned jobs/artifacts and verified completion, not enlarged HTTP timeouts or fabricated success.
 9. JCB's 45-entity package map is neither a complete API route list nor proof of 225 registered commands. Pin and inspect actual API routing/plugin/controllers and installed CLI InputDefinitions. The API-generation source is not an installed endpoint inventory. Unresolved upstream surfaces remain required work, not invented executable rows.
 10. Joomla ZIPs contain all server dependencies. Keep PHP-only production installation/runtime, complete manifests/SQL/update metadata and .octojpack. No false update URLs, unimplemented advertised features, silent test skips or production claims from mocks alone.
+
+## Source installation and release contract
+
+- This is exclusively the component repository. A GitHub source ZIP of any reviewed branch or tag must install directly in Joomla, with every manifest file, production Composer dependency, licence, routing plugin and seed already tracked. No downstream Composer run, staging, compilation or packaging is allowed.
+- Keep production dependencies in `admin/vendor` and the installation seed in `admin/data`. When changing dependencies, run Composer as a maintainer, commit the lock and complete resolved runtime, and verify its autoload paths after relocation to Joomla's administrator component directory. Never hand-edit third-party vendor source.
+- Preserve SQL installation/schema updates and the JSON-driven customization-preserving seed updater. They are approved installation mechanisms; do not replace them merely to change the release process.
+- OctoJPack alone combines extensions using `.octojpack` and writes to a separate configured package repository. Package manifests, package update feeds, assembly scripts and bundled console copies do not belong here. Improve shared Octo tools upstream instead of copying their implementation into this repository.
+- The manual Release workflow takes the next version. It freezes metadata, creates the immutable tag, adds that tag archive to the native component feed, runs OctoShoom synchronously and verifies its committed checksum, then invokes OctoJPack. A failed hash stage must prevent packaging. Never move an existing tag. Keep destination repositories, tool refs and credentials in documented GitHub variables/secrets.
+- Update **both** `CHANGELOG.md` and `changelog.xml` with every meaningful change. Put pending entries under the exact literal `[[[NEXT_VERSION]]]`; create a new pending section after the previous one is released. Do not invent a version or modify historical released entries. The workflow replaces this marker with its input version in both files.
+- Joomla changelog identity is `com_joomengine_mcp` / `component`. Use native categories `security`, `fix`, `language`, `addition`, `change`, `remove`, and `note`, each containing `item` children. Use matching human headings in Markdown. Record compatibility warnings under Note, errors fixed under Fix, and security fixes under Security. Keep both changelogs consistent and the manifest's `changelogurl` valid.
+- Workflow changes require positive/negative metadata and ordering checks; source installation checks must inspect the tracked source archive. Do not restore package builders to make a test pass. See `docs/RELEASE.md` for the configuration and retry contract.
 
 ## Verification
 

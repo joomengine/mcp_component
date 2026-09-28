@@ -16,13 +16,6 @@
         "opis/json-schema": "^2.4",
         "php-http/curl-client": "^2.3"
     },
-    "autoload": {
-        "psr-4": {
-            "VDM\\Component\\JoomEngineMcp\\Administrator\\": "admin/src/",
-            "VDM\\Component\\JoomEngineMcp\\Api\\": "api/src/",
-            "VDM\\Component\\JoomEngineMcp\\Site\\": "site/src/"
-        }
-    },
     "scripts": {
         "test": "php tests/run.php"
     },
@@ -30,6 +23,7 @@
         "allow-plugins": {
             "php-http/discovery": false
         },
-        "sort-packages": true
+        "sort-packages": true,
+        "vendor-dir": "admin/vendor"
     }
 }

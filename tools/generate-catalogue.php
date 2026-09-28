@@ -591,6 +591,6 @@ foreach (['mysql', 'postgresql'] as $driver)
 	file_put_contents($directory . '/updates/' . $driver . '/0.1.0.sql', "-- Initial schema version; installation supplies the reviewed seed graph.\n");
 }
 
-file_put_contents($root . '/data/catalogue-seed.json', json_encode(['source' => $commit, 'runtimeSource' => $runtimeRevision, 'entities' => $rows], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . "\n");
+file_put_contents($root . '/admin/data/catalogue-seed.json', json_encode(['source' => $commit, 'runtimeSource' => $runtimeRevision, 'entities' => $rows], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . "\n");
 file_put_contents($root . '/docs/migration/parity.json', json_encode(['source' => $commit, 'runtimeSource' => $runtimeRevision, 'tools' => array_column($rows['tool'], 'name'), 'upstreamTools' => array_column($upstream['tools'], 'name'), 'runtimeTools' => array_column($runtime['tools'], 'name'), 'runtimeSchemaOverrides' => (object) $overriddenTools, 'actions' => $parity, 'sourceOnlyGates' => $gates, 'counts' => array_map('count', $rows)], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n");
 echo json_encode(['seedCounts' => array_map('count', $rows), 'drivers' => ['mysql', 'postgresql'], 'liveEvidence' => 'not implied by generated definitions'], JSON_PRETTY_PRINT) . PHP_EOL;

@@ -14,4 +14,4 @@ Preserve grants, expiry/revocation, principal/action/input/revision binding, sta
 
 Validate present Origin headers, media/protocol types and bounded I/O. Same-site API forwarding uses the configured canonical origin, verified TLS and no redirects. Never log tokens, passwords, credential-bearing definition fields or raw sensitive exceptions/payloads. Serialize only necessary redacted audit metadata.
 
-Static Joomla tokens are not OAuth discovery. Do not advertise an authorization flow that is not implemented. Release archives contain dependencies/checksums, and update feeds refer only to published immutable assets. Keep source licences/notices. Report issues privately to maintainers without posting secrets or working exploit payloads in public issues.
+Static Joomla tokens are not OAuth discovery. Do not advertise an authorization flow that is not implemented. Source archives contain committed production dependencies, and update feeds refer only to existing immutable source tags with checksums committed by OctoShoom. Keep source licences/notices. Report issues privately to maintainers without posting secrets or working exploit payloads in public issues.

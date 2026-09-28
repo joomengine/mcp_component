@@ -21,32 +21,43 @@
     "description": "JoomEngine MCP component, webservices routing, and local console server.",
     "version_id": "com_joomengine_mcp",
     "version": "0.1.1",
-    "update_servers": "https://github.com/joomengine/mcp_component/releases/latest/download/pkg_joomengine_mcp_update_server.xml"
+    "update_servers": "[[[PACKAGE_UPDATE_SERVER]]]",
+    "changelog_servers": "[[[PACKAGE_CHANGELOG_SERVER]]]"
   },
   "repository": {
-    "owner": "joomengine",
-    "repo": "mcp_component",
-    "branch": "distribution"
+    "owner": "[[[PACKAGE_OWNER]]]",
+    "repo": "[[[PACKAGE_REPOSITORY]]]",
+    "branch": "[[[PACKAGE_BRANCH]]]"
   },
   "files": [
     {
-      "owner": "joomengine",
-      "repo": "mcp_component",
+      "owner": "[[[SOURCE_OWNER]]]",
+      "repo": "[[[SOURCE_REPOSITORY]]]",
       "id": "com_joomengine_mcp",
       "type": "component",
-      "mode": "releases"
+      "mode": "[[[COMPONENT_TAG]]]"
     },
     {
-      "owner": "joomengine",
-      "repo": "mcp_plugin",
+      "owner": "[[[CONSOLE_OWNER]]]",
+      "repo": "[[[CONSOLE_REPOSITORY]]]",
       "id": "joomengine_mcp",
       "type": "plugin",
       "group": "console",
-      "mode": "releases"
+      "mode": "[[[CONSOLE_TAG]]]"
     }
   ],
   "languages": [
-    {"tag": "en-GB", "ini": "sys.ini", "key": "PKG_JOOMENGINE_MCP", "value": "JoomEngine MCP Package"},
-    {"tag": "en-GB", "ini": "ini", "key": "PKG_JOOMENGINE_MCP", "value": "JoomEngine MCP Package"}
+    {
+      "tag": "en-GB",
+      "ini": "sys.ini",
+      "key": "PKG_JOOMENGINE_MCP",
+      "value": "JoomEngine MCP Package"
+    },
+    {
+      "tag": "en-GB",
+      "ini": "ini",
+      "key": "PKG_JOOMENGINE_MCP",
+      "value": "JoomEngine MCP Package"
+    }
   ]
 }

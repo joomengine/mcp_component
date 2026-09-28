@@ -16,7 +16,7 @@ use VDM\Component\JoomEngineMcp\Administrator\Http\RequestHeaders;
 use VDM\Component\JoomEngineMcp\Administrator\Service\Json;
 use VDM\Component\JoomEngineMcp\Administrator\Service\Settings;
 
-require dirname(__DIR__) . '/vendor/autoload.php';
+require dirname(__DIR__) . '/admin/autoload.php';
 $checks = 0;
 $check = static function (bool $condition, string $message) use (&$checks): void
 {

@@ -27,8 +27,8 @@ jobs:
           extensions: curl, dom, fileinfo, intl, json, mbstring, sodium, xml, zip
           tools: composer:v2
           coverage: none
-      - name: Build the actual installable component
-        run: bash tools/build.sh && php tests/package.php
+      - name: Verify the committed installable component
+        run: php tests/package.php
       - name: Check out the JCB implementation under test
         uses: actions/checkout@v7
         with:

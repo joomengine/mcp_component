@@ -9,28 +9,21 @@ An installable PHP MCP server for Joomla 6.1–6.x, with database-defined tools,
 
 ## Repository boundary
 
-This repository owns the installed server: catalogue, administrator MVC/forms, HTTP endpoint/routing glue, Joomla token/ACL integration, shared API/native execution, durable state, jobs and server distribution. Its composer.json installs **server dependencies**, under package identity `joomengine/mcp-component`. External MCP connection code, remote stdio bridging, client documentation and client releases belong exclusively to `mcp_client`; this server must not depend on that client package.
+This repository owns the installable component: catalogue, administrator MVC/forms, HTTP endpoint/routing glue, Joomla token/ACL integration, shared API/native execution, durable state and jobs. Its locked production dependencies are committed under `admin/vendor`; Composer is a maintainer tool, never an installation step. External MCP connection code, remote stdio bridging, client documentation and client releases belong exclusively to `mcp_client`.
 
 The component's outbound Joomla API transport is implemented in `admin/src/Http`. See [client separation and handoff](docs/CLIENT-HANDOFF.md).
 
-## Build and install
+## Download and install
 
-Use PHP 8.3 or later and Composer 2 with the extensions in `composer.json`, plus DOM, SimpleXML and ZIP for packaging:
+Download this repository using **Code → Download ZIP**, or download a release tag's source ZIP, and upload it in Joomla's extension installer. The source tree already contains its production PHP dependencies, installation data and owned webservices routing plugin. No build, Composer run or repacking is required. The supported host is Joomla 6.1–6.x with PHP 8.3 or later and the extensions listed in `composer.json`.
 
-```bash
-bash tools/build.sh
-bash tools/build-distribution.sh
-php tests/package.php --distribution
-php tests/release.php
-```
-
-Install `build/pkg_joomengine_mcp-0.1.1.zip` through Joomla's extension installer. It includes the component, its owned webservices routing plugin and the thin console plugin. The component ZIP also supports an HTTP-only installation. Both include the PHP server dependencies; Composer is unnecessary on the Joomla server. Configure the canonical site API URL and Joomla permissions under **Components → JoomEngine MCP → Options**. The authenticated MCP endpoint is `/api/index.php/v1/joomengine-mcp`, relative to the Joomla installation.
+Configure the canonical site API URL and Joomla permissions under **Components → JoomEngine MCP → Options**. The authenticated MCP endpoint is `/api/index.php/v1/joomengine-mcp`, relative to the Joomla installation. For direct local console commands, install the separate [console plugin](https://github.com/joomengine/mcp_plugin), or use the combined Joomla package published by OctoJPack in the configured package repository.
 
 For native JCB background jobs, provide a PHP CLI executable compatible with the installed Joomla version, with `pcntl_fork`, `posix_setsid` and `proc_open` available. Select its absolute path in the component's **PHP CLI binary** setting when it differs from the automatically detected PHP executable. The web-server account must be able to launch it and write the private artifact directory outside the served Joomla tree. Worker prerequisites are checked before a write is claimed. The golden-image Dockerfile demonstrates the required CLI extension setup; ordinary Joomla API operations remain available without that job runtime.
 
 Remote AI applications can use the independent client's [Docker Compose launcher](https://github.com/joomengine/mcp_client/blob/feature/standalone-php-client/docs/DOCKER.md). Supply the HTTPS Joomla installation URL and native API token; the client discovers capabilities from this component. The console plugin is required for direct local Joomla MCP commands, while the remote client connects to the component's authenticated HTTP endpoint.
 
-The combined package pins the console plugin by immutable Git commit in `distribution.lock.json`. [Release instructions](docs/RELEASE.md) describe reproducibility, update feeds, `.octojpack` and manual main-only publication. Development builds do not publish releases.
+The combined package is built exclusively by [OctoJPack](https://github.com/octoleo/octojpack), using `.octojpack`, and published to a separate package repository. Run the manual **Release** workflow with the next version to freeze both changelogs, create the tag, update the Joomla feed, wait for OctoShoom to commit its checksums, and then invoke OctoJPack. [Release instructions](docs/RELEASE.md) list the repository variables and secrets to configure.
 
 ## Required capabilities
 
@@ -54,10 +47,12 @@ Joomla core remains usable without JCB. Remote HTTP and stdio clients retain the
 
 ## Current status
 
-Development remains on `feature/jcb-mcp-runtime` and existing PR #1. Native administration, complete component packaging, combined distribution, installed core tests, JCB synchronization and job/artifact runtime are implemented. [Implementation status](docs/IMPLEMENTATION.md) separates implemented source, isolated checks and current installed Joomla/JCB acceptance. Release availability is established by GitHub releases, not the development branch.
+Native administration, installed core tests, JCB synchronization and job/artifact runtime are implemented. [Implementation status](docs/IMPLEMENTATION.md) separates historical installed Joomla/JCB evidence from verification of the current source and release changes. Published tags identify component releases; package publication belongs to the configured package repository.
 
 The original migration source is pinned at `joomengine/joomla-mcp@2cff50f4f6b440da3c684f9995a77efad32e1a36`. It remains unchanged. Joomla 6 native contracts are authoritative; repository/MVC/XML placement follows JCB's extension-root layout. This is hand-authored JCB-aligned source, not an already imported JCB blueprint.
 
 Imported native handlers retain the original behavioural contracts and source attribution while following the JCB PHP style. The original implementation's deliberately unavailable operations remain explicit diagnostics; they are documented in the [migration provenance](docs/migration/README.md).
 
 Read [architecture](docs/ARCHITECTURE.md), [database design](docs/DATABASE.md), [migration plan](docs/MIGRATION.md), [security](SECURITY.md), and [agent instructions](AGENTS.md) before changing the runtime.
+
+See [CHANGELOG.md](CHANGELOG.md) for human-readable changes and [changelog.xml](changelog.xml) for Joomla's categorized changelog. Changes awaiting release use `[[[NEXT_VERSION]]]` in both files; the release workflow assigns their version.
