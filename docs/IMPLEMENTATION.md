@@ -2,11 +2,11 @@
 
 ## Repository and source baseline
 
-The migration PR #1 is merged; source-installation and release realignment is on `fix/octo-release-workflow`. Original MCP source: `2cff50f4f6b440da3c684f9995a77efad32e1a36`. JCB source: `extension-builder/joomla@5ee658dd07eb749dca43ed4722f6cca7eb8208cf`. The development component version is 0.1.1. Releases select an immutable console tag through GitHub configuration; the package repository is separate.
+The migration PR #1 is merged; source-installation and release realignment is on `fix/standalone-octojpack`. Original MCP source: `2cff50f4f6b440da3c684f9995a77efad32e1a36`. JCB source: `extension-builder/joomla@5ee658dd07eb749dca43ed4722f6cca7eb8208cf`. The development component version is 0.1.1. OctoJPack selects the tagged component and independent plugins from its fixed configuration and publishes to `joomengine/mcp_package`.
 
 ## Implemented server
 
-Database catalogue/authorization, schema validation, reviewed API/native handlers, durable permission/plan/execution/audit services, PHP SDK tools/resources/prompts/sessions, authenticated HTTP routing and local console composition are present. Native administrator forms, assets, access/configuration, operational inspection, grant revocation and execution reconciliation are implemented. The installer owns its webservices plugin and preserves operator settings and customized catalogue rows on update.
+Database catalogue/authorization, schema validation, reviewed API/native handlers, durable permission/plan/execution/audit services, PHP SDK tools/resources/prompts/sessions, authenticated HTTP routing and local console composition are present. Native administrator forms, assets, access/configuration, operational inspection, grant revocation and execution reconciliation are implemented. The component installer preserves operator settings and customized catalogue rows on update. HTTP routing and console plugins are installed and managed independently.
 
 All 36 imported production native PHP files follow the JCB style, with explicit dependency properties and class/member contract documentation. The source map retains original hashes and records the target transformations. The five original `sourceOnlyGates` remain deliberate upstream diagnostics; they were rejected by the original implementation and are not missing migrated functionality. See [migration provenance](migration/README.md).
 
@@ -22,9 +22,9 @@ Approval previews show the selected definitions, frozen option layers, repositor
 
 The administrator Operations screen includes jobs/artifact metadata and cancellation. The `joomla_job_*` tools expose owned listing, status, cancellation, queued redispatch and bounded artifact reads. An API worker reloads the requesting Joomla user and rechecks authority; it does not become the trusted console owner.
 
-The tracked component source now contains production dependencies, installation data and its administrator licence. Source ZIP installation replaces local archive builders. The manual next-version release freezes changelogs and manifest metadata, creates an immutable tag, updates the native feed, waits for OctoShoom to commit its checksum, and then invokes external OctoJPack. Combined package manifests and publication belong to a separate configured repository. See [RELEASE.md](RELEASE.md).
+The tracked component source contains production dependencies, installation data and its administrator licence. Source ZIP installation replaces local archive builders. The manual release freezes metadata and tags the component, then OctoJPack publishes the package with that version. Its current-version update feed and shared changelog stay in this component repository; OctoShoom hashes the published package ZIP. See [RELEASE.md](RELEASE.md).
 
-Release simplification in PR #3 follows the native Octoleo action examples: one `git-user` setup, then OctoShoom and OctoJPack using their shared environment. Local release code now only edits version, changelog and feed metadata. Workflow lint, 22 metadata checks and 34 source-installation checks passed locally. The separate package destination and its raw XML URLs still need to be supplied before `.octojpack` is complete; no release was run.
+PR #3 uses the native Octoleo actions with one Git setup and fully concrete `.octojpack` values. The feed is populated with the current 0.1.1 metadata; the first release run replaces it with the published package version and adds the real hash. No package tag has been published by this PR. The webservices plugin is extracted into `joomengine/mcp_webservices`, PR #1. Installed CI checks use its exact source revision to verify independent plugin install, upgrade and uninstall. Local metadata, source-installation, ownership, PHP and workflow syntax checks pass; the latest installed run is recorded in PR #3.
 
 ## Historical verified runtime evidence
 

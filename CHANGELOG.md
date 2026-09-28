@@ -11,24 +11,26 @@
 
 ### Addition
 
-- Add a manual version release workflow that freezes both changelogs, creates an immutable tag, updates the Joomla feed and waits for OctoShoom before invoking OctoJPack.
+- Add a manual version release workflow that freezes both changelogs, creates an immutable tag, publishes the package with OctoJPack, updates the package feed and runs OctoShoom against the published package.
 - Document GitHub secrets and the source-installation contract for future agents.
 
 ### Change
 
-- Follow the Octoleo quick starts: set up Git once, run OctoShoom, then let OctoJPack read `.octojpack` directly.
+- Follow the Octoleo quick starts: set up Git once, let OctoJPack read `.octojpack` directly, then let OctoShoom hash the package download.
 
-- Delegate combined Joomla package assembly exclusively to OctoJPack and a separate package repository.
+- Publish combined Joomla packages to `joomengine/mcp_package`; keep the package feed and shared changelog here, with the package version derived from the component.
+- Extract webservices routing into its own `mcp_webservices` repository and include it as a separate OctoJPack extension.
 - Verify tracked source archives in component and console installation tests.
 
 ### Remove
 
-- Remove repository-local ZIP/package builders, distribution locks and package update metadata.
+- Remove repository-local ZIP/package builders, distribution locks and generated package manifests.
+- Remove component-installer ownership of the webservices plugin.
 - Remove temporary action checkouts, configuration rendering, custom SSH setup, duplicate hash verification and package repository checks.
 
 ### Note
 
-- Release the console plugin first; OctoJPack selects the latest tags using its native configuration.
+- Tag the independent console and webservices plugin releases before releasing the component; OctoJPack selects their latest tags.
 - Configure the secrets documented in docs/RELEASE.md before the first release.
 
 ## 0.1.1 — development baseline

@@ -50,6 +50,13 @@ jobs:
           ref: 881b1006b67afc24d35d17b82cd32d16a5593a44
           path: build/client-source
           persist-credentials: false
+      - name: Check out the independent webservices plugin under test
+        uses: actions/checkout@v7
+        with:
+          repository: joomengine/mcp_webservices
+          ref: 7853f864d70ff8aea43c488bc3a93bd6e5724623
+          path: build/webservices-source
+          persist-credentials: false
       - name: Install the client dependencies for the remote acceptance scenario
         working-directory: build/client-source
         run: composer install --no-interaction --prefer-dist --no-progress
@@ -57,6 +64,7 @@ jobs:
         env:
           COMPOSE_PROJECT_NAME: mcp-${{ github.run_id }}-${{ github.run_attempt }}
           MCP_PLUGIN_SOURCE: ${{ github.workspace }}/build/plugin-source
+          MCP_WEBSERVICES_SOURCE: ${{ github.workspace }}/build/webservices-source
           MCP_CLIENT_SOURCE: ${{ github.workspace }}/build/client-source
         run: bash tests/golden-image/run.sh
       - name: Preserve redacted installation and execution evidence

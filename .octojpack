@@ -20,13 +20,13 @@
     "author_url": "https://dev.vdm.io/",
     "description": "JoomEngine MCP component, webservices routing, and local console server.",
     "version_id": "com_joomengine_mcp",
-    "update_servers": "[[[PACKAGE_UPDATE_SERVER]]]",
-    "changelog_servers": "[[[PACKAGE_CHANGELOG_SERVER]]]"
+    "update_servers": "https://raw.githubusercontent.com/joomengine/mcp_component/main/joomengine_mcp_update_server.xml",
+    "changelog_servers": "https://raw.githubusercontent.com/joomengine/mcp_component/main/changelog.xml"
   },
   "repository": {
-    "owner": "[[[PACKAGE_OWNER]]]",
-    "repo": "[[[PACKAGE_REPOSITORY]]]",
-    "branch": "[[[PACKAGE_BRANCH]]]"
+    "owner": "joomengine",
+    "repo": "mcp_package",
+    "branch": "main"
   },
   "files": [
     {
@@ -41,6 +41,13 @@
       "id": "joomengine_mcp",
       "type": "plugin",
       "group": "console"
+    },
+    {
+      "owner": "joomengine",
+      "repo": "mcp_webservices",
+      "id": "joomengine_mcp",
+      "type": "plugin",
+      "group": "webservices"
     }
   ],
   "languages": [

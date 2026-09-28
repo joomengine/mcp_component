@@ -54,6 +54,13 @@ jobs:
           ref: fe387b962dab605191ef18efe4d5cb94821165d9
           path: build/plugin-source
           persist-credentials: false
+      - name: Check out the independent webservices plugin under test
+        uses: actions/checkout@v7
+        with:
+          repository: joomengine/mcp_webservices
+          ref: 7853f864d70ff8aea43c488bc3a93bd6e5724623
+          path: build/webservices-source
+          persist-credentials: false
       - name: Check out the remote client bridge under test
         uses: actions/checkout@v7
         with:
@@ -74,6 +81,7 @@ jobs:
         run: |
           mkdir -p build/evidence
           git -C build/plugin-source rev-parse HEAD > build/evidence/console-plugin-source.txt
+          git -C build/webservices-source rev-parse HEAD > build/evidence/webservices-plugin-source.txt
           git -C build/client-source rev-parse HEAD > build/evidence/client-source.txt
       - name: Validate committed runtime files and native manifests
         run: |
@@ -89,6 +97,7 @@ jobs:
           MCP_TEST_DB_PASS: disposable-test-password
           MCP_TEST_DB_NAME: mcp_fixture
           MCP_PLUGIN_SOURCE: ${{ github.workspace }}/build/plugin-source
+          MCP_WEBSERVICES_SOURCE: ${{ github.workspace }}/build/webservices-source
           MCP_CLIENT_SOURCE: ${{ github.workspace }}/build/client-source
         run: bash tests/integration/run.sh
       - name: Preserve redacted evidence and the tested source ZIPs
@@ -100,5 +109,6 @@ jobs:
             build/evidence/
             build/component-source.zip
             build/console-plugin-source.zip
+            build/webservices-plugin-source.zip
           if-no-files-found: error
           retention-days: 7

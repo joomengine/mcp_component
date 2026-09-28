@@ -1,3 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Release entries and OctoShoom hashes are maintained here on main. -->
-<updates />
+<!-- Package release metadata. The release workflow publishes the package tag before OctoShoom adds its hash. -->
+<updates>
+  <update>
+    <name>JoomEngine MCP Package</name>
+    <description>JoomEngine MCP component, console plugin and webservices plugin.</description>
+    <element>pkg_joomengine_mcp</element>
+    <type>package</type>
+    <client>site</client>
+    <version>0.1.1</version>
+    <infourl title="JoomEngine MCP Package">https://github.com/joomengine/mcp_package/tree/v0.1.1</infourl>
+    <downloads>
+      <downloadurl type="full" format="zip">https://github.com/joomengine/mcp_package/archive/refs/tags/v0.1.1.zip</downloadurl>
+    </downloads>
+    <tags><tag>stable</tag></tags>
+    <maintainer>Llewellyn van der Merwe</maintainer>
+    <maintainerurl>https://dev.vdm.io</maintainerurl>
+    <targetplatform name="joomla" version="6\.[1-9][0-9]*"/>
+    <php_minimum>8.3.0</php_minimum>
+    <changelogurl>https://raw.githubusercontent.com/joomengine/mcp_component/main/changelog.xml</changelogurl>
+  </update>
+</updates>

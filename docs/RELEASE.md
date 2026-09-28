@@ -1,41 +1,49 @@
-# Source installation and releases
+# Installation and releases
 
-This is the component repository. Its source ZIP installs directly in Joomla: production dependencies, installation data, licence and owned webservices plugin are already tracked. No downstream Composer or build step is required. The console plugin has its own installable repository.
+This is exclusively the component repository. Its source ZIP installs directly in Joomla with production dependencies and installation data already included. The [console plugin](https://github.com/joomengine/mcp_plugin) and [webservices plugin](https://github.com/joomengine/mcp_webservices) are independent extensions. The component installer does not install, update or remove them.
 
-OctoJPack combines the latest tagged component and console plugin using `.octojpack`. It owns package assembly and publication in the separate package repository. The package manifest and package update/changelog files belong there.
+[OctoJPack](https://github.com/octoleo/octojpack#quick-start) combines all three extensions using the concrete `.octojpack` file and publishes to **joomengine/mcp_package**, branch **main**. Native `version_id: com_joomengine_mcp` makes the package version follow the component tag. Default tag selection works both in the workflow and from a standalone OctoJPack installation.
+
+## Fixed update URLs
+
+The package files and generated package manifest belong in `mcp_package`. The package update server and shared changelog deliberately remain in this component repository:
+
+- Update server: https://raw.githubusercontent.com/joomengine/mcp_component/main/joomengine_mcp_update_server.xml
+- Changelog: https://raw.githubusercontent.com/joomengine/mcp_component/main/changelog.xml
+- Licence: https://raw.githubusercontent.com/joomengine/mcp_component/main/LICENSE
+
+The feed identifies `pkg_joomengine_mcp`, type `package`, client `site` (Joomla installs packages with client ID 0). Its download is the matching `mcp_package/archive/refs/tags/vVERSION.zip`, never a component-only ZIP. The feed keeps the current supported package version; changelogs retain release history. The initial 0.1.1 entry is prepared metadata. The first release run publishes the selected package version before replacing that entry and adding its real checksum.
+
+Joomla updates through this feed require the combined package to be installed. Standalone component installation remains available; HTTP routing requires the separately installed webservices plugin.
 
 ## GitHub setup
 
-Follow the upstream [git-user](https://github.com/octoleo/git-user#workflows), [OctoShoom](https://github.com/octoleo/octoshoom#quick-start) and [OctoJPack](https://github.com/octoleo/octojpack#quick-start) examples. Configure these repository or organization Actions secrets:
+Follow the native [git-user](https://github.com/octoleo/git-user#workflows), OctoJPack and [OctoShoom](https://github.com/octoleo/octoshoom#quick-start) examples. Configure these Actions secrets:
 
 | Secret | Value |
 | --- | --- |
 | `GIT_USER`, `GIT_EMAIL` | Release Git identity. |
 | `GPG_KEY`, `GPG_USER` | Signing key and its user ID. |
-| `SSH_KEY`, `SSH_PUB` | Matching SSH keypair for that identity, with write access to the component and package repositories. |
+| `SSH_KEY`, `SSH_PUB` | Matching SSH keypair with write access to component and package repositories. |
 | `GIT_TOKEN` | GitHub API token for OctoJPack to read the source repositories. |
 
-`git-user` runs once. OctoShoom and OctoJPack inherit its Git configuration; OctoJPack reads the token from `VDM_GLOBAL_TOKEN`. The workflow supplies each action's configuration input and enables OctoJPack's native `push` option. There are no per-release repository, tool-ref or package-URL variables.
+`git-user` runs once. Both actions inherit its Git setup; OctoJPack reads `VDM_GLOBAL_TOKEN`. Configuration is passed directly to the actions. No repository placeholders, temporary action checkouts, configuration rendering or local package builders are needed.
 
-## Release
+## Release sequence
 
-Release the console plugin first, then run **Release component with OctoShoom and OctoJPack** on `main` with the next version, such as `1.2.3` or `v1.2.3`.
+Tag reviewed releases of both plugins first. Then run **Release component with OctoJPack and OctoShoom** on `main`, entering the next unused version, such as `1.2.3` or `v1.2.3`.
 
-1. Freeze the pending changelogs and manifest versions, commit and create `v1.2.3`.
-2. Add the tag archive URL to the component's Joomla update feed.
-3. OctoShoom adds and commits the SHA-512 hashes.
-4. After it succeeds, OctoJPack reads `.octojpack` and builds/pushes the combined package.
+1. Freeze component/changelog metadata, commit and create its version tag.
+2. OctoJPack builds and publishes the three-extension package using the component version.
+3. Update this repository's feed with the package version and tagged package URL, clearing the previous archive hash.
+4. OctoShoom hashes the published package archive and commits the checksum here.
 
-Both shared actions do their own work. There is no local packaging, hash calculation, checksum recheck or configuration rendering. `tools/release.php` only updates this component's release metadata. Existing tags are retained when rerunning an interrupted release; existing feed entries and hashes are preserved.
+The package must exist before its hash can be calculated. A failed packaging step stops feed publication and hashing. Neither shared tool's work is duplicated locally. Rerunning keeps existing tags and preserves a matching feed entry/hash.
 
-`.octojpack` is also the standalone OctoJPack configuration. Its stable repository identities, raw GitHub feed/changelog URLs and raw licence URL belong in that file. Native latest-tag selection and `version_id` determine the package version. Workflow-only placeholders and generated configuration copies do not belong here.
+## Changelogs and dependencies
 
-## Changelogs
+Keep `CHANGELOG.md` and `changelog.xml` consistent, with new changes under one literal `[[[NEXT_VERSION]]]` section in each file. The release replaces the marker with its version. Create another pending section when subsequent changes begin; preserve released history. The shared XML keeps component identity and Joomla selects the changelog by version.
 
-Keep `CHANGELOG.md` and `changelog.xml` consistent. Record new changes under one literal `[[[NEXT_VERSION]]]` section in each file. The release replaces that marker with the entered version. Create the next pending section when subsequent changes begin; preserve released history.
+Use Joomla categories `security`, `fix`, `language`, `addition`, `change`, `remove` and `note`, with `item` children and matching Markdown headings.
 
-Joomla XML uses `changelogs/changelog`, `element` = `com_joomengine_mcp`, `type` = `component`, and `security`, `fix`, `language`, `addition`, `change`, `remove` or `note` categories containing `item` children. Use matching Markdown headings. The manifest points to the raw GitHub changelog and update feed.
-
-## Dependencies and checks
-
-When dependencies change, maintainers run Composer and commit the lock and complete production runtime under `admin/vendor`, including licences. Do not edit vendor source by hand. CI checks source archives, relocated autoloading and the runtime; `php tests/release.php` checks version/changelog/feed edits without publishing.
+Maintainers resolve changed dependencies with Composer and commit the lock and complete production runtime under `admin/vendor`. CI checks source installation, relocated dependencies, native metadata, and separately installed plugins. No downstream Composer run is required.

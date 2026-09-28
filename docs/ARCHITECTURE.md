@@ -12,7 +12,7 @@ Joomla 6 contracts are authoritative. Repository placement follows JCB: root `jo
 
 AI/MCP client → Joomla API entry point → Joomla API-token authentication → non-public MCP route → component controller/transport boundary → protocol engine → database catalogue/authorizer → reviewed action binding → Joomla/JCB API or explicitly authorized native service → verification/audit → JSON-RPC response.
 
-Joomla route registration requires a webservices plugin. Minimal `webservices/joomengine_mcp` glue is bundled with the component and is distinct from the console plugin. Install/enable it through the native installer, preserve operator state on updates and remove only owned glue on uninstall. An API directory alone does not register routes.
+Joomla route registration belongs to `joomengine/mcp_webservices`, a separately installable plugin. Local console entry belongs to `joomengine/mcp_plugin`. OctoJPack combines both plugins with the component in `joomengine/mcp_package`; the component installer never manages either plugin. The webservices plugin registers routes only while the component is enabled, enables itself on initial installation and preserves operator state on updates.
 
 Reuse Joomla token authentication, not a second credential store. Verify both supported Joomla token header forms against the installed API authentication plugin. Static token authentication is not OAuth discovery; do not advertise an OAuth authorization server that is not implemented.
 
@@ -52,7 +52,7 @@ JCB source-code fields remain permitted inert definition data under appropriate 
 
 ## Distribution and references
 
-This repository is a directly installable component source tree, with routing glue, locked production dependencies and installation data committed in place. MySQL/MariaDB and PostgreSQL schema updates and customization-preserving JSON seed updates remain installer-owned. The console plugin is independently installable. Manual version releases freeze both changelogs, tag source, update the native feed and wait for OctoShoom. Only then does the OctoJPack action use the same standalone `.octojpack` configuration and latest component/console tags to assemble a combined package in a separate repository. No package builder or combined-package manifest belongs here. See RELEASE.md.
+This repository is a directly installable component source tree, with production dependencies and installation data committed in place. MySQL/MariaDB and PostgreSQL schema updates and customization-preserving JSON seed updates remain installer-owned. Both plugins have independent repositories and native installers. Manual version releases tag the component, use the standalone `.octojpack` configuration to publish the combined package with the same version, update the package feed in this component repository, then run OctoShoom against the package archive. See RELEASE.md.
 
 - Original MCP: https://github.com/joomengine/joomla-mcp/tree/2cff50f4f6b440da3c684f9995a77efad32e1a36
 - Joomla/JCB layout: https://github.com/joomengine/Joomla-Component-Builder/tree/6.x

@@ -105,11 +105,11 @@ try
 		}
 	}
 
-	foreach (['admin/autoload.php', 'admin/vendor/autoload.php', 'admin/data/catalogue-seed.json', 'admin/LICENSE',
-		'plugins/webservices/joomengine_mcp/joomengine_mcp.xml'] as $file)
+	foreach (['admin/autoload.php', 'admin/vendor/autoload.php', 'admin/data/catalogue-seed.json', 'admin/LICENSE'] as $file)
 	{
 		$check(is_file($source . '/' . $file), 'Required runtime source is missing: ' . $file);
 	}
+	$check(!is_dir($source . '/plugins'), 'Plugins belong in their own repositories, not the component source ZIP.');
 
 	$check(file_get_contents($source . '/LICENSE') === file_get_contents($source . '/admin/LICENSE'), 'The installed license differs from the repository license.');
 	$seed = json_decode(file_get_contents($source . '/admin/data/catalogue-seed.json'), true, 512, JSON_THROW_ON_ERROR);
