@@ -52,7 +52,7 @@ JCB source-code fields remain permitted inert definition data under appropriate 
 
 ## Distribution and references
 
-This repository is a directly installable component source tree, with production dependencies and installation data committed in place. MySQL/MariaDB and PostgreSQL schema updates and customization-preserving JSON seed updates remain installer-owned. Both plugins have independent repositories and native installers. Manual version releases tag the component, use the standalone `.octojpack` configuration to publish the combined package with the same version, update the package feed in this component repository, then run OctoShoom against the package archive. See RELEASE.md.
+This repository is a directly installable component source tree, with production dependencies and installation data committed in place. MySQL/MariaDB and PostgreSQL schema updates and customization-preserving JSON seed updates remain installer-owned. Both plugins have independent repositories and native installers. Manual version releases tag the component, update its component-only feed and hash its tagged archive, then use the standalone `.octojpack` configuration to publish the combined package with the same version. The package tag starts its own update-feed and OctoShoom workflow in `mcp_package`, whose `.github` directory survives package replacement. See RELEASE.md.
 
 - Original MCP: https://github.com/joomengine/joomla-mcp/tree/2cff50f4f6b440da3c684f9995a77efad32e1a36
 - Joomla/JCB layout: https://github.com/joomengine/Joomla-Component-Builder/tree/6.x

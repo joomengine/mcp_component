@@ -70,9 +70,9 @@ try
 		'Preparing a tag does not advertise its download before the tag exists.');
 	mcpRelease(['feed', '1.1.0'], $root);
 	$feed = mcpReleaseXml($root . '/joomengine_mcp_update_server.xml');
-	$check((string) $feed->update->downloads->downloadurl === 'https://github.com/joomengine/mcp_package/archive/refs/tags/v1.1.0.zip',
-		'Update uses the immutable package tag ZIP.');
-	$check((string) $feed->update->client === 'site' && (string) $feed->update->element === 'pkg_joomengine_mcp' && (string) $feed->update->type === 'package' && (string) $feed->update->php_minimum === '8.3.0'
+	$check((string) $feed->update->downloads->downloadurl === 'https://github.com/joomengine/mcp_component/archive/refs/tags/v1.1.0.zip',
+		'Update uses the component tag ZIP.');
+	$check((string) $feed->update->client === 'administrator' && (string) $feed->update->element === 'com_joomengine_mcp' && (string) $feed->update->type === 'component' && (string) $feed->update->php_minimum === '8.3.0'
 		&& (string) $feed->update->targetplatform['version'] === '6\\.[1-9][0-9]*', 'Update carries supported Joomla/PHP versions.');
 	$check(!isset($feed->update->sha512), 'OctoShoom supplies the checksum.');
 	$feed->update->addChild('sha512', str_repeat('a', 128));
@@ -88,8 +88,8 @@ try
 	mcpRelease(['feed', '1.2.0'], $root);
 	$feed = mcpReleaseXml($root . '/joomengine_mcp_update_server.xml');
 	$check(count($feed->update) === 1 && (string) $feed->update->version === '1.2.0' && !isset($feed->update->sha512),
-		'Next package release replaces the current feed entry and clears the previous archive checksum.');
-	$check((string) $feed->update->downloads->downloadurl === 'https://github.com/joomengine/mcp_package/archive/refs/tags/v1.2.0.zip', 'The next download stays in the package repository.');
+		'Next component release replaces the current feed entry and clears the previous archive checksum.');
+	$check((string) $feed->update->downloads->downloadurl === 'https://github.com/joomengine/mcp_component/archive/refs/tags/v1.2.0.zip', 'The next download stays in the component repository.');
 	$check((string) mcpReleaseXml($root . '/changelog.xml')->changelog[1]->version === '1.1.0', 'Next release retains the previous changelog.');
 
 	echo json_encode(['checks' => $checks, 'metadataTransitions' => 'passed'], JSON_THROW_ON_ERROR) . "\n";

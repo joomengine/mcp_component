@@ -12,14 +12,15 @@
 ### Addition
 
 - Document the complete first-package workflow order, valid first versions and secret scope for both plugins and the component.
-- Add a manual version release workflow that freezes both changelogs, creates an immutable tag, publishes the package with OctoJPack, updates the package feed and runs OctoShoom against the published package.
+- Add a manual version release workflow that freezes both changelogs, creates an immutable tag, updates and hashes the component feed, then publishes the package with OctoJPack.
 - Document GitHub secrets and the source-installation contract for future agents.
 
 ### Change
 
-- Follow the Octoleo quick starts: set up Git once, let OctoJPack read `.octojpack` directly, then let OctoShoom hash the package download.
+- Follow the Octoleo quick starts: set up Git once, let OctoShoom hash the component download, then let OctoJPack read `.octojpack` directly.
 
-- Publish combined Joomla packages to `joomengine/mcp_package`; keep the package feed and shared changelog here, with the package version derived from the component.
+- Separate component and package update feeds: the component feed stays here; the package feed and tag-triggered OctoShoom workflow live in `mcp_package/.github`, preserved by native OctoJPack replacement.
+- Select each extension's latest tag explicitly; derive the package version from the component and retain the shared versioned changelog.
 - Extract webservices routing into its own `mcp_webservices` repository and include it as a separate OctoJPack extension.
 - Verify tracked source archives in component and console installation tests.
 

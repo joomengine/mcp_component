@@ -23,7 +23,7 @@ For native JCB background jobs, provide a PHP CLI executable compatible with the
 
 Remote AI applications can use the independent client's [Docker Compose launcher](https://github.com/joomengine/mcp_client/blob/feature/standalone-php-client/docs/DOCKER.md). Supply the HTTPS Joomla installation URL and native API token; the client discovers capabilities from this component. The console plugin is required for direct local Joomla MCP commands, while the remote client connects to the component's authenticated HTTP endpoint.
 
-The combined package is built exclusively by [OctoJPack](https://github.com/octoleo/octojpack), using the fixed `.octojpack` configuration, and published to [mcp_package](https://github.com/joomengine/mcp_package). The component version determines the package version. Run the manual **Release** workflow to freeze the changelogs, tag the component, publish the package, update the package feed here, and let OctoShoom hash that package ZIP. [Release instructions](docs/RELEASE.md) list the required secrets.
+The combined package is built exclusively by [OctoJPack](https://github.com/octoleo/octojpack), using the fixed `.octojpack` configuration and each extension's latest tag, and published to [mcp_package](https://github.com/joomengine/mcp_package). The component version determines the package version. Run the manual **Release** workflow to freeze the changelogs, tag the component, update its own feed and hash its tagged ZIP with OctoShoom, then publish the package. The package tag automatically starts its separate feed and OctoShoom workflow in `mcp_package`. [Release instructions](docs/RELEASE.md) list the required secrets and both workflow runs.
 
 ## Required capabilities
 

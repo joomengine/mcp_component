@@ -11,12 +11,13 @@
     </fix>
     <addition>
       <item>Document the complete first-package workflow order, valid first versions and secret scope for both plugins and the component.</item>
-      <item>Add manual version releases with changelog freezing, immutable tags, OctoJPack package publication and subsequent OctoShoom package hashing.</item>
+      <item>Add manual version releases with changelog freezing, immutable tags, component update-feed hashing and subsequent OctoJPack package publication.</item>
       <item>Document release secrets and source installation requirements for maintainers and agents.</item>
     </addition>
     <change>
-      <item>Follow the Octoleo quick starts: set up Git once, let OctoJPack read .octojpack directly, then let OctoShoom hash the package download.</item>
-      <item>Publish packages to joomengine/mcp_package with the component version, keeping the package feed and shared changelog in this component repository.</item>
+      <item>Follow the Octoleo quick starts: set up Git once, let OctoShoom hash the component download, then let OctoJPack read .octojpack directly.</item>
+      <item>Keep the component-only feed here and the package-only feed and tag-triggered OctoShoom workflow in mcp_package/.github, preserved by native OctoJPack replacement.</item>
+      <item>Select each extension's latest tag explicitly, derive the package version from the component and retain the shared versioned changelog.</item>
       <item>Extract webservices routing into its own mcp_webservices repository and include it as a separate OctoJPack extension.</item>
       <item>Verify tracked source archives in component and console installation tests.</item>
     </change>

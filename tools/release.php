@@ -19,7 +19,7 @@ function mcpReleaseXml(string $path): SimpleXMLElement
 	return $xml;
 }
 
-/** Freeze the pending version or add its tag archive to the package update feed. */
+/** Freeze the pending version or add its tag archive to the component update feed. */
 function mcpRelease(array $arguments, string $root): void
 {
 	[$command, $version] = array_pad($arguments, 2, '');
@@ -57,12 +57,13 @@ function mcpRelease(array $arguments, string $root): void
 	{
 		$feed = mcpReleaseXml($root . '/joomengine_mcp_update_server.xml');
 		$entry = $feed->update;
-		$archive = 'https://github.com/joomengine/mcp_package/archive/refs/tags/v' . $version . '.zip';
+		$archive = 'https://github.com/joomengine/mcp_component/archive/refs/tags/v' . $version . '.zip';
 
-		if (count($feed->update) !== 1 || (string) $entry->element !== 'pkg_joomengine_mcp'
-			|| (string) $entry->type !== 'package' || version_compare($version, (string) $manifest->version, '>'))
+		if (count($feed->update) !== 1 || (string) $entry->element !== 'com_joomengine_mcp'
+			|| (string) $entry->type !== 'component' || (string) $entry->client !== 'administrator'
+			|| version_compare($version, (string) $manifest->version, '>'))
 		{
-			throw new RuntimeException('Expected the current package update entry and a prepared component version.');
+			throw new RuntimeException('Expected the current component update entry and a prepared component version.');
 		}
 
 		if ((string) $entry->version === $version && (string) $entry->downloads->downloadurl === $archive)
@@ -72,7 +73,7 @@ function mcpRelease(array $arguments, string $root): void
 
 		$entry->version = $version;
 		$entry->downloads->downloadurl = $archive;
-		$entry->infourl = 'https://github.com/joomengine/mcp_package/tree/v' . $version;
+		$entry->infourl = 'https://github.com/joomengine/mcp_component/tree/v' . $version;
 		unset($entry->md5, $entry->sha256, $entry->sha384, $entry->sha512);
 		$writes['joomengine_mcp_update_server.xml'] = $feed->asXML();
 	}

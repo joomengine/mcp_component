@@ -1,65 +1,57 @@
 # Installation and releases
 
-This is exclusively the component repository. Its source ZIP installs directly in Joomla with production dependencies and installation data already included. The [console plugin](https://github.com/joomengine/mcp_plugin) and [webservices plugin](https://github.com/joomengine/mcp_webservices) are independent extensions. The component installer does not install, update or remove them.
+This repository contains only the component. Its source ZIP installs directly in Joomla with production dependencies and installation data already included. The [console plugin](https://github.com/joomengine/mcp_plugin) and [webservices plugin](https://github.com/joomengine/mcp_webservices) are independent extensions with their own installers and update feeds.
 
-[OctoJPack](https://github.com/octoleo/octojpack#quick-start) combines all three extensions using the concrete `.octojpack` file and publishes to **joomengine/mcp_package**, branch **main**. Native `version_id: com_joomengine_mcp` makes the package version follow the component tag. Default tag selection works both in the workflow and from a standalone OctoJPack installation.
+[OctoJPack](https://github.com/octoleo/octojpack#quick-start) combines all three extensions using the concrete `.octojpack` file and publishes to **joomengine/mcp_package**, branch **main**. Each source uses `mode: "tags"`, so OctoJPack selects its latest tag and bundles that exact tagged archive. `version_id: com_joomengine_mcp` makes the package version follow the component tag. This works both through the action and from a standalone OctoJPack installation.
 
-## Fixed update URLs
+## Separate update feeds
 
-The package files and generated package manifest belong in `mcp_package`. The package update server and shared changelog deliberately remain in this component repository:
+| Extension | Feed URL | Joomla identity | Download |
+| --- | --- | --- | --- |
+| Component | https://raw.githubusercontent.com/joomengine/mcp_component/main/joomengine_mcp_update_server.xml | `com_joomengine_mcp`, component, administrator | `mcp_component/archive/refs/tags/vVERSION.zip` |
+| Package | https://raw.githubusercontent.com/joomengine/mcp_package/main/.github/joomengine_mcp_update_server.xml | `pkg_joomengine_mcp`, package, site | `mcp_package/archive/refs/tags/vVERSION.zip` |
 
-- Update server: https://raw.githubusercontent.com/joomengine/mcp_component/main/joomengine_mcp_update_server.xml
-- Changelog: https://raw.githubusercontent.com/joomengine/mcp_component/main/changelog.xml
-- Licence: https://raw.githubusercontent.com/joomengine/mcp_component/main/LICENSE
+The component manifest references the component feed. OctoJPack writes the package manifest with the package feed URL from `.octojpack`. OctoShoom hashes the exact GitHub tag ZIP named in each feed, so each checksum belongs to that extension's download. The component's initial 0.1.1 entry is prepared metadata; its first release replaces the version and adds a real checksum after publishing the tag.
 
-The feed identifies `pkg_joomengine_mcp`, type `package`, client `site` (Joomla installs packages with client ID 0). Its download is the matching `mcp_package/archive/refs/tags/vVERSION.zip`, never a component-only ZIP. The feed keeps the current supported package version; changelogs retain release history. The initial 0.1.1 entry is prepared metadata. The first release run publishes the selected package version before replacing that entry and adding its real checksum.
+The shared, versioned changelog remains https://raw.githubusercontent.com/joomengine/mcp_component/main/changelog.xml. The licence remains https://raw.githubusercontent.com/joomengine/mcp_component/main/LICENSE. Package versions follow component versions, so Joomla can use the same changelog by version.
 
-Joomla updates through this feed require the combined package to be installed. Standalone component installation remains available; HTTP routing requires the separately installed webservices plugin.
+## Preserved package automation
+
+Merge the package repository's workflow before publishing the first package. Its maintained workflow, update feed, metadata helper and instructions live under `.github`. Current native OctoJPack replacement removes non-hidden package contents and leaves `.github` intact. It needs no ignore-folder input or wrapper. Keeping the feed in this preserved folder also retains earlier entries and hashes across package builds.
+
+The package workflow triggers on `v*` tag pushes. OctoJPack pushes its generated package commit and tag together over SSH; the retained workflow starts from that tag. It reads the generated manifest from that exact tag, updates the package feed on `main`, and calls OctoShoom. Feed/hash commits on `main` do not retrigger the tag workflow. See [package maintenance instructions](https://github.com/joomengine/mcp_package/blob/main/.github/README.md).
 
 ## GitHub setup
 
-Follow the native [git-user](https://github.com/octoleo/git-user#workflows), OctoJPack and [OctoShoom](https://github.com/octoleo/octoshoom#quick-start) examples. Configure these Actions secrets:
+Follow the native [git-user](https://github.com/octoleo/git-user#workflows), OctoJPack and [OctoShoom](https://github.com/octoleo/octoshoom#quick-start) examples. Make these Actions secrets available to **all four repositories** (both plugins, component and package), directly or through organization secrets:
 
 | Secret | Value |
 | --- | --- |
 | `GIT_USER`, `GIT_EMAIL` | Release Git identity. |
 | `GPG_KEY`, `GPG_USER` | Signing key and its user ID. |
-| `SSH_KEY`, `SSH_PUB` | Matching SSH keypair with write access to component and package repositories. |
-| `GIT_TOKEN` | GitHub API token for OctoJPack to read the source repositories. |
+| `SSH_KEY`, `SSH_PUB` | Matching SSH keypair. |
 
-`git-user` runs once. Both actions inherit its Git setup; OctoJPack reads `VDM_GLOBAL_TOKEN`. Configuration is passed directly to the actions. No repository placeholders, temporary action checkouts, configuration rendering or local package builders are needed.
+Each plugin and the package workflow needs permission to push to its own repository. The component's SSH identity needs permission to push to both `mcp_component` and `mcp_package`. The component additionally uses `GIT_TOKEN` for OctoJPack's source API access, exposed as `VDM_GLOBAL_TOKEN`. The package workflow does not invoke OctoJPack and needs no packaging token.
 
-## Release sequence
+Git User runs once per workflow. The shared actions inherit that Git setup; credentials stay in GitHub secrets. No repository placeholders, configuration rendering, local package builder or duplicate hash implementation is needed.
 
-All three extension repositories provide a manual version release. In each repository, open **Actions**, select the workflow below, choose **Run workflow**, select `main` and enter the release version. The workflow creates the tag; pushing a tag by itself does not start a release.
+## First release
 
-For the first package, run these in order and wait for each to succeed:
+In each extension repository, open **Actions**, select its release workflow, choose **Run workflow**, select `main` and enter an unused version. For example, `0.1.2` works above all current development baselines; `v0.1.2` is also accepted. The component's 0.1.0 and 0.1.1 changelog entries cannot be reused. The workflow creates the tag; pushing an extension tag manually does not start these manual release workflows.
 
-| Order | Repository and workflow | Result |
+| Order | Workflow | Result |
 | --- | --- | --- |
-| 1 | [mcp_plugin — Release console plugin with OctoShoom](https://github.com/joomengine/mcp_plugin/actions/workflows/release.yml) | Console tag, plugin update entry and checksum. |
-| 2 | [mcp_webservices — Release webservices plugin with OctoShoom](https://github.com/joomengine/mcp_webservices/actions/workflows/release.yml) | Webservices tag, plugin update entry and checksum. |
-| 3 | [mcp_component — Release component with OctoJPack and OctoShoom](https://github.com/joomengine/mcp_component/actions/workflows/release.yml) | Component tag, combined package tag, package update entry and checksum. |
+| 1 | [Console release](https://github.com/joomengine/mcp_plugin/actions/workflows/release.yml) | Console tag, plugin feed and OctoShoom checksum. |
+| 2 | [Webservices release](https://github.com/joomengine/mcp_webservices/actions/workflows/release.yml) | Webservices tag, plugin feed and OctoShoom checksum. |
+| 3 | [Component release](https://github.com/joomengine/mcp_component/actions/workflows/release.yml) | Component tag, component feed, OctoShoom checksum, then OctoJPack package publication. |
+| 4 (automatic) | [Package update](https://github.com/joomengine/mcp_package/actions/workflows/update.yml) | Package feed and OctoShoom checksum for the pushed package tag. |
 
-Choose an unused version above the development baselines. For example, `0.1.2` is suitable for all three first releases; `v0.1.2` is also accepted. The component's `0.1.0` and `0.1.1` changelog entries already describe development baselines and cannot be reused. Plugin versions may differ from the component version; the combined package always follows the component.
+Wait for both plugin releases before starting the component release. Wait for **both the component run and the automatically triggered package run** before declaring the combined release complete. A component hashing failure stops OctoJPack; a package hashing failure appears in the separate package run and can be retried there without rebuilding the package. Published tags remain unchanged.
 
-The six Git identity/signing/SSH secrets above must be available to **each extension repository**. An organization secret can be shared with all three. The component additionally needs `GIT_TOKEN`; its SSH identity must be able to push to both `mcp_component` and `mcp_package`. Each plugin's SSH identity must be able to push to its own repository. The package repository needs no separate release workflow or secrets: OctoJPack publishes it from the component workflow.
-
-Once plugin tags exist, subsequent package releases can reuse them. Release a plugin again only when its source changes. Keep a pending changelog section in each repository being released.
-
-The component workflow performs these steps:
-
-1. Freeze component/changelog metadata, commit and create its version tag.
-2. OctoJPack builds and publishes the three-extension package using the component version.
-3. Update this repository's feed with the package version and tagged package URL, clearing the previous archive hash.
-4. OctoShoom hashes the published package archive and commits the checksum here.
-
-The package must exist before its hash can be calculated. A failed packaging step stops feed publication and hashing. Neither shared tool's work is duplicated locally. Rerunning keeps existing tags and preserves a matching feed entry/hash. A successful component workflow makes the package tag ZIP installable from `mcp_package` and publishes its checksum in this repository's update feed; no manual packaging or XML editing is needed.
+Later component releases can reuse existing plugin tags when those plugins have not changed. Plugin versions may differ; the package always follows the component version. A completed release needs no manual ZIP upload, packaging or update-XML editing.
 
 ## Changelogs and dependencies
 
-Keep `CHANGELOG.md` and `changelog.xml` consistent, with new changes under one literal `[[[NEXT_VERSION]]]` section in each file. The release replaces the marker with its version. Create another pending section when subsequent changes begin; preserve released history. The shared XML keeps component identity and Joomla selects the changelog by version.
+Keep `CHANGELOG.md` and `changelog.xml` consistent, with new changes under one literal `[[[NEXT_VERSION]]]` section in each file. Release replaces the marker with its version. Create another pending section when subsequent changes begin; preserve released history. Use Joomla categories `security`, `fix`, `language`, `addition`, `change`, `remove` and `note`, with `item` children and matching Markdown headings.
 
-Use Joomla categories `security`, `fix`, `language`, `addition`, `change`, `remove` and `note`, with `item` children and matching Markdown headings.
-
-Maintainers resolve changed dependencies with Composer and commit the lock and complete production runtime under `admin/vendor`. CI checks source installation, relocated dependencies, native metadata, and separately installed plugins. No downstream Composer run is required.
+Maintainers resolve changed dependencies with Composer and commit the lock and complete production runtime under `admin/vendor`. CI checks source installation, relocated dependencies, native metadata and separately installed plugins. No downstream Composer run is required. Source and metadata checks do not claim an actual release or prove configured publication credentials.
