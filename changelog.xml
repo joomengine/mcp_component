@@ -5,6 +5,7 @@
     <type>component</type>
     <version>[[[NEXT_VERSION]]]</version>
     <fix>
+      <item>Read MCP protocol identity and outbound API User-Agent versions from the native component manifest before and after installation.</item>
       <item>Make the source ZIP directly installable with committed production dependencies, relocation-safe autoloading, catalogue seed and administrator licence.</item>
       <item>Point component update discovery to the maintained native XML feed.</item>
     </fix>

@@ -130,6 +130,9 @@ try
 		$copy($source . '/admin/' . (string) $entry, $target . '/' . (string) $entry);
 	}
 
+	// Joomla also copies the native component manifest into its administrator root.
+	$copy($source . '/joomengine_mcp.xml', $target . '/joomengine_mcp.xml');
+
 	$code = <<<'CHECK'
 $loader = require $argv[1] . '/autoload.php';
 foreach (['Mcp\\Server', 'Nyholm\\Psr7\\Factory\\Psr17Factory', 'Nyholm\\Psr7Server\\ServerRequestCreator',
@@ -147,17 +150,28 @@ if (empty($seed['entities']['tool']))
 {
 	throw new RuntimeException('The relocated runtime cannot read its installer catalogue.');
 }
+if (VDM\Component\JoomEngineMcp\Administrator\Service\ComponentVersion::get() !== $argv[2])
+{
+	throw new RuntimeException('The relocated runtime did not read its native manifest version.');
+}
 echo "Relocated runtime and production dependencies loaded successfully.\n";
 CHECK;
-	$process = proc_open([PHP_BINARY, '-r', $code, $target], [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, $target);
-	$check(is_resource($process), 'Cannot launch the relocated runtime verification.');
-	fclose($pipes[0]);
-	$output = stream_get_contents($pipes[1]);
-	$error = stream_get_contents($pipes[2]);
-	fclose($pipes[1]);
-	fclose($pipes[2]);
-	$check(proc_close($process) === 0, 'The relocated runtime failed: ' . $error);
-	echo $output;
+	foreach ([(string) $manifest->version, '123.456.789'] as $expectedVersion)
+	{
+		// A fresh process must follow a later native manifest, without regenerated PHP.
+		$installedManifest = simplexml_load_file($target . '/joomengine_mcp.xml');
+		$installedManifest->version = $expectedVersion;
+		$installedManifest->asXML($target . '/joomengine_mcp.xml');
+		$process = proc_open([PHP_BINARY, '-r', $code, $target, $expectedVersion], [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, $target);
+		$check(is_resource($process), 'Cannot launch the relocated runtime verification.');
+		fclose($pipes[0]);
+		$output = stream_get_contents($pipes[1]);
+		$error = stream_get_contents($pipes[2]);
+		fclose($pipes[1]);
+		fclose($pipes[2]);
+		$check(proc_close($process) === 0, 'The relocated runtime failed: ' . $error);
+		echo $output;
+	}
 	echo json_encode(['checks' => $checks, 'source' => isset($argv[1]) ? basename($argv[1]) : 'checkout',
 		'nativeInstallation' => 'covered separately by installed integration tests'], JSON_THROW_ON_ERROR) . "\n";
 }

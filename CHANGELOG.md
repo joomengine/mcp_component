@@ -4,6 +4,8 @@
 
 ### Fix
 
+- Read MCP protocol identity and outbound API User-Agent versions from the native component manifest, including after Joomla relocates the administrator files.
+
 - Make the repository source ZIP directly installable, with committed production dependencies, relocation-safe autoloading, catalogue seed and administrator licence.
 - Point component update discovery to the maintained native XML feed.
 

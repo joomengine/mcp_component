@@ -116,6 +116,8 @@ $api = new ApiHandler($http, $builder, $settings, 'api-test-token', static funct
 $result = $api->execute(['id' => 7], $read, $principal);
 $check($result['data']['data']['id'] === 7 && (string) $http->requests[0]->getUri() === 'https://joomla.example/sub/api/index.php/v1/content/articles/7', 'Same-site API URL and response contract.');
 $check($http->requests[0]->getHeaderLine('Authorization') === 'Bearer api-test-token', 'Authenticated API token forwarding.');
+$check($http->requests[0]->getHeaderLine('User-Agent') === 'JoomEngine-MCP-for-Joomla/'
+	. (string) simplexml_load_file(dirname(__DIR__) . '/joomengine_mcp.xml')->version, 'API User-Agent follows the native component manifest version.');
 $http->responses[] = new Response(302, ['Location' => 'https://other.example/steal']);
 $reject(static fn () => $api->execute(['id' => 7], $read, $principal), 'REDIRECT_REFUSED');
 $check(count($http->requests) === 2, 'Redirect response never causes a second credential-bearing request.');
