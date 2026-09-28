@@ -24,6 +24,8 @@ The administrator Operations screen includes jobs/artifact metadata and cancella
 
 The tracked component source now contains production dependencies, installation data and its administrator licence. Source ZIP installation replaces local archive builders. The manual next-version release freezes changelogs and manifest metadata, creates an immutable tag, updates the native feed, waits for OctoShoom to commit its checksum, and then invokes external OctoJPack. Combined package manifests and publication belong to a separate configured repository. See [RELEASE.md](RELEASE.md).
 
+Release simplification in PR #3 follows the native Octoleo action examples: one `git-user` setup, then OctoShoom and OctoJPack using their shared environment. Local release code now only edits version, changelog and feed metadata. Workflow lint, 22 metadata checks and 34 source-installation checks passed locally. The separate package destination and its raw XML URLs still need to be supplied before `.octojpack` is complete; no release was run.
+
 ## Historical verified runtime evidence
 
 The following results belong to the recorded September 24 revisions. Their distribution builders have since been removed; they do not certify the current release workflow. Current source/release verification is recorded separately in the release-alignment PR.

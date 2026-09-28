@@ -14,13 +14,12 @@
     "copyright": "Copyright (C) 2026 Vast Development Method. All rights reserved.",
     "copyright_year": "2026",
     "license": "GNU General Public License version 3 or later; see LICENSE",
-    "license_file": "LICENSE",
+    "license_file": "https://raw.githubusercontent.com/joomengine/mcp_component/main/LICENSE",
     "author": "Llewellyn van der Merwe",
     "author_email": "joomla@vdm.io",
     "author_url": "https://dev.vdm.io/",
     "description": "JoomEngine MCP component, webservices routing, and local console server.",
     "version_id": "com_joomengine_mcp",
-    "version": "0.1.1",
     "update_servers": "[[[PACKAGE_UPDATE_SERVER]]]",
     "changelog_servers": "[[[PACKAGE_CHANGELOG_SERVER]]]"
   },
@@ -31,19 +30,17 @@
   },
   "files": [
     {
-      "owner": "[[[SOURCE_OWNER]]]",
-      "repo": "[[[SOURCE_REPOSITORY]]]",
+      "owner": "joomengine",
+      "repo": "mcp_component",
       "id": "com_joomengine_mcp",
-      "type": "component",
-      "mode": "[[[COMPONENT_TAG]]]"
+      "type": "component"
     },
     {
-      "owner": "[[[CONSOLE_OWNER]]]",
-      "repo": "[[[CONSOLE_REPOSITORY]]]",
+      "owner": "joomengine",
+      "repo": "mcp_plugin",
       "id": "joomengine_mcp",
       "type": "plugin",
-      "group": "console",
-      "mode": "[[[CONSOLE_TAG]]]"
+      "group": "console"
     }
   ],
   "languages": [
