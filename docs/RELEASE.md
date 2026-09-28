@@ -1,79 +1,41 @@
 # Source installation and releases
 
-This repository is exclusively the component. **Code → Download ZIP** and tagged source ZIPs install directly through Joomla's extension installer. Production Composer dependencies, the catalogue seed, licences and owned webservices plugin are already tracked. No user or downstream packager runs Composer or a build script.
+This is the component repository. Its source ZIP installs directly in Joomla: production dependencies, installation data, licence and owned webservices plugin are already tracked. No downstream Composer or build step is required. The console plugin has its own installable repository.
 
-The console plugin has its own installable source repository and version. OctoJPack combines both extensions using `.octojpack` and publishes the Joomla package to a **separate repository**. The package manifest and package update/changelog files belong there, never in this component repository.
+OctoJPack combines the latest tagged component and console plugin using `.octojpack`. It owns package assembly and publication in the separate package repository. The package manifest and package update/changelog files belong there.
 
-## Release sequence
+## GitHub setup
 
-After merging reviewed changes and checking CI, open Actions → **Release component with OctoShoom and OctoJPack**, select the configured release branch and enter the next stable version, such as `1.0.0`. An optional `v` prefix is accepted; tags always use `vX.Y.Z` and Joomla XML uses `X.Y.Z`.
+Follow the upstream [git-user](https://github.com/octoleo/git-user#workflows), [OctoShoom](https://github.com/octoleo/octoshoom#quick-start) and [OctoJPack](https://github.com/octoleo/octojpack#quick-start) examples. Configure these repository or organization Actions secrets:
 
-1. Validate configuration, the previously released console tag and its OctoShoom checksum, and the separate package destination.
-2. Replace `[[[NEXT_VERSION]]]` in both changelogs, update component/routing manifest versions and creation dates, and update `.octojpack`'s version. Commit those files and atomically push the release branch and new immutable tag.
-3. Add the tag's `https://github.com/OWNER/REPO/archive/refs/tags/vVERSION.zip` URL to `joomengine_mcp_update_server.xml`, then commit the feed. Existing versions and checksums remain intact.
-4. Run the configured OctoShoom composite action synchronously. It downloads the tagged archive and commits SHA-512 to the source feed. Fetch that committed feed and verify its hash against the real download. Any failure stops the workflow.
-5. Render `.octojpack`'s repository/tag placeholders from GitHub configuration and invoke the configured OctoJPack composite action. It builds and pushes the combined package and version tag to the separate destination. The component workflow does not implement ZIP assembly or generate the package manifest.
-
-A manually pushed tag alone does not start this process: use the version-input workflow so changelogs and manifests are frozen before the immutable tag is created. No GitHub Release asset uploads are required. The first run populates the initially empty component feed with a real existing tag; no nonexistent historical downloads are advertised.
-
-The component manifest points at the live branch feed and Joomla XML changelog. The tag is created before the new feed entry/hash so hashing the immutable download cannot create a self-referential checksum.
-
-## GitHub configuration
-
-Set these under **Settings → Secrets and variables → Actions**. Values shown as descriptions must be supplied for your repositories; no destination repository is hardcoded in the workflow.
-
-| Variable | Value |
+| Secret | Value |
 | --- | --- |
-| `RELEASE_BRANCH` | Optional source release branch; defaults to this repository's default branch. Run the workflow from that branch. |
-| `OCTOSHOOM_REPOSITORY` | Shared hash action repository, normally `octoleo/octoshoom`. |
-| `OCTOSHOOM_REF` | Full reviewed 40-character commit SHA for the action. Inspected compatible revision: `a4eba6191388335e0301f74969d92151bc0f520d`. |
-| `OCTOJPACK_REPOSITORY` | Shared packaging action repository, normally `octoleo/octojpack`. |
-| `OCTOJPACK_REF` | Full reviewed commit SHA containing GitHub tag-archive support and required-extension failure handling; see [OctoJPack PR #2](https://github.com/octoleo/octojpack/pull/2). Pin the reviewed result, not an older Gitea-only implementation. |
-| `RELEASE_SSH_KNOWN_HOSTS` | Verified GitHub SSH `known_hosts` lines. Strict host-key checking remains enabled. |
-| `CONSOLE_REPOSITORY` | Console plugin `owner/repository`, normally `joomengine/mcp_plugin`. |
-| `CONSOLE_TAG` | Exact plugin tag, `vX.Y.Z`, whose plugin release and OctoShoom run have completed. It has an independent version with the same major as the component, as required by the plugin installer. |
-| `PACKAGE_REPOSITORY` | Existing separate `owner/repository` for the combined Joomla package. It must differ from component, console and tool repositories. |
-| `PACKAGE_BRANCH` | Existing branch in the package repository. OctoJPack owns its package contents. |
-| `PACKAGE_UPDATE_SERVER` | HTTPS URL of the package repository's own Joomla update feed. |
-| `PACKAGE_CHANGELOG_SERVER` | HTTPS URL of the package repository's own Joomla changelog. |
+| `GIT_USER`, `GIT_EMAIL` | Release Git identity. |
+| `GPG_KEY`, `GPG_USER` | Signing key and its user ID. |
+| `SSH_KEY`, `SSH_PUB` | Matching SSH keypair for that identity, with write access to the component and package repositories. |
+| `GIT_TOKEN` | GitHub API token for OctoJPack to read the source repositories. |
 
-| Secret | Access needed |
-| --- | --- |
-| `RELEASE_TOKEN` | GitHub token for source Contents writes, tool checkouts and API reads of source/console/package repositories. It must also permit changes to workflow files if source release commits include such files. |
-| `RELEASE_SSH_KEY` | Unencrypted SSH private key for OctoShoom's source-feed push and OctoJPack's package push. Use a machine/user identity with write access to both repositories; one GitHub deploy key cannot be reused across repositories. |
+`git-user` runs once. OctoShoom and OctoJPack inherit its Git configuration; OctoJPack reads the token from `VDM_GLOBAL_TOKEN`. The workflow supplies each action's configuration input and enables OctoJPack's native `push` option. There are no per-release repository, tool-ref or package-URL variables.
 
-The release identity must be allowed to push metadata commits and tags under your branch/ruleset policy. This workflow does not bypass branch protections. Do not store tokens or private keys in `.octojpack` or committed files. Package feeds/changelogs are owned and maintained by the package repository; their configured URLs must resolve to that repository's real metadata.
+## Release
 
-`.octojpack` contains ordinary OctoJPack package identity and extension definitions. Its visible `[[[...]]]` configuration markers are resolved in a temporary runner configuration from the table above. They are not install-time placeholders. Exact component and console tags are selected instead of "latest" modes, so unrelated releases cannot change the chosen extension versions.
+Release the console plugin first, then run **Release component with OctoShoom and OctoJPack** on `main` with the next version, such as `1.2.3` or `v1.2.3`.
+
+1. Freeze the pending changelogs and manifest versions, commit and create `v1.2.3`.
+2. Add the tag archive URL to the component's Joomla update feed.
+3. OctoShoom adds and commits the SHA-512 hashes.
+4. After it succeeds, OctoJPack reads `.octojpack` and builds/pushes the combined package.
+
+Both shared actions do their own work. There is no local packaging, hash calculation, checksum recheck or configuration rendering. `tools/release.php` only updates this component's release metadata. Existing tags are retained when rerunning an interrupted release; existing feed entries and hashes are preserved.
+
+`.octojpack` is also the standalone OctoJPack configuration. Its stable repository identities, raw GitHub feed/changelog URLs and raw licence URL belong in that file. Native latest-tag selection and `version_id` determine the package version. Workflow-only placeholders and generated configuration copies do not belong here.
 
 ## Changelogs
 
-Maintain `CHANGELOG.md` and `changelog.xml` together. New changes go at the top under the literal `[[[NEXT_VERSION]]]`. Use one pending section in each file, and create a new one after a release when subsequent changes begin. The release workflow assigns the version; agents must not guess it or relabel an already released section.
+Keep `CHANGELOG.md` and `changelog.xml` consistent. Record new changes under one literal `[[[NEXT_VERSION]]]` section in each file. The release replaces that marker with the entered version. Create the next pending section when subsequent changes begin; preserve released history.
 
-Joomla XML uses `changelogs/changelog`, component `element` = `com_joomengine_mcp`, `type` = `component`, and category elements `security`, `fix`, `language`, `addition`, `change`, `remove`, `note`, each containing `item` children. Markdown uses matching readable headings. Record compatibility warnings under Note, errors fixed under Fix, and security changes under Security. Preserve historical entries.
+Joomla XML uses `changelogs/changelog`, `element` = `com_joomengine_mcp`, `type` = `component`, and `security`, `fix`, `language`, `addition`, `change`, `remove` or `note` categories containing `item` children. Use matching Markdown headings. The manifest points to the raw GitHub changelog and update feed.
 
-The current 0.1.0/0.1.1 entries identify development baselines, not published tags. Choose a new unused version for the first release; the workflow refuses duplicate changelog versions.
+## Dependencies and checks
 
-## Retry a failed release
-
-Run the same workflow with the same version. An existing source tag must be an ancestor of the release branch and contain matching released metadata; it is never recreated or moved. Missing feed metadata can then be added, and OctoShoom can finish or verify its hash without changing older releases.
-
-An existing matching package tag is preserved. A retry cannot replace a newer package branch with an older version. Keep the same console selection and package configuration while resuming an interrupted version. If an existing tag has conflicting metadata, resolve it explicitly rather than deleting or force-updating tags.
-
-The component and plugin workflows serialize their own releases. A concurrent ordinary source push can cause a normal non-fast-forward rejection; the workflow stops and can be rerun safely.
-
-## Maintainer verification
-
-Dependency changes are resolved once by a maintainer using the root `composer.json`/lock and committed under `admin/vendor`. Use Composer 2 with PHP 8.3+ and the declared extensions:
-
-```bash
-composer validate --no-check-publish
-composer install --no-dev --prefer-dist --no-interaction --no-scripts
-php tests/package.php
-php tests/release.php
-php tests/run.php
-```
-
-Commit the complete dependency tree with its licences and lock. `admin/autoload.php` supplies the component namespace before and after Joomla relocates the administrator files. Do not manually patch third-party vendor code. CI checks a plain Git source archive, tests the relocated runtime, checks seed regeneration and runs the behavioral suites. Installed Joomla/MySQL/PostgreSQL and JCB workflows install source archives directly. These test archives are verification fixtures, not maintained distribution builders.
-
-Release metadata tests exercise successive versions, invalid inputs, preserved history, retry behavior and missing/mismatched checksums without publishing anything. Running the real release workflow is the explicit publication action.
+When dependencies change, maintainers run Composer and commit the lock and complete production runtime under `admin/vendor`, including licences. Do not edit vendor source by hand. CI checks source archives, relocated autoloading and the runtime; `php tests/release.php` checks version/changelog/feed edits without publishing.

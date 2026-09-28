@@ -19,6 +19,8 @@ jobs:
   release:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    env:
+      VDM_GLOBAL_TOKEN: ${{ secrets.GIT_TOKEN }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -46,13 +48,13 @@ jobs:
           tag="v$version"
           git remote set-url origin git@github.com:joomengine/mcp_component.git
           if ! git show-ref --verify --quiet "refs/tags/$tag"; then
-            php tools/release.php prepare "$version" joomengine/mcp_component main
+            php tools/release.php prepare "$version"
             git add joomengine_mcp.xml CHANGELOG.md changelog.xml plugins/webservices/joomengine_mcp/joomengine_mcp.xml
             git commit -m "Release $tag"
             git tag -a "$tag" -m "Release $tag"
             git push --atomic origin HEAD:main "refs/tags/$tag"
           fi
-          php tools/release.php feed "$version" joomengine/mcp_component main
+          php tools/release.php feed "$version"
           git add joomengine_mcp_update_server.xml
           if ! git diff --cached --quiet; then
             git commit -m "Add $tag to the Joomla update server"
@@ -67,5 +69,4 @@ jobs:
         uses: octoleo/octojpack@master
         with:
           config: .octojpack
-          token: ${{ secrets.GIT_TOKEN }}
           push: 'true'

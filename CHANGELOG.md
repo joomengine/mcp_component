@@ -12,9 +12,11 @@
 ### Addition
 
 - Add a manual version release workflow that freezes both changelogs, creates an immutable tag, updates the Joomla feed and waits for OctoShoom before invoking OctoJPack.
-- Document GitHub variables/secrets, release retries and the source-installation contract for future agents.
+- Document GitHub secrets and the source-installation contract for future agents.
 
 ### Change
+
+- Follow the Octoleo quick starts: set up Git once, run OctoShoom, then let OctoJPack read `.octojpack` directly.
 
 - Delegate combined Joomla package assembly exclusively to OctoJPack and a separate package repository.
 - Verify tracked source archives in component and console installation tests.
@@ -22,11 +24,12 @@
 ### Remove
 
 - Remove repository-local ZIP/package builders, distribution locks and package update metadata.
+- Remove temporary action checkouts, configuration rendering, custom SSH setup, duplicate hash verification and package repository checks.
 
 ### Note
 
-- Release the console plugin first and select its immutable tag in the component release configuration.
-- Configure the variables and secrets in docs/RELEASE.md before the first release. OctoJPack must include GitHub tag-archive support.
+- Release the console plugin first; OctoJPack selects the latest tags using its native configuration.
+- Configure the secrets documented in docs/RELEASE.md before the first release.
 
 ## 0.1.1 — development baseline
 
