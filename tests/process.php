@@ -11,7 +11,7 @@ use VDM\Component\JoomEngineMcp\Administrator\Domain\OperationException;
 use VDM\Component\JoomEngineMcp\Administrator\Process\PhpProcess;
 use VDM\Component\JoomEngineMcp\Administrator\Service\Json;
 
-require dirname(__DIR__) . '/vendor/autoload.php';
+require dirname(__DIR__) . '/admin/autoload.php';
 $checks = 0;
 $check = static function (bool $condition, string $message) use (&$checks): void
 {

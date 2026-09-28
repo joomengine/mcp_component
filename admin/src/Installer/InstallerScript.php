@@ -72,11 +72,11 @@ final class InstallerScript implements InstallerScriptInterface
 
 			$source = $adapter->getParent()->getPath('source');
 
-			foreach (['admin/vendor/autoload.php', 'admin/data/catalogue-seed.json', 'plugins/webservices/joomengine_mcp/joomengine_mcp.xml'] as $file)
+			foreach (['admin/autoload.php', 'admin/vendor/autoload.php', 'admin/data/catalogue-seed.json', 'plugins/webservices/joomengine_mcp/joomengine_mcp.xml'] as $file)
 			{
 				if (!is_file($source . '/' . $file))
 				{
-					throw new RuntimeException('Install the built component ZIP, not a GitHub source archive.');
+					throw new RuntimeException('The component source ZIP is incomplete; required file is missing: ' . $file);
 				}
 			}
 
@@ -124,7 +124,7 @@ final class InstallerScript implements InstallerScriptInterface
 
 		try
 		{
-			require_once JPATH_ADMINISTRATOR . '/components/com_joomengine_mcp/vendor/autoload.php';
+			require_once JPATH_ADMINISTRATOR . '/components/com_joomengine_mcp/autoload.php';
 			$store = new JoomlaStore($this->database);
 
 			if ($type !== 'install')

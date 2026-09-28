@@ -70,16 +70,14 @@ jobs:
       - name: Install the client dependencies for HTTPS and remote stdio acceptance
         working-directory: build/client-source
         run: composer install --no-interaction --prefer-dist --no-progress
-      - name: Build a complete distributable with its PHP dependencies
+      - name: Record the reviewed companion sources
         run: |
-          bash tools/build.sh
-          bash tools/build-distribution.sh "$GITHUB_WORKSPACE/build/plugin-source"
           mkdir -p build/evidence
           git -C build/plugin-source rev-parse HEAD > build/evidence/console-plugin-source.txt
           git -C build/client-source rev-parse HEAD > build/evidence/client-source.txt
-      - name: Validate packaged files and native manifests
+      - name: Validate committed runtime files and native manifests
         run: |
-          php tests/package.php --distribution
+          php tests/package.php
           php tests/release.php
       - name: Install, execute HTTP, console and HTTPS client operations, then upgrade
         env:
@@ -93,15 +91,14 @@ jobs:
           MCP_PLUGIN_SOURCE: ${{ github.workspace }}/build/plugin-source
           MCP_CLIENT_SOURCE: ${{ github.workspace }}/build/client-source
         run: bash tests/integration/run.sh
-      - name: Preserve redacted evidence and the development package
+      - name: Preserve redacted evidence and the tested source ZIPs
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: installed-${{ matrix.database }}-php-${{ matrix.php }}
           path: |
             build/evidence/
-            build/*joomengine_mcp-*.zip
-            build/*joomengine_mcp-*.zip.sha256
-            build/distribution.json
+            build/component-source.zip
+            build/console-plugin-source.zip
           if-no-files-found: error
           retention-days: 7

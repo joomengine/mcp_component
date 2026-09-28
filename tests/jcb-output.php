@@ -13,8 +13,8 @@ use VDM\Component\JoomEngineMcp\Administrator\Domain\OperationException;
 use VDM\Component\JoomEngineMcp\Administrator\Jcb\CommandOutput;
 
 $joomla = getenv('JOOMLA_SRC') ?: (getenv('JOOMLA_ROOT') ?: '');
-$autoload = dirname(__DIR__) . '/vendor/autoload.php';
-require is_file($autoload) ? $autoload : $joomla . '/administrator/components/com_joomengine_mcp/vendor/autoload.php';
+$autoload = dirname(__DIR__) . '/admin/autoload.php';
+require is_file($autoload) ? $autoload : $joomla . '/administrator/components/com_joomengine_mcp/autoload.php';
 
 if (!is_file($joomla . '/libraries/vendor/autoload.php'))
 {

@@ -46,16 +46,17 @@ php "$JOOMLA_ROOT/installation/joomla.php" install --site-name='MCP integration 
   --db-type="$MCP_TEST_DB_TYPE" --db-host="$MCP_TEST_DB_HOST" --db-user="$MCP_TEST_DB_USER" \
   --db-pass="${MCP_TEST_DB_PASS:-}" --db-name="$MCP_TEST_DB_NAME" --db-prefix=mcptest_ --no-interaction \
   > "$root/build/evidence/install-joomla.log" 2>&1
-version="$(php -r 'echo (string) simplexml_load_file($argv[1])->version;' "$root/joomengine_mcp.xml")"
-php "$JOOMLA_ROOT/cli/joomla.php" extension:install --path="$root/build/com_joomengine_mcp-$version.zip" --no-interaction --no-ansi \
+# Reproduce a GitHub source download, including its wrapper directory.
+git -C "$root" archive --format=zip --prefix=component-source/ --output="$root/build/component-source.zip" HEAD
+php "$root/tests/package.php" "$root/build/component-source.zip"
+php "$JOOMLA_ROOT/cli/joomla.php" extension:install --path="$root/build/component-source.zip" --no-interaction --no-ansi \
   | tee "$root/build/evidence/install-component.log"
 if [[ -n "${MCP_PLUGIN_SOURCE:-}" ]]; then
   export MCP_PLUGIN_SOURCE="$(realpath -- "$MCP_PLUGIN_SOURCE")"
   export MCP_COMPONENT_SOURCE="$root"
   [[ -f "$MCP_PLUGIN_SOURCE/joomengine_mcp.xml" && -f "$MCP_PLUGIN_SOURCE/tests/installed.php" ]]
-  php "$MCP_PLUGIN_SOURCE/build.php"
-  plugin_version="$(php -r 'echo (string) simplexml_load_file($argv[1])->version;' "$MCP_PLUGIN_SOURCE/joomengine_mcp.xml")"
-  php "$JOOMLA_ROOT/cli/joomla.php" extension:install --path="$MCP_PLUGIN_SOURCE/build/plg_console_joomengine_mcp-$plugin_version.zip" --no-interaction --no-ansi \
+  git -C "$MCP_PLUGIN_SOURCE" archive --format=zip --prefix=plugin-source/ --output="$root/build/console-plugin-source.zip" HEAD
+  php "$JOOMLA_ROOT/cli/joomla.php" extension:install --path="$root/build/console-plugin-source.zip" --no-interaction --no-ansi \
     | tee "$root/build/evidence/install-console-plugin.log"
 fi
 export MCP_TEST_BASE_URL="http://127.0.0.1:${MCP_TEST_HTTP_PORT:-18080}"
@@ -94,9 +95,8 @@ fi
 export MCP_TEST_LIFECYCLE_FILE="$work/lifecycle.json"
 php "$root/tests/integration/lifecycle.php" prepare | tee "$root/build/evidence/live-upgrade-prepare.log"
 # Upgrading the same package must retain definitions and operator configuration.
-php "$JOOMLA_ROOT/cli/joomla.php" extension:install --path="$root/build/com_joomengine_mcp-$version.zip" --no-interaction --no-ansi \
+php "$JOOMLA_ROOT/cli/joomla.php" extension:install --path="$root/build/component-source.zip" --no-interaction --no-ansi \
   | tee "$root/build/evidence/upgrade-component.log"
 php "$root/tests/integration/lifecycle.php" verify | tee "$root/build/evidence/live-upgrade.log"
 php "$root/tests/integration/installation.php" | tee "$root/build/evidence/live-upgrade-seed.log"
 php "$root/tests/integration/lifecycle.php" uninstall | tee "$root/build/evidence/live-uninstall.log"
-php "$root/tests/integration/package.php" | tee "$root/build/evidence/live-package-lifecycle.log"

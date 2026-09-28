@@ -28,11 +28,11 @@ use VDM\Component\JoomEngineMcp\Administrator\Service\RuntimeFactory;
 
 \defined('_JEXEC') or die;
 
-$autoload = dirname(__DIR__) . '/vendor/autoload.php';
+$autoload = dirname(__DIR__) . '/autoload.php';
 
 if (!is_file($autoload))
 {
-	throw new RuntimeException('The installed JoomEngine MCP runtime dependencies are missing. Install the built component package.');
+	throw new RuntimeException('The installed JoomEngine MCP runtime dependencies are missing. Reinstall the complete component source ZIP.');
 }
 
 require_once $autoload;

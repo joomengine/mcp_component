@@ -10,9 +10,9 @@
 use VDM\Component\JoomEngineMcp\Administrator\Security\SchemaValidator;
 use VDM\Component\JoomEngineMcp\Administrator\Service\Json;
 
-require dirname(__DIR__) . '/vendor/autoload.php';
+require dirname(__DIR__) . '/admin/autoload.php';
 $root = dirname(__DIR__);
-$seed = Json::decode(file_get_contents($root . '/data/catalogue-seed.json'), maximum: 16777216);
+$seed = Json::decode(file_get_contents($root . '/admin/data/catalogue-seed.json'), maximum: 16777216);
 // Compare original JSON objects, not an associative decode that could repeat
 // the migration's object/list mistake and falsely certify a malformed schema.
 $source = json_decode(file_get_contents($root . '/data/upstream-contracts.json'), false, 128, JSON_THROW_ON_ERROR);

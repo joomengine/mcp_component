@@ -113,6 +113,8 @@ elseif ($phase === 'uninstall')
 {
 	$component = new Extension($db);
 	$check($component->load(['type' => 'component', 'element' => 'com_joomengine_mcp']), 'Resolve exact installed component for removal');
+	$console = new Extension($db);
+	$hasConsole = $console->load(['type' => 'plugin', 'folder' => 'console', 'element' => 'joomengine_mcp']);
 	$coreArticles = (int) $db->setQuery('SELECT COUNT(*) FROM ' . $db->quoteName('#__content'))->loadResult();
 	$ownedEntities = array_merge(array_keys(Structure::definitions()), array_keys(Structure::state()));
 	$ownedTables = [];
@@ -132,6 +134,15 @@ elseif ($phase === 'uninstall')
 	$check(!(bool) $db->setQuery('SELECT extension_id FROM ' . $db->quoteName('#__extensions') . ' WHERE element = ' . $db->quote('joomengine_mcp') . ' AND folder = ' . $db->quote('webservices'))->loadResult(), 'Uninstall removes only the owned routing extension');
 	$check(!is_dir(JPATH_ADMINISTRATOR . '/components/com_joomengine_mcp') && !is_dir(JPATH_API . '/components/com_joomengine_mcp'), 'Uninstall removes administrator and API runtime');
 	$check((int) $db->setQuery('SELECT COUNT(*) FROM ' . $db->quoteName('#__content'))->loadResult() === $coreArticles, 'Removing MCP does not delete Joomla content');
+
+	if ($hasConsole)
+	{
+		$check($console->load((int) $console->extension_id), 'Component removal preserves the independently installed console plugin');
+		$installer = new Installer();
+		$installer->setDatabase($db);
+		$check($installer->uninstall('plugin', (int) $console->extension_id), 'The independent console plugin can be uninstalled separately');
+		$check(!is_dir(JPATH_PLUGINS . '/console/joomengine_mcp'), 'Console plugin uninstall removes its own runtime directory');
+	}
 }
 else
 {

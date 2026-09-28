@@ -1,102 +1,148 @@
 <?php
 /**
  * @package    JoomEngine.Mcp
- * @created    21 September 2026
  * @author     Llewellyn van der Merwe <https://dev.vdm.io>
  * @copyright  Copyright (C) 2026 Vast Development Method. All rights reserved.
  * @license    GNU General Public License version 3 or later; see LICENSE
  */
 
-/** Exercise release validation with actual ZIP bytes and explicit synthetic metadata. */
-$root = dirname(__DIR__);
-$version = (string) simplexml_load_file($root . '/joomengine_mcp.xml')->version;
-$directory = $root . '/build/release-test-' . bin2hex(random_bytes(6));
+/** Exercise release transitions without network, publishing tags, or building packages. */
+require dirname(__DIR__) . '/tools/release.php';
+$directory = sys_get_temp_dir() . '/mcp-release-' . bin2hex(random_bytes(8));
 mkdir($directory, 0700, true);
-$base = 'https://github.com/joomengine/mcp_component/releases/';
-$release = ['tag_name' => 'v' . $version, 'draft' => false, 'prerelease' => false,
-	'html_url' => $base . 'tag/v' . $version, 'published_at' => '2026-09-21T00:00:00Z', 'assets' => []];
 $checks = 0;
-
-foreach (['com_joomengine_mcp', 'pkg_joomengine_mcp'] as $element)
+$check = static function (bool $condition, string $message) use (&$checks): void
 {
-	foreach (['.zip', '.zip.sha256'] as $suffix)
+	if (!$condition)
 	{
-		$name = $element . '-' . $version . $suffix;
-		if (!is_file($root . '/build/' . $name) || !copy($root . '/build/' . $name, $directory . '/' . $name))
-		{
-			throw new RuntimeException('Build the complete distribution before release validation.');
-		}
-		$release['assets'][] = ['name' => $name, 'state' => 'uploaded', 'size' => filesize($directory . '/' . $name),
-			'browser_download_url' => $base . 'download/v' . $version . '/' . $name,
-			'digest' => 'sha256:' . hash_file('sha256', $directory . '/' . $name)];
-	}
-}
-
-$run = static function (array $metadata, bool $success) use ($root, $directory, &$checks): void
-{
-	file_put_contents($directory . '/release.json', json_encode($metadata, JSON_THROW_ON_ERROR));
-	$arguments = [PHP_BINARY];
-
-	if (is_string(php_ini_loaded_file()))
-	{
-		$arguments = array_merge($arguments, ['-c', php_ini_loaded_file()]);
-	}
-
-	$arguments = array_merge($arguments, ['-d', 'extension_dir=' . ini_get('extension_dir'),
-		$root . '/tools/update-feeds.php', $directory . '/release.json', $directory, $directory . '/feeds']);
-	$process = proc_open($arguments, [0 => ['file', '/dev/null', 'r'],
-		1 => ['file', $directory . '/stdout.log', 'w'], 2 => ['file', $directory . '/stderr.log', 'w']], $pipes);
-
-	if (!is_resource($process) || (proc_close($process) === 0) !== $success)
-	{
-		throw new RuntimeException('Release publication validation returned the wrong result: '
-			. file_get_contents($directory . '/stderr.log'));
+		throw new RuntimeException($message);
 	}
 
 	$checks++;
 };
+$reject = static function (array $arguments, string $root) use ($check): void
+{
+	$before = [];
+
+	foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS)) as $file)
+	{
+		$before[$file->getPathname()] = hash_file('sha256', $file->getPathname());
+	}
+
+	$rejected = false;
+
+	try
+	{
+		mcpRelease($arguments, $root);
+	}
+	catch (RuntimeException)
+	{
+		$rejected = true;
+	}
+
+	$check($rejected, 'Invalid release operation must fail.');
+
+	foreach ($before as $path => $hash)
+	{
+		$check(hash_file('sha256', $path) === $hash, 'Rejected operation must not change existing metadata.');
+	}
+};
 
 try
 {
-	$run($release, true);
-
-	foreach (['joomengine_mcp_update_server.xml' => 'component', 'pkg_joomengine_mcp_update_server.xml' => 'package'] as $name => $type)
+	foreach (['component', 'plugin'] as $type)
 	{
-		$feed = simplexml_load_file($directory . '/feeds/' . $name, SimpleXMLElement::class, LIBXML_NONET);
-		$archive = $directory . '/' . (string) $feed->update->element . '-' . $version . '.zip';
+		$root = $directory . '/' . $type;
+		mkdir($root . '/plugins/webservices/joomengine_mcp', 0700, true);
+		$element = $type === 'component' ? 'com_joomengine_mcp' : 'joomengine_mcp';
+		$folder = $type === 'plugin' ? '<folder>console</folder>' : '';
+		$changelogName = $type === 'component' ? 'changelog.xml' : 'joomengine_mcp_changelog.xml';
+		$pending = '<changelog><element>' . $element . '</element><type>' . $type . '</type>' . $folder
+			. '<version>[[[NEXT_VERSION]]]</version><fix><item>Preserve existing releases &amp; user changes.</item></fix></changelog>';
+		file_put_contents($root . '/joomengine_mcp.xml', '<extension type="' . $type . '" group="console">'
+			. '<version>1.0.0</version><creationDate>January 2026</creationDate>'
+			. '<updateservers><server>https://example.invalid/old.xml</server></updateservers>'
+			. '<changelogurl>https://example.invalid/old-changelog.xml</changelogurl></extension>');
+		file_put_contents($root . '/plugins/webservices/joomengine_mcp/joomengine_mcp.xml',
+			'<extension type="plugin" group="webservices"><version>1.0.0</version><creationDate>January 2026</creationDate></extension>');
+		file_put_contents($root . '/.octojpack', '{"package":{"version":"1.0.0"},"repository":{"owner":"[[[PACKAGE_OWNER]]]"}}');
+		file_put_contents($root . '/' . $changelogName, '<changelogs>' . $pending . '</changelogs>');
+		file_put_contents($root . '/CHANGELOG.md', "# Changelog\n\n## [[[NEXT_VERSION]]]\n\n### Fixed\n\n- Preserve updates.\n");
+		file_put_contents($root . '/joomengine_mcp_update_server.xml', '<updates/>');
+		$repository = 'test-owner/' . $type;
+		$branch = $type === 'component' ? 'stable/6.x' : 'stable/release&next#1';
+		$encodedBranch = $type === 'component' ? 'stable/6.x' : 'stable/release%26next%231';
 
-		if ((string) $feed->update->type !== $type || (string) $feed->update->version !== $version
-			|| (string) $feed->update->sha256 !== hash_file('sha256', $archive))
+		foreach (['01.1.0', '1.0', '1.0.0-beta', '1.0.0;false', '0.9.0'] as $invalid)
 		{
-			throw new RuntimeException('The verified update feed does not describe the real archive.');
+			$reject(['prepare', $invalid, $repository, $branch], $root);
 		}
+
+		$reject(['prepare', '1.1.0', 'invalid repository', $branch], $root);
+		$reject(['prepare', '1.1.0', $repository, "main\ninjected"], $root);
+		$initialFeed = file_get_contents($root . '/joomengine_mcp_update_server.xml');
+		mcpRelease(['prepare', 'v1.1.0', $repository, $branch], $root);
+		$manifest = mcpReleaseXml($root . '/joomengine_mcp.xml', 'extension');
+		$check(mcpReleaseValue($manifest, '/extension/version') === '1.1.0', 'Release normalizes the v prefix.');
+		$check(mcpReleaseValue($manifest, '/extension/creationDate') === gmdate('F Y'), 'Release refreshes the manifest date.');
+		$check(mcpReleaseValue($manifest, '/extension/updateservers/server')
+			=== 'https://raw.githubusercontent.com/' . $repository . '/' . $encodedBranch . '/joomengine_mcp_update_server.xml',
+			'Repository and branch determine the live feed URL.');
+		$check(!str_contains(file_get_contents($root . '/CHANGELOG.md'), '[[[NEXT_VERSION]]]')
+			&& !str_contains(file_get_contents($root . '/' . $changelogName), '[[[NEXT_VERSION]]]'),
+			'Both pending changelog sections are frozen into the release.');
+		$check(file_get_contents($root . '/joomengine_mcp_update_server.xml') === $initialFeed,
+			'Preparing a tag does not advertise its download before the tag exists.');
+		mcpRelease(['verify-tag', '1.1.0', $repository, $branch], $root);
 		$checks++;
+		$reject(['verify-tag', '1.0.0', $repository, $branch], $root);
+		$reject(['prepare', '1.1.0', $repository, $branch], $root);
+		mcpRelease(['feed', '1.1.0', $repository, $branch], $root);
+		$feed = mcpReleaseXml($root . '/joomengine_mcp_update_server.xml', 'updates');
+		$check(mcpReleaseValue($feed, '/updates/update/downloads/downloadurl')
+			=== 'https://github.com/' . $repository . '/archive/refs/tags/v1.1.0.zip', 'Update uses the immutable repository tag ZIP.');
+		$check((new DOMXPath($feed))->query('/updates/update/sha512')->length === 0,
+			'Only OctoShoom supplies the release checksum.');
+		$check(mcpReleaseValue($feed, '/updates/update/' . ($type === 'component' ? 'client' : 'folder'))
+			=== ($type === 'component' ? '1' : 'console'), 'Update preserves Joomla extension identity.');
+		$archive = $root . '/archive.zip';
+		file_put_contents($archive, 'Synthetic archive bytes for checksum comparison only.');
+		$reject(['verify-hash', '1.1.0', $repository, $branch, $archive], $root);
+		mcpReleaseAppend($feed->documentElement->firstChild, 'sha512', hash_file('sha512', $archive));
+		$feed->save($root . '/joomengine_mcp_update_server.xml');
+		mcpRelease(['verify-hash', '1.1.0', $repository, $branch, $archive], $root);
+		$checks++;
+		$hashedFeed = file_get_contents($root . '/joomengine_mcp_update_server.xml');
+		mcpRelease(['feed', '1.1.0', $repository, $branch], $root);
+		$check(file_get_contents($root . '/joomengine_mcp_update_server.xml') === $hashedFeed,
+			'Retry preserves published feed bytes including the OctoShoom hash.');
+		file_put_contents($archive, 'Tampered archive');
+		$reject(['verify-hash', '1.1.0', $repository, $branch, $archive], $root);
+		$reject(['feed', '1.1.0', 'different-owner/' . $type, $branch], $root);
+		$reject(['feed', '2.0.0', $repository, $branch], $root);
+
+		$changelog = file_get_contents($root . '/' . $changelogName);
+		file_put_contents($root . '/' . $changelogName, str_replace('<changelogs>', '<changelogs>' . $pending, $changelog));
+		$markdown = file_get_contents($root . '/CHANGELOG.md');
+		file_put_contents($root . '/CHANGELOG.md', str_replace('# Changelog', "# Changelog\n\n## [[[NEXT_VERSION]]]\n\n- Next changes.", $markdown));
+		mcpRelease(['prepare', '1.2.0', $repository, $branch], $root);
+		mcpRelease(['feed', '1.2.0', $repository, $branch], $root);
+		$feed = mcpReleaseXml($root . '/joomengine_mcp_update_server.xml', 'updates');
+		$check((new DOMXPath($feed))->query('/updates/update')->length === 2, 'Next release retains previous update entries.');
+		$check(strlen(mcpReleaseValue($feed, '/updates/update[version="1.1.0"]/sha512')) === 128,
+			'Next release retains the previous immutable checksum.');
+		$latestFeed = file_get_contents($root . '/joomengine_mcp_update_server.xml');
+		mcpRelease(['feed', '1.1.0', $repository, $branch], $root);
+		$check(file_get_contents($root . '/joomengine_mcp_update_server.xml') === $latestFeed,
+			'Retrying an older published tag never rolls back a newer feed entry.');
+		$duplicate = $feed->documentElement->lastChild->cloneNode(true);
+		$feed->documentElement->appendChild($duplicate);
+		$feed->save($root . '/joomengine_mcp_update_server.xml');
+		$reject(['feed', '1.1.0', $repository, $branch], $root);
 	}
 
-	foreach (['draft' => true, 'prerelease' => true, 'tag_name' => 'v0.0.0',
-		'published_at' => null, 'html_url' => 'https://example.invalid/release'] as $key => $value)
-	{
-		$invalid = $release;
-		$invalid[$key] = $value;
-		$run($invalid, false);
-	}
-
-	foreach (['state' => 'new', 'size' => 0, 'browser_download_url' => 'https://example.invalid/archive.zip',
-		'digest' => 'sha256:' . str_repeat('0', 64)] as $key => $value)
-	{
-		$invalid = $release;
-		$invalid['assets'][0][$key] = $value;
-		$run($invalid, false);
-	}
-
-	$invalid = $release;
-	array_pop($invalid['assets']);
-	$run($invalid, false);
-	file_put_contents($directory . '/com_joomengine_mcp-' . $version . '.zip', 'tampered archive');
-	$run($release, false);
-
-	echo json_encode(['checks' => $checks, 'metadata' => 'synthetic; no release published',
-		'archives' => 'actual built distribution ZIPs'], JSON_THROW_ON_ERROR) . "\n";
+	echo json_encode(['checks' => $checks, 'metadataTransitions' => 'passed',
+		'publication' => 'not run; no network or package generation'], JSON_THROW_ON_ERROR) . "\n";
 }
 finally
 {
@@ -105,5 +151,6 @@ finally
 	{
 		$file->isDir() ? rmdir($file->getPathname()) : unlink($file->getPathname());
 	}
+
 	rmdir($directory);
 }

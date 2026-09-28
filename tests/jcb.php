@@ -21,7 +21,7 @@ use VDM\Component\JoomEngineMcp\Administrator\Service\Settings;
 use VDM\Component\JoomEngineMcp\Tests\Support\MemoryStore;
 use VDM\Component\JoomEngineMcp\Tests\Support\Principal;
 
-require dirname(__DIR__) . '/vendor/autoload.php';
+require dirname(__DIR__) . '/admin/autoload.php';
 require __DIR__ . '/Support/MemoryStore.php';
 require __DIR__ . '/Support/Principal.php';
 

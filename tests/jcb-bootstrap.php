@@ -10,8 +10,8 @@
 use VDM\Component\JoomEngineMcp\Administrator\Console\Bootstrap;
 
 $joomla = getenv('JOOMLA_SRC') ?: (getenv('JOOMLA_ROOT') ?: '');
-$autoload = dirname(__DIR__) . '/vendor/autoload.php';
-require is_file($autoload) ? $autoload : $joomla . '/administrator/components/com_joomengine_mcp/vendor/autoload.php';
+$autoload = dirname(__DIR__) . '/admin/autoload.php';
+require is_file($autoload) ? $autoload : $joomla . '/administrator/components/com_joomengine_mcp/autoload.php';
 $source = file_get_contents($joomla . '/cli/joomla.php');
 if (preg_match('/^const JOOMLA_MINIMUM_PHP = [\x22\x27]([0-9.]+)[\x22\x27];$/m', $source, $native) !== 1)
 {

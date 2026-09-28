@@ -1,16 +1,40 @@
 <?xml version="1.0" encoding="utf-8"?>
 <changelogs>
   <changelog>
+    <element>com_joomengine_mcp</element>
+    <type>component</type>
+    <version>[[[NEXT_VERSION]]]</version>
+    <fix>
+      <item>Make the source ZIP directly installable with committed production dependencies, relocation-safe autoloading, catalogue seed and administrator licence.</item>
+      <item>Point component update discovery to the maintained native XML feed.</item>
+    </fix>
+    <addition>
+      <item>Add manual version releases with changelog freezing, immutable tags, Joomla update entries and synchronous OctoShoom before OctoJPack.</item>
+      <item>Document release configuration, retries and source installation requirements for maintainers and agents.</item>
+    </addition>
+    <change>
+      <item>Delegate combined Joomla package assembly exclusively to OctoJPack and a separate package repository.</item>
+      <item>Verify tracked source archives in component and console installation tests.</item>
+    </change>
+    <remove><item>Remove local ZIP/package builders, distribution locks and package update metadata.</item></remove>
+    <note>
+      <item>Release the console plugin first and configure its immutable tag before the component release.</item>
+      <item>Configure the documented GitHub variables and secrets; OctoJPack must include GitHub tag-archive support.</item>
+    </note>
+  </changelog>
+  <changelog>
     <element>com_joomengine_mcp</element><type>component</type><version>0.1.1</version>
     <addition>
       <item>Installed JCB catalogue synchronization and confirmed command planning.</item>
       <item>Durable owned jobs, cancellation, recovery and verified compiler artifacts.</item>
-      <item>Combined Joomla package, immutable dependency pins and verified release update feeds.</item>
+      <item>Versioned database migrations and installed Joomla/JCB behavioural tests.</item>
     </addition>
-    <note><item>See CHANGELOG.md and docs/IMPLEMENTATION.md for current verification and release status.</item></note>
+    <change><item>Preserve original API-user authority in workers and require a new plan for stale definitions or state.</item></change>
+    <note><item>Development baseline. See CHANGELOG.md and docs/IMPLEMENTATION.md for verification evidence.</item></note>
   </changelog>
   <changelog>
     <element>com_joomengine_mcp</element><type>component</type><version>0.1.0</version>
-    <note><item>Development version. See CHANGELOG.md and the pull request for verified capabilities; no production release has been published.</item></note>
+    <addition><item>Database-driven MCP runtime, native administrator interface, API routing, portable SQL and shared console contracts.</item></addition>
+    <note><item>Development baseline; published immutable tags establish release availability.</item></note>
   </changelog>
 </changelogs>

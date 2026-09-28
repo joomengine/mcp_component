@@ -29,7 +29,7 @@ use VDM\Component\JoomEngineMcp\Tests\Support\MemoryStore;
 use VDM\Component\JoomEngineMcp\Tests\Support\Principal;
 
 
-require dirname(__DIR__) . '/vendor/autoload.php';
+require dirname(__DIR__) . '/admin/autoload.php';
 require __DIR__ . '/Support/MemoryStore.php';
 require __DIR__ . '/Support/Principal.php';
 set_error_handler(static function (int $severity, string $message, string $file, int $line): never
@@ -111,7 +111,7 @@ $http = new class implements ClientInterface
 		return new Response(200, [], Json::encode(['data' => ['id' => (string) $id, 'attributes' => $this->items[$id]]]));
 	}
 };
-$seed = Json::decode(file_get_contents(dirname(__DIR__) . '/data/catalogue-seed.json'))['entities'];
+$seed = Json::decode(file_get_contents(dirname(__DIR__) . '/admin/data/catalogue-seed.json'))['entities'];
 $store = new MemoryStore($seed);
 $principal = new Principal('joomla:17', 'api', [1]);
 $settings = new Settings(['api_base' => 'https://joomla.example/api/index.php']);

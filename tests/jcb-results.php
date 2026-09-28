@@ -14,8 +14,8 @@ use VDM\Joomla\Interfaces\Data\LoadInterface;
 
 $joomla = getenv('JOOMLA_SRC') ?: (getenv('JOOMLA_ROOT') ?: '');
 $jcb = getenv('JCB_SRC') ?: $joomla;
-$autoload = dirname(__DIR__) . '/vendor/autoload.php';
-require is_file($autoload) ? $autoload : $joomla . '/administrator/components/com_joomengine_mcp/vendor/autoload.php';
+$autoload = dirname(__DIR__) . '/admin/autoload.php';
+require is_file($autoload) ? $autoload : $joomla . '/administrator/components/com_joomengine_mcp/autoload.php';
 
 if (!is_file($joomla . '/libraries/vendor/autoload.php') || !is_dir($jcb . '/libraries/vendor_jcb/VDM.Joomla'))
 {

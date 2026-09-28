@@ -10,7 +10,7 @@
 use VDM\Component\JoomEngineMcp\Administrator\Job\ProcessLauncher;
 use VDM\Component\JoomEngineMcp\Administrator\Service\Json;
 
-require dirname(__DIR__) . '/vendor/autoload.php';
+require dirname(__DIR__) . '/admin/autoload.php';
 $base = sys_get_temp_dir() . '/mcp-job-process-' . bin2hex(random_bytes(8));
 $directory = $base . '/administrator/components/com_joomengine_mcp/cli';
 mkdir($directory, 0700, true);

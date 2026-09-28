@@ -70,7 +70,7 @@ try
 	define('JPATH_BASE', $root);
 	require JPATH_BASE . '/includes/defines.php';
 	require JPATH_BASE . '/includes/framework.php';
-	require dirname(__DIR__) . '/vendor/autoload.php';
+	require dirname(__DIR__) . '/autoload.php';
 	$container = Factory::getContainer();
 	$container->alias('session', 'session.cli')->alias(Session::class, 'session.cli')
 		->alias(\Joomla\Session\Session::class, 'session.cli')->alias(SessionInterface::class, 'session.cli');

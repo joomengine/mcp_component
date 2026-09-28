@@ -12,7 +12,7 @@ use VDM\Component\JoomEngineMcp\Administrator\Http\NetworkException;
 
 
 $root = dirname(__DIR__);
-require $root . '/vendor/autoload.php';
+require $root . '/admin/autoload.php';
 $composer = json_decode(file_get_contents($root . '/composer.json'), true, 32, JSON_THROW_ON_ERROR);
 $surface = json_decode(file_get_contents($root . '/docs/integrations/jcb-surface.json'), true, 64, JSON_THROW_ON_ERROR);
 $checks = 0;
@@ -30,10 +30,8 @@ $check($composer['name'] === 'joomengine/mcp-component', 'Component package iden
 $dependencies = ($composer['require'] ?? []) + ($composer['require-dev'] ?? []);
 $check(!isset($dependencies['joomengine/mcp-client']), 'The server must not depend on its external client.');
 
-foreach (array_keys($composer['autoload']['psr-4']) as $namespace)
-{
-	$check(str_starts_with($namespace, 'VDM\\Component\\JoomEngineMcp\\'), 'First-party server autoloading must remain component-owned.');
-}
+$check(($composer['config']['vendor-dir'] ?? '') === 'admin/vendor', 'Production dependencies belong to the installable administrator tree.');
+$check(!isset($composer['autoload']), 'Composer dependencies must not contain source-root-relative component mappings.');
 
 $check(!is_dir($root . '/libraries/src'), 'The extracted external-client library tree must not remain.');
 $check(new CurlClient() instanceof ClientInterface, 'Server-owned outbound HTTP transport must remain available.');

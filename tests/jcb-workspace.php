@@ -20,8 +20,8 @@ use VDM\Component\JoomEngineMcp\Tests\Support\Principal;
 
 $joomla = getenv('JOOMLA_SRC') ?: (getenv('JOOMLA_ROOT') ?: '');
 $jcb = getenv('JCB_SRC') ?: $joomla;
-$autoload = dirname(__DIR__) . '/vendor/autoload.php';
-require is_file($autoload) ? $autoload : $joomla . '/administrator/components/com_joomengine_mcp/vendor/autoload.php';
+$autoload = dirname(__DIR__) . '/admin/autoload.php';
+require is_file($autoload) ? $autoload : $joomla . '/administrator/components/com_joomengine_mcp/autoload.php';
 require $joomla . '/libraries/vendor/autoload.php';
 require __DIR__ . '/Support/MemoryStore.php';
 require __DIR__ . '/Support/Principal.php';
