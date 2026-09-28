@@ -1,4 +1,4 @@
-name: Release component with OctoJPack and OctoShoom
+name: Release component with OctoShoom and OctoJPack
 
 on:
   workflow_dispatch:
@@ -54,24 +54,23 @@ jobs:
             git tag -a "$tag" -m "Release $tag"
             git push --atomic origin HEAD:main "refs/tags/$tag"
           fi
-      - name: Build and push the package
-        id: package
-        uses: octoleo/octojpack@master
-        with:
-          config: .octojpack
-          push: 'true'
-      - name: Update the package download entry
+      - name: Update the component download entry
         env:
-          VERSION: ${{ steps.package.outputs.version }}
+          VERSION: ${{ inputs.version }}
         run: |
           php tools/release.php feed "$VERSION"
           git add joomengine_mcp_update_server.xml
           if ! git diff --cached --quiet; then
-            git commit -m "Publish package $VERSION update metadata"
+            git commit -m "Publish component $VERSION update metadata"
             git push origin HEAD:main
           fi
-      - name: Hash the published package
+      - name: Hash the published component
         uses: octoleo/octoshoom@master
         with:
           config-json: |
             {"update_servers":[{"owner":"joomengine","repo":"mcp_component","branch":"main","path":"joomengine_mcp_update_server.xml"}]}
+      - name: Build and push the package
+        uses: octoleo/octojpack@master
+        with:
+          config: .octojpack
+          push: 'true'
