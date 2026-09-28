@@ -118,6 +118,8 @@ $init = $exchange(['jsonrpc' => '2.0', 'id' => 1, 'method' => 'initialize', 'par
 	'protocolVersion' => '2025-11-25', 'capabilities' => (object) [], 'clientInfo' => ['name' => 'php-contract', 'version' => '1.0.0'],
 ]]);
 $check($init['status'] === 200 && ($init['body']['result']['protocolVersion'] ?? '') === '2025-11-25', 'SDK handshake failed: ' . Json::encode($init));
+$manifestVersion = (string) simplexml_load_file(dirname(__DIR__) . '/joomengine_mcp.xml')->version;
+$check(($init['body']['result']['serverInfo']['version'] ?? '') === $manifestVersion, 'SDK handshake must advertise the native component manifest version.');
 $check($sessionId !== '', 'Handshake did not issue a session identifier.');
 $check(($init['body']['result']['capabilities']['resources']['subscribe'] ?? false) === false, 'Unimplemented subscriptions advertised.');
 $exchange(['jsonrpc' => '2.0', 'method' => 'notifications/initialized']);
@@ -185,6 +187,8 @@ $modernExchange = static function (string $method, array $params = [], array $ex
 };
 $modern = $modernExchange('server/discover');
 $check($modern['status'] === 200 && isset($modern['body']['result']['supportedVersions']), 'Modern discovery failed: ' . Json::encode($modern));
+$check(($modern['body']['result']['_meta']['io.modelcontextprotocol/serverInfo']['version'] ?? '') === $manifestVersion,
+	'Modern discovery must advertise the native component manifest version.');
 $check($modern['session'] === '' && $store->find('session') === [], 'Modern requests unexpectedly create handshake sessions.');
 $modern = $modernExchange('tools/list');
 $check(isset($modern['body']['result']['tools']), 'Modern tool listing failed: ' . Json::encode($modern));

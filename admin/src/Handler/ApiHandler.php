@@ -16,6 +16,7 @@ use Psr\Http\Client\ClientExceptionInterface;
 use VDM\Component\JoomEngineMcp\Administrator\Contract\HandlerInterface;
 use VDM\Component\JoomEngineMcp\Administrator\Contract\PrincipalInterface;
 use VDM\Component\JoomEngineMcp\Administrator\Domain\OperationException;
+use VDM\Component\JoomEngineMcp\Administrator\Service\ComponentVersion;
 use VDM\Component\JoomEngineMcp\Administrator\Service\Json;
 use VDM\Component\JoomEngineMcp\Administrator\Service\Settings;
 
@@ -82,7 +83,7 @@ final class ApiHandler implements HandlerInterface
 		}
 
 		$resolved = $this->builder->build($arguments, $config, $current);
-		$headers = ['Accept' => 'application/vnd.api+json, application/json', 'User-Agent' => 'JoomEngine-MCP-for-Joomla/0.1.0'];
+		$headers = ['Accept' => 'application/vnd.api+json, application/json', 'User-Agent' => 'JoomEngine-MCP-for-Joomla/' . ComponentVersion::get()];
 		$credential = $this->token;
 		$authentication = $config['authentication'] ?? 'joomla-api-token';
 

@@ -43,3 +43,5 @@ PHP style authority: https://github.com/extension-builder/joomla/blob/main/docs/
 ## Verification
 
 Run syntax/style/unit/schema/manifest/language/package tests, exact source-to-PHP parity and protocol conformance. Add disposable Joomla 6 core and JCB installation/update/uninstall, API token/view-level/asset tests, true CRUD read-back/cleanup, CLI package/compiler scenarios, job concurrency/cancellation/reconciliation and client interoperability. Verify both JCB-absent core functionality and JCB-present full coverage. Generic behavioural contracts are preferred to issue-specific fixtures. Record real failures and missing evidence; never turn missing infrastructure or upstream no-op behaviour into a pass.
+
+Runtime protocol and transport version identifiers must read the native component manifest; never duplicate a hardcoded version that the release workflow could leave stale.
