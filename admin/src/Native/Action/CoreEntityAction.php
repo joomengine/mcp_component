@@ -270,7 +270,7 @@ final class CoreEntityAction implements ActionInterface
 			throw new ActionException('NOT_FOUND', sprintf('%s %d was not found.', ucfirst($this->entity->label), $id));
 		}
 
-		$record = $this->normalise($item);
+		$record = $this->normalise($item, $model, $id);
 		$returnedId = $record[$this->entity->primaryKey] ?? $record['id'] ?? null;
 
 		if ($returnedId !== null && (int) $returnedId !== $id)
@@ -609,13 +609,17 @@ final class CoreEntityAction implements ActionInterface
 	/**
 	 * Project native output onto the reviewed readable fields.
 	 *
-	 * @param   object|array<string, mixed>  $item  @return array<string, mixed>
+	 * @param   object|array<string, mixed>  $item   Authoritative native item.
+	 * @param   ?object                     $model  Native item model, absent for list projections.
+	 * @param   ?int                        $id     Accepted item identifier.
+	 * @return  array<string, mixed>
 	 *
 	 * @since  0.1.0
 	 */
-	private function normalise(object|array $item): array
+	private function normalise(object|array $item, ?object $model = null, ?int $id = null): array
 	{
 		$source = is_object($item) ? get_object_vars($item) : $item;
+		$source = $this->storedJsonFields($source, $model, $id);
 		$result = [];
 
 		foreach ($this->entity->readFields as $field)
@@ -629,6 +633,107 @@ final class CoreEntityAction implements ActionInterface
 		}
 
 		return $result;
+	}
+
+	/**
+	 * Recover stored Registry JSON types after native item models convert them to arrays.
+	 *
+	 * The model must already have returned the item. Only reviewed readable fields
+	 * with unchanged model-projected contents are restored. List projections never
+	 * perform additional table reads.
+	 *
+	 * @param array<string,mixed> $source Accepted model item.
+	 * @param ?object $model Native item model.
+	 * @param ?int $id Requested or saved identifier.
+	 * @return array<string,mixed> Item with bounded persisted JSON fields.
+	 * @since 0.1.2
+	 */
+	private function storedJsonFields(array $source, ?object $model, ?int $id): array
+	{
+		$fields = array_intersect(['params', 'fieldparams', 'metadata', 'attribs', 'images', 'urls'],
+			$this->entity->readFields, array_keys($source));
+		$returnedId = $source[$this->entity->primaryKey] ?? $source['id'] ?? null;
+
+		if ($fields === [] || $model === null || $id === null || !method_exists($model, 'getTable')
+			|| (!is_int($returnedId) && !(is_string($returnedId) && ctype_digit($returnedId)))
+			|| $id < 1 || (int) $returnedId !== $id)
+		{
+			return $source;
+		}
+
+		try
+		{
+			$table = $model->getTable();
+
+			if (!is_object($table) || !method_exists($table, 'load') || $table->load($id) !== true)
+			{
+				return $source;
+			}
+
+			foreach ($fields as $field)
+			{
+				$raw = $table->$field ?? null;
+
+				if (!is_string($raw) || strlen($raw) > 524_288)
+				{
+					continue;
+				}
+
+				try
+				{
+					$value = json_decode($raw, false, 64, JSON_THROW_ON_ERROR);
+					$projected = json_encode($this->safeOutput($source[$field]), JSON_THROW_ON_ERROR);
+
+					if (($value instanceof stdClass || is_array($value)) && strlen($projected) <= 524_288
+						&& $this->sameJsonContents(json_decode($raw, true, 64, JSON_THROW_ON_ERROR),
+							json_decode($projected, true, 64, JSON_THROW_ON_ERROR)))
+					{
+						$source[$field] = $value;
+					}
+				}
+				catch (Throwable)
+				{
+					// A malformed stored value cannot supply stronger verification evidence.
+				}
+			}
+		}
+		catch (Throwable)
+		{
+			// Keep the model evidence when independent table loading is unavailable.
+		}
+
+		return $source;
+	}
+
+	/**
+	 * Compare JSON contents strictly after native Registry object/array conversion.
+	 *
+	 * @param mixed $stored Decoded stored values.
+	 * @param mixed $projected Decoded model-projected values.
+	 * @return bool Equal values without replacing model-filtered or redacted contents.
+	 * @since 0.1.2
+	 */
+	private function sameJsonContents(mixed $stored, mixed $projected): bool
+	{
+		if (!is_array($stored) || !is_array($projected))
+		{
+			return $stored === $projected;
+		}
+
+		if (count($stored) !== count($projected))
+		{
+			return false;
+		}
+
+		foreach ($stored as $key => $value)
+		{
+			if (!array_key_exists($key, $projected) || !$this->sameJsonContents($value, $projected[$key]))
+			{
+				return false;
+			}
+		}
+
+		return true;
 	}
 
 	/**
@@ -664,7 +769,9 @@ final class CoreEntityAction implements ActionInterface
 			}
 		}
 
-		if (is_object($value))
+		$isObject = is_object($value);
+
+		if ($isObject)
 		{
 			$value = get_object_vars($value);
 		}
@@ -686,7 +793,7 @@ final class CoreEntityAction implements ActionInterface
 			$result[$key] = $this->safeOutput($nested, $depth + 1);
 		}
 
-		return $result;
+		return $isObject && array_is_list($result) ? (object) $result : $result;
 	}
 
 	/**
@@ -875,7 +982,7 @@ final class CoreEntityAction implements ActionInterface
 		{
 			$item = $model->getItem($id);
 
-			return is_object($item) || is_array($item) ? $this->normalise($item) : null;
+			return is_object($item) || is_array($item) ? $this->normalise($item, $model, $id) : null;
 		}
 		catch (Throwable)
 		{

@@ -88,7 +88,26 @@ final class StdioFixture
 		$data = json_decode(json_encode($result->structuredContent ?? [], JSON_THROW_ON_ERROR), true, 128, JSON_THROW_ON_ERROR);
 		if ($result->isError)
 		{
-			throw new RuntimeException('Installed stdio tool ' . $name . ' failed; inspect the server audit for its execution outcome.');
+			$diagnostic = [];
+
+			foreach (['code' => $data['error']['code'] ?? null, 'verificationStatus' => $data['verification']['status'] ?? null] as $key => $value)
+			{
+				if (is_string($value) && preg_match('/\A[A-Za-z][A-Za-z0-9_-]{0,63}\z/D', $value) === 1)
+				{
+					$diagnostic[$key] = $value;
+				}
+			}
+
+			$fields = $data['verification']['differentFields'] ?? [];
+
+			if (is_array($fields))
+			{
+				$diagnostic['differentFields'] = array_values(array_filter(array_slice($fields, 0, 32),
+					static fn (mixed $value): bool => is_string($value) && preg_match('/\A[A-Za-z][A-Za-z0-9_]{0,63}\z/D', $value) === 1));
+			}
+
+			throw new RuntimeException('Installed stdio tool ' . $name . ' failed: '
+				. json_encode($diagnostic, JSON_THROW_ON_ERROR) . '; inspect the server audit for its execution outcome.');
 		}
 		return $data;
 	}
