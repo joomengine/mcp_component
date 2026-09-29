@@ -120,24 +120,27 @@ try
 			$data = ['title' => $name, 'name' => $name, 'label' => $name, 'type' => 'text',
 				'group_id' => 0, 'state' => 1, 'access' => 1, 'language' => '*', 'required' => 0,
 				'only_use_in_subform' => 0, 'description' => '', 'note' => '', 'ordering' => 0,
-				'params' => [], 'fieldparams' => []];
+				'params' => ['show_on' => ''], 'fieldparams' => ['filter' => 'raw']];
 
 			if ($case === 'explicit-zero')
 			{
 				$data['default_value'] = $expected;
 			}
 
-			// Prepare only plugin parameter shapes through the actual native form.
-			// API validation supplies those defaults; copying them prevents unrelated
-			// parameter normalization from obscuring the omitted-default regression.
+			// Joomla filters supplied leaf values, so empty groups disappear from
+			// validated data. Supply native options for both-client visibility and
+			// the raw text filter, then keep their filtered parameter shapes.
 			$model = $createFieldModel();
 			$formInput = $data + ['id' => 0, 'context' => 'com_content.article', 'default_value' => $expected];
 			Form::addFormPath(JPATH_ADMINISTRATOR . '/components/com_fields/forms');
 			$form = $model->getForm($formInput, false);
 			$check($form !== false, $track . ' ' . $case . ' loads the installed native field form');
 			$filtered = $model->validate($form, $formInput);
+			$errors = array_map(static fn (mixed $error): string => $error instanceof Throwable ? $error->getMessage() : (string) $error, $model->getErrors());
 			$check(is_array($filtered) && is_array($filtered['params'] ?? null) && is_array($filtered['fieldparams'] ?? null),
-				$track . ' ' . $case . ' validates parameter shapes through the installed text field plugin');
+				$track . ' ' . $case . ' validates parameter shapes through the installed text field plugin: '
+				. Json::encode(['errors' => $errors, 'resultType' => get_debug_type($filtered),
+					'paramsType' => get_debug_type($filtered['params'] ?? null), 'fieldparamsType' => get_debug_type($filtered['fieldparams'] ?? null)]));
 			$data['params'] = $filtered['params'];
 			$data['fieldparams'] = $filtered['fieldparams'];
 			$check($case !== 'omitted' || !array_key_exists('default_value', $data), $track . ' omitted-default input stays absent at the MCP boundary');
