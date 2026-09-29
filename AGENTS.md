@@ -8,6 +8,13 @@ The migration PR #1 has been merged. Branch new work from current `main`, or con
 
 ## Repository ownership
 
+Every improvement to `joomengine/joomla-mcp` must advance this PHP implementation
+in the same change cycle. Use linked branches and PRs, reference the originating
+issue, and test equivalent behavior and authorization boundaries. Document any
+transport-specific limitations explicitly; catalogue presence alone is not
+executable parity. This standing requirement does not authorize unrelated edits
+to the TypeScript repository unless that work is included in the active request.
+
 The external Composer MCP client and remote stdio bridge belong exclusively to `joomengine/mcp_client`, package `joomengine/mcp-client`, namespace `VDM\Joomla\Mcp\Client`. Do not implement or reintroduce them here. This component's composer.json is server-only (`joomengine/mcp-component`); its outbound Joomla API HTTP infrastructure lives in `admin/src/Http` under the component Administrator namespace. Neither component nor console plugin may depend on the external client. Coordinate wire contracts through docs/CLIENT-HANDOFF.md, not shared administrator code in the client.
 
 ## Names and authority
