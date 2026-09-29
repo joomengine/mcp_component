@@ -87,23 +87,23 @@ try
 			$title = $prefix . ' ' . $track . ' ' . $name;
 			$action = 'templates.' . ($nativeClient === 0 ? 'site' : 'administrator') . '-styles.create';
 			$data = ['title' => $title, 'template' => $name, 'home' => '0'];
+			$parameters = $db->setQuery('SELECT params FROM ' . $db->quoteName('#__template_styles') . ' WHERE template = ' . $db->quote($name) . ' AND client_id = ' . $nativeClient . ' ORDER BY id', 0, 1)->loadResult();
+			$data['params'] = json_decode((string) $parameters, true, 64, JSON_THROW_ON_ERROR);
 			if ($name === $template)
 			{
-				$parameters = $db->setQuery('SELECT params FROM ' . $db->quoteName('#__template_styles') . ' WHERE template = ' . $db->quote($template) . ' AND client_id = 0 ORDER BY id', 0, 1)->loadResult();
-				$data['params'] = json_decode((string) $parameters, true, 64, JSON_THROW_ON_ERROR);
 				$data['params']['siteTitle'] = $template;
-				// Installer defaults are strings; use the native form's field types
-				// so strict read-back compares the values Joomla will actually save.
-				$styleModel = $app->bootComponent('com_templates')->getMVCFactory()->createModel('Style', 'Administrator', ['ignore_request' => true]);
-				$styleModel->setCurrentUser($admin);
-				$formData = $data + ['client_id' => $nativeClient];
-				Form::addFormPath(JPATH_ADMINISTRATOR . '/components/com_templates/forms');
-				$form = $styleModel->getForm($formData, false);
-				$check($form !== false, 'Load the native child style form');
-				$filtered = $styleModel->validate($form, $formData);
-				$check(is_array($filtered) && is_array($filtered['params'] ?? null), 'Validate child parameters through the native form');
-				$data['params'] = $filtered['params'];
 			}
+			// Installer defaults are strings; use the native form's field types
+			// so strict read-back compares the values Joomla will actually save.
+			$styleModel = $app->bootComponent('com_templates')->getMVCFactory()->createModel('Style', 'Administrator', ['ignore_request' => true]);
+			$styleModel->setCurrentUser($admin);
+			$formData = $data + ['client_id' => $nativeClient];
+			Form::addFormPath(JPATH_ADMINISTRATOR . '/components/com_templates/forms');
+			$form = $styleModel->getForm($formData, false);
+			$check($form !== false, 'Load the native template style form');
+			$filtered = $styleModel->validate($form, $formData);
+			$check(is_array($filtered) && is_array($filtered['params'] ?? null), 'Validate template parameters through the native form');
+			$data['params'] = $filtered['params'];
 			$plan = $client->tool('joomla_action_write_plan', ['action' => $action, 'transport' => $track,
 				'idempotencyKey' => Json::uuid(), 'input' => ['data' => $data]]);
 			$check(!$db->setQuery('SELECT id FROM ' . $db->quoteName('#__template_styles') . ' WHERE title = ' . $db->quote($title))->loadResult(), $track . ' template plan performs no style write');
