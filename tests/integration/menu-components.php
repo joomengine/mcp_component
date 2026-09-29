@@ -62,7 +62,7 @@ try
 	$plan = $client->tool('joomla_action_write_plan', ['action' => 'menus.site-items.create', 'idempotencyKey' => Json::uuid(), 'input' => ['data' => [
 		'title' => $title, 'alias' => 'mcp-menu-' . bin2hex(random_bytes(6)), 'menutype' => $menutype, 'type' => 'component',
 		'link' => 'index.php?option=com_content&view=featured', 'published' => 0, 'parent_id' => 1,
-		'browserNav' => 0, 'access' => 1, 'template_style_id' => 0, 'home' => 0, 'language' => '*', 'params' => [],
+		'browserNav' => 0, 'access' => 1, 'template_style_id' => 0, 'home' => 0, 'language' => '*',
 	]]]);
 	$check(isset($plan['operation']['menuComponent']['followUp']), 'Approval discloses the component identity correction');
 	$result = $client->tool('joomla_write_apply', ['confirmationToken' => $plan['confirmationToken']]);
