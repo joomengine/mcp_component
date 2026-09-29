@@ -129,6 +129,10 @@ final class ListExtensionsAction implements ActionInterface
 		$model->setState('list.limit', $limit);
 		$model->setState('filter.search', $search);
 		$model->setState('filter.type', $type);
+		// Translation keys can change when different extension languages load in
+		// one session. A physical identifier keeps record slices deterministic.
+		$model->setState('list.ordering', 'extension_id');
+		$model->setState('list.direction', 'ASC');
 		$page = ModelListPage::read($model, $offset, $limit);
 		$rawItems = $page['items'];
 

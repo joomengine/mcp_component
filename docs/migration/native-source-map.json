@@ -338,24 +338,26 @@
         "source": "companion/plugin/src/Action/FixedModelListAction.php",
         "sourceSha256": "0695e16ccbacf3b1a7c5d02167da958b798f107dbe34c7da804063254ca47650",
         "target": "admin/src/Native/Action/FixedModelListAction.php",
-        "targetSha256": "53d0165d92633fa0df52a6f633f1b3bd142d943b169df56e3e6144cd241cf2bf",
+        "targetSha256": "a553d5961197bb076bb223ce2533afe16a4ec47aca37721dfa308e2dc83b8e7c",
         "targetTransformations": [
             "namespace/path migration",
             "JCB PHP style and explicit dependency properties",
             "class and member contract documentation",
-            "exact zero-based native list pagination without Joomla last-page clamping"
+            "exact zero-based native list pagination without Joomla last-page clamping",
+            "stable physical identifier ordering across installed translated metadata"
         ]
     },
     {
         "source": "companion/plugin/src/Action/ListExtensionsAction.php",
         "sourceSha256": "fc366f14dace720ecab4994b86d7fd1f1621ce82ae18ee4565dad7154a5d5e08",
         "target": "admin/src/Native/Action/ListExtensionsAction.php",
-        "targetSha256": "c8e4f75dca653d07e1b5a1f41b1ba5389c76ce37e06ce51d383a59462895cf81",
+        "targetSha256": "1af8bf7e4b8df6d6e43a77c620af96b4f703e17d99e9f83f345e23fbe7b54585",
         "targetTransformations": [
             "namespace/path migration",
             "JCB PHP style and explicit dependency properties",
             "class and member contract documentation",
-            "exact zero-based native list pagination without Joomla last-page clamping"
+            "exact zero-based native list pagination without Joomla last-page clamping",
+            "stable physical identifier ordering across installed translated metadata"
         ]
     },
     {
