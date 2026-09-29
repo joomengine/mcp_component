@@ -20,7 +20,7 @@ jobs:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     env:
-      VDM_GLOBAL_TOKEN: ${{ secrets.GIT_TOKEN }}
+      VDM_GLOBAL_TOKEN: ${{ secrets.GIT_TOKEN || github.token }}
     steps:
       - uses: actions/checkout@v7
         with:

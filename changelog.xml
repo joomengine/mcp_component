@@ -3,6 +3,14 @@
   <changelog>
     <element>com_joomengine_mcp</element>
     <type>component</type>
+    <version>[[[NEXT_VERSION]]]</version>
+    <fix>
+      <item>Supply OctoJPack with the workflow's read-only GitHub token when the optional GIT_TOKEN secret is unset, so public tagged sources can be packaged.</item>
+    </fix>
+  </changelog>
+  <changelog>
+    <element>com_joomengine_mcp</element>
+    <type>component</type>
     <version>1.0.0</version>
     <fix>
       <item>Read MCP protocol identity and outbound API User-Agent versions from the native component manifest before and after installation.</item>

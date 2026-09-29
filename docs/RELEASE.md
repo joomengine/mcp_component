@@ -11,7 +11,7 @@ This repository contains only the component. Its source ZIP installs directly in
 | Component | https://raw.githubusercontent.com/joomengine/mcp_component/main/joomengine_mcp_update_server.xml | `com_joomengine_mcp`, component, administrator | `mcp_component/archive/refs/tags/vVERSION.zip` |
 | Package | https://raw.githubusercontent.com/joomengine/mcp_package/main/.github/joomengine_mcp_update_server.xml | `pkg_joomengine_mcp`, package, site | `mcp_package/archive/refs/tags/vVERSION.zip` |
 
-The component manifest references the component feed. OctoJPack writes the package manifest with the package feed URL from `.octojpack`. OctoShoom hashes the exact GitHub tag ZIP named in each feed, so each checksum belongs to that extension's download. The component's initial 0.1.1 entry is prepared metadata; its first release replaces the version and adds a real checksum after publishing the tag.
+The component manifest references the component feed. OctoJPack writes the package manifest with the package feed URL from `.octojpack`. OctoShoom hashes the exact GitHub tag ZIP named in each feed, so each checksum belongs to that extension's download.
 
 The shared, versioned changelog remains https://raw.githubusercontent.com/joomengine/mcp_component/main/changelog.xml. The licence remains https://raw.githubusercontent.com/joomengine/mcp_component/main/LICENSE. Package versions follow component versions, so Joomla can use the same changelog by version.
 
@@ -31,13 +31,15 @@ Follow the native [git-user](https://github.com/octoleo/git-user#workflows), Oct
 | `GPG_KEY`, `GPG_USER` | Signing key and its user ID. |
 | `SSH_KEY`, `SSH_PUB` | Matching SSH keypair. |
 
-Each plugin and the package workflow needs permission to push to its own repository. The component's SSH identity needs permission to push to both `mcp_component` and `mcp_package`. The component additionally uses `GIT_TOKEN` for OctoJPack's source API access, exposed as `VDM_GLOBAL_TOKEN`. The package workflow does not invoke OctoJPack and needs no packaging token.
+Each plugin and the package workflow needs permission to push to its own repository. The component's SSH identity needs permission to push to both `mcp_component` and `mcp_package`. OctoJPack reads the public source tags and archives using the workflow's built-in GitHub token with `contents: read`, exposed as `VDM_GLOBAL_TOKEN`. An optional `GIT_TOKEN` secret overrides that token. Git pushes still use the SSH identity. The package workflow does not invoke OctoJPack and needs no packaging token.
+
+For standalone OctoJPack runs, export `VDM_GLOBAL_TOKEN` or set it in OctoJPack's environment file. The native loader requires that value even for public sources. Keep credentials out of `.octojpack`; its repository, feed, changelog and licence values remain fixed and usable from any machine.
 
 Git User runs once per workflow. The shared actions inherit that Git setup; credentials stay in GitHub secrets. No repository placeholders, configuration rendering, local package builder or duplicate hash implementation is needed.
 
 ## First release
 
-In each extension repository, open **Actions**, select its release workflow, choose **Run workflow**, select `main` and enter an unused version. For example, `0.1.2` works above all current development baselines; `v0.1.2` is also accepted. The component's 0.1.0 and 0.1.1 changelog entries cannot be reused. The workflow creates the tag; pushing an extension tag manually does not start these manual release workflows.
+In each extension repository, open **Actions**, select its release workflow, choose **Run workflow**, select `main` and enter an unused version above the current manifest version. A `v` prefix is also accepted. Released versions and development-baseline changelog entries cannot be reused for new changes. The workflow creates the tag; pushing an extension tag manually does not start these manual release workflows.
 
 | Order | Workflow | Result |
 | --- | --- | --- |
@@ -49,6 +51,8 @@ In each extension repository, open **Actions**, select its release workflow, cho
 Wait for both plugin releases before starting the component release. Wait for **both the component run and the automatically triggered package run** before declaring the combined release complete. A component hashing failure stops OctoJPack; a package hashing failure appears in the separate package run and can be retried there without rebuilding the package. Published tags remain unchanged.
 
 Later component releases can reuse existing plugin tags when those plugins have not changed. Plugin versions may differ; the package always follows the component version. A completed release needs no manual ZIP upload, packaging or update-XML editing.
+
+If a component release stops after tagging but before packaging, fix the workflow on `main`, then start a **new** manual run with that existing version. Re-running the failed job would reuse its old workflow revision. The new run preserves the existing component tag and checksum and resumes packaging. Publish any required plugin fixes first, so OctoJPack selects their corrected latest tags.
 
 ## Changelogs and dependencies
 
