@@ -74,11 +74,16 @@ try
 	$repeat = $client->tool('joomla_write_apply', ['confirmationToken' => $plan['confirmationToken']]);
 	$check($repeat['idempotentReplay'] && (int) $db->setQuery($db->createQuery()->select('COUNT(*)')->from($db->quoteName('#__menu'))
 		->where($db->quoteName('title') . ' = ' . $db->quote($title)))->loadResult() === 1, 'Replaying menu approval does not create a duplicate');
+	$contactCategory = (int) $db->setQuery($db->createQuery()->select($db->quoteName('id'))->from($db->quoteName('#__categories'))
+		->where($db->quoteName('extension') . ' = ' . $db->quote('com_contact'))->where($db->quoteName('published') . ' = 1')
+		->order($db->quoteName('id') . ' ASC'), 0, 1)->loadResult();
+	$check($contactCategory > 0, 'Native contact category required by the component menu form is available');
+	$contactLink = 'index.php?option=com_contact&view=categories&id=' . $contactCategory;
 	$plan = $client->tool('joomla_action_write_plan', ['action' => 'menus.site-items.update', 'idempotencyKey' => Json::uuid(),
-		'input' => ['id' => $id, 'data' => ['link' => 'index.php?option=com_contact&view=categories']]]);
+		'input' => ['id' => $id, 'data' => ['link' => $contactLink]]]);
 	$result = $client->tool('joomla_write_apply', ['confirmationToken' => $plan['confirmationToken']]);
 	$row = $stored($id);
-	$check($row !== null && (int) $row['component_id'] === $expected['com_contact'] && $row['link'] === 'index.php?option=com_contact&view=categories',
+	$check($row !== null && (int) $row['component_id'] === $expected['com_contact'] && $row['link'] === $contactLink,
 		'A changed component link persists the new target ID rather than the old item-read ID');
 	$check(($result['verification']['menuComponent']['status'] ?? '') === 'verified', 'Cross-component update is verified from stored menu data');
 	$client->tool('joomla_permission_revoke', ['grantId' => $grantId]);
