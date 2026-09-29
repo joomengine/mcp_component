@@ -362,14 +362,15 @@
         "source": "companion/plugin/src/Action/CoreEntityAction.php",
         "sourceSha256": "045c352b2a1cad22dcc037e4e611930afa78626e57c64dceab7284237f184474",
         "target": "admin/src/Native/Action/CoreEntityAction.php",
-        "targetSha256": "3b1c15b013a190de18191531c705647910f82dcbe514a9553312380119d2e8c5",
+        "targetSha256": "450797da0a7ed35ded35fb9113219d77563ee3a12aa8765abb6aa39d006bddf9",
         "targetTransformations": [
             "namespace/path migration",
             "JCB PHP style and explicit dependency properties",
             "class and member contract documentation",
             "Template style creation verifies native manifest inheritance before preview/save (joomla-mcp issue #40)",
             "Field creation defaults omitted default_value to an empty string before preview/save (joomla-mcp issue #42)",
-            "exact zero-based native list pagination without Joomla last-page clamping"
+            "exact zero-based native list pagination without Joomla last-page clamping",
+            "resolve public identifier ordering through the native physical primary key and approved columns"
         ]
     },
     {

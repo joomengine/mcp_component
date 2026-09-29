@@ -177,7 +177,7 @@ final class CoreEntityAction implements ActionInterface
 		$this->setModelState($model);
 		$model->setState('list.start', $offset);
 		$model->setState('list.limit', $limit);
-		$model->setState('list.ordering', $order);
+		$model->setState('list.ordering', $this->nativeOrdering($model, $order));
 		$model->setState('list.direction', $direction);
 
 		$model->setState('filter.search', $search);
@@ -620,6 +620,11 @@ final class CoreEntityAction implements ActionInterface
 		foreach ($this->entity->readFields as $field)
 		{
 			$result[$field] = $this->safeOutput($source[$field] ?? null);
+		}
+
+		if ($this->entity->primaryKey !== 'id' && array_key_exists('id', $result))
+		{
+			$result['id'] = $result[$this->entity->primaryKey] ?? null;
 		}
 
 		return $result;
@@ -1093,6 +1098,28 @@ final class CoreEntityAction implements ActionInterface
 		)));
 
 		return $fields === [] ? [$this->entity->readFields[0]] : $fields;
+	}
+
+	/**
+	 * Map the public identifier alias to the model's real, approved sort column.
+	 *
+	 * Joomla language and message records expose a compatibility id but store
+	 * lang_id and message_id. Only use an SQL table alias when the native model
+	 * explicitly declares it as an allowed filter column.
+	 *
+	 * @param   object  $model  The selected native administrator model.
+	 * @param   string  $order  The validated public ordering field.
+	 * @return  string
+	 *
+	 * @since  0.1.0
+	 */
+	private function nativeOrdering(object $model, string $order): string
+	{
+		$field = $order === 'id' ? $this->entity->primaryKey : $order;
+		$qualified = 'a.' . $field;
+
+		return method_exists($model, 'isValidFilterColumn') && $model->isValidFilterColumn($qualified)
+			? $qualified : $field;
 	}
 
 	/**

@@ -1050,6 +1050,7 @@ test('migrated native runtime is independent of the old plugin namespace', stati
 require __DIR__ . '/template-style-inheritance.php';
 require __DIR__ . '/field-defaults.php';
 require __DIR__ . '/pagination.php';
+require __DIR__ . '/content-languages.php';
 
 if ($GLOBALS['failures'] > 0) {
     file_put_contents('php://stderr', sprintf("%d test(s) failed.\n", $GLOBALS['failures']), FILE_APPEND);
