@@ -214,6 +214,15 @@ final class ActionExecutor
 		$input = $this->validate($resolved, $input);
 		$before = $handler instanceof PlannedHandlerInterface ? null : $this->snapshot($resolved, $input);
 		$preflight = $this->preflight($resolved, $input, $before);
+		$menu = MenuItemComponents::intent($resolved, $preflight);
+
+		if ($menu !== null)
+		{
+			$resolved['menu_component'] = $this->menuPolicy($menu);
+			$resolved['binding']['configuration']['body_defaults']['component_id'] = 0;
+			$preflight = $this->preflight($resolved, $input, $before);
+		}
+
 		$preview = [
 			'site' => $this->settings->get('site_alias'), 'action' => $name,
 			'transport' => $resolved['binding']['track'], 'method' => $resolved['binding']['configuration']['method'] ?? 'native',
@@ -224,6 +233,11 @@ final class ActionExecutor
 		if (isset($resolved['custom_fields']))
 		{
 			$preview['customFields'] = $resolved['custom_fields'];
+		}
+
+		if ($menu !== null)
+		{
+			$preview['menuComponent'] = MenuItemComponents::preview($menu);
 		}
 
 		if ($handler instanceof PlanPreviewInterface)
@@ -242,6 +256,7 @@ final class ActionExecutor
 		return $this->executions->plan($resolved, [
 			'input' => $input, 'before' => $before,
 			'custom_fields' => $resolved['custom_fields'] ?? null,
+			'menu_component' => $resolved['menu_component'] ?? null,
 			'prepared' => $handler instanceof PlannedHandlerInterface ? $preflight : null,
 			'preflight_hash' => hash('sha256', Json::canonical($preflight)),
 		], $preview, $idempotencyKey, $grant);
@@ -289,6 +304,12 @@ final class ActionExecutor
 			$resolved['custom_fields'] = $plan['payload']['custom_fields'];
 		}
 
+		if (isset($plan['payload']['menu_component']))
+		{
+			$resolved['menu_component'] = $this->menuPolicy($plan['payload']['menu_component']);
+			$resolved['binding']['configuration']['body_defaults']['component_id'] = 0;
+		}
+
 		$handler = $this->handlers->get($resolved['binding']['handler']);
 		$this->requireWorker($handler);
 		$input = $this->validate($resolved, $plan['payload']['input']);
@@ -308,6 +329,7 @@ final class ActionExecutor
 
 		$execution = $this->executions->claim($plan, $resolved);
 		$mutation = null;
+		$menuRepair = null;
 
 		try
 		{
@@ -331,14 +353,39 @@ final class ActionExecutor
 			$mutation = $handler instanceof PlannedHandlerInterface
 				? $handler->apply($plan['payload']['prepared'], $resolved['binding'], $this->principal, $execution)
 				: $this->invoke($resolved, $input, $plan['idempotency_key'], $before['item'] ?? []);
+
+			// Retain the accepted primary mutation before any follow-up can fail.
+			// Executions persists this evidence and blocks duplicate create replays.
+			if (isset($resolved['menu_component']))
+			{
+				$menuRepair = $this->repairMenuComponent($resolved['menu_component'], $input, $mutation, $preflight, $plan['idempotency_key']);
+			}
+
 			$verification = $handler instanceof PlannedHandlerInterface
 				? $handler->verify($plan['payload']['prepared'], $mutation, $resolved['binding'], $this->principal)
 				: $this->verify($resolved, $input, $mutation);
+
+			if ($menuRepair !== null)
+			{
+				$stored = $this->verifyMenuComponent($resolved['menu_component'], $menuRepair['id'], $menuRepair['componentId']);
+				$verification['menuComponent'] = $stored;
+
+				if ($stored['status'] !== 'verified')
+				{
+					$verification['status'] = 'uncertain';
+					$verification['reason'] = $stored['reason'];
+				}
+			}
 			$result = [
 				'site' => $this->settings->get('site_alias'), 'action' => $resolved['action']['name'],
 				'idempotencyKey' => $plan['idempotency_key'], 'mutation' => $mutation,
 				'verification' => $verification, 'idempotentReplay' => false,
 			];
+
+			if ($menuRepair !== null)
+			{
+				$result['menuComponentRepair'] = $menuRepair;
+			}
 			$settled = $handler instanceof PlannedHandlerInterface
 				? in_array($verification['status'] ?? '', ['verified', 'notPerformed', 'cancelled'], true)
 				: $verification['status'] !== 'uncertain';
@@ -352,6 +399,13 @@ final class ActionExecutor
 				'error' => $error instanceof OperationException ? $error->toArray() : ['code' => 'EXECUTION_UNCERTAIN', 'message' => 'The Joomla operation did not complete reliably.'],
 				'idempotentReplay' => false,
 			];
+
+			if (isset($resolved['menu_component']))
+			{
+				$result['menuComponentRepair'] = $menuRepair ?? ['status' => 'uncertain',
+					'id' => MenuItemComponents::identifier($input['id'] ?? ($mutation === null ? null : ($this->item($mutation, 'api')['id'] ?? null))),
+					'reason' => 'The initial menu mutation may already be stored. Inspect this execution and existing item before another write.'];
+			}
 			$settled = false;
 		}
 
@@ -495,6 +549,118 @@ final class ActionExecutor
 	}
 
 	/**
+	 * Bind every follow-up action to the same approval and recheck it before I/O.
+	 *
+	 * @param array $intent New or frozen menu workflow.
+	 * @return array Workflow with current authorized definition revisions.
+	 * @since 1.0.0
+	 */
+	private function menuPolicy(array $intent): array
+	{
+		$roles = ['readAction' => 'read', 'listAction' => 'read'];
+
+		if ($intent['type'] === 'component')
+		{
+			$roles['updateAction'] = 'write';
+		}
+
+		foreach ($roles as $role => $effect)
+		{
+			$resolved = $this->resolve($intent[$role], 'api', $effect);
+			$expected = '/v1/menus/' . ($intent['clientId'] === 0 ? 'site' : 'administrator') . '/items'
+				. ($role === 'listAction' ? '' : '/:id');
+			$config = $resolved['binding']['configuration'];
+
+			if ($resolved['binding']['handler'] !== 'api.request' || ($config['route'] ?? '') !== $expected
+				|| ($config['method'] ?? '') !== ($effect === 'write' ? 'PATCH' : 'GET'))
+			{
+				throw new OperationException('BINDING_INVALID', 'Menu component persistence requires the reviewed native menu API bindings.');
+			}
+
+			if (isset($intent['revisions'][$role]) && !hash_equals($intent['revisions'][$role], $resolved['revision']))
+			{
+				throw new OperationException('PLAN_STALE', 'A menu repair or verification definition changed after approval.');
+			}
+
+			$intent['revisions'][$role] = $resolved['revision'];
+		}
+
+		return $intent;
+	}
+
+	/**
+	 * Persist a native derived component ID after the accepted primary mutation.
+	 *
+	 * The original response remains in apply's durable catch path if any step here
+	 * fails. The follow-up uses only the approved effective body, the same item ID,
+	 * a native derived component ID, and a fresh read's optional entity tag.
+	 *
+	 * @param array $intent Frozen repair intent.
+	 * @param array $input Approved original input.
+	 * @param array $mutation Accepted primary API response.
+	 * @param array $request Frozen effective primary request.
+	 * @param string $key Original idempotency key.
+	 * @return array Repair evidence including the independently observed item ID.
+	 * @since 1.0.0
+	 */
+	private function repairMenuComponent(array $intent, array $input, array $mutation, array $request, string $key): array
+	{
+		$item = $this->item($mutation, 'api');
+		$id = MenuItemComponents::identifier($input['id'] ?? $item['id'] ?? null);
+
+		if ($id === null)
+		{
+			throw new OperationException('MENU_COMPONENT_UNRESOLVED', 'The accepted menu mutation did not expose an item ID. Inspect the existing execution before another write.');
+		}
+
+		if ($intent['type'] !== 'component')
+		{
+			return ['id' => $id, 'componentId' => 0, 'performed' => false];
+		}
+
+		$read = $this->resolve($intent['readAction'], 'api', 'read');
+		$observed = $this->invoke($read, $this->validate($read, ['id' => $id]));
+		$current = $this->item($observed, 'api');
+
+		if (MenuItemComponents::identifier($current['id'] ?? null) !== $id)
+		{
+			throw new OperationException('MENU_COMPONENT_UNRESOLVED', 'The menu identity changed during component repair. Reconcile the accepted mutation.');
+		}
+
+		$componentId = MenuItemComponents::derivedId($intent, $current);
+		$update = $this->resolve($intent['updateAction'], 'api', 'write');
+		$update['binding']['configuration']['body_defaults']['component_id'] = $componentId;
+		$arguments = ['id' => $id, 'data' => $request['body']];
+
+		if (isset($observed['headers']['etag']))
+		{
+			$arguments['etag'] = $observed['headers']['etag'];
+		}
+
+		$hash = hash('sha256', $key . ':menu-component-id');
+		$repairKey = substr($hash, 0, 8) . '-' . substr($hash, 8, 4) . '-5' . substr($hash, 13, 3)
+			. '-' . dechex((hexdec($hash[16]) & 3) | 8) . substr($hash, 17, 3) . '-' . substr($hash, 20, 12);
+		$response = $this->invoke($update, $arguments, $repairKey, $current);
+
+		return ['id' => $id, 'componentId' => $componentId, 'performed' => true, 'response' => $response];
+	}
+
+	/** @param array $intent Approved menu workflow. @param int $id Item ID. @param int $componentId Expected stored ID. @return array Raw collection evidence. @since 1.0.0 */
+	private function verifyMenuComponent(array $intent, int $id, int $componentId): array
+	{
+		return MenuItemComponents::verify($intent, $id, $componentId, function (string $name, array $arguments) use ($intent): array
+		{
+			$resolved = $this->resolve($name, 'api', 'read');
+			// Stock Joomla supports this filter, including administrator's protected
+			// "main" menu. Its value is frozen from the approved effective form.
+			$resolved['binding']['configuration']['query_defaults']['filter[menutype]'] = $intent['menutype'];
+			$result = $this->invoke($resolved, $this->validate($resolved, $arguments));
+
+			return $this->readEnvelope($name, $result);
+		}, $this->settings->get('max_list_limit'));
+	}
+
+	/**
 	 * Prepare a reviewed handler without granting legacy flags or performing writes.
 	 *
 	 * @param array<string,mixed> $resolved Authorized action and binding.
@@ -564,6 +730,19 @@ final class ActionExecutor
 	/** @param array<string,mixed> $resolved Write resolution. @param array<string,mixed> $input Arguments. @return array<string,mixed>|null Resource state before mutation. @since 0.1.0 */
 	private function snapshot(array $resolved, array $input): ?array
 	{
+		$client = $resolved['binding']['track'] === 'api'
+			? TemplateStyleInheritance::client($resolved['binding']['configuration']) : null;
+
+		if ($client !== null)
+		{
+			return TemplateStyleInheritance::snapshot($input['data']['template'] ?? null, $client, function (string $name, array $arguments): array
+			{
+				$read = $this->resolve($name, 'api', 'read');
+
+				return $this->invoke($read, $this->validate($read, $arguments));
+			}, min(100, $this->settings->get('max_list_limit')));
+		}
+
 		$rule = $this->verification($resolved);
 
 		if (empty($rule['read_action']) || ($rule['operation'] ?? '') === 'create' || !isset($input['id']))
@@ -574,8 +753,17 @@ final class ActionExecutor
 		$read = $this->resolve($rule['read_action'], $resolved['binding']['track'], 'read');
 		$arguments = $this->readArguments($read, $input);
 		$result = $this->invoke($read, $arguments);
+		$item = $this->item($result, $read['binding']['track']);
 
-		return ['item' => $this->item($result, $read['binding']['track']), 'etag' => $result['headers']['etag'] ?? null];
+		if ($resolved['binding']['track'] === 'api'
+			&& preg_match('/\Amenus\.(site|administrator)-items\.update\z/D', $resolved['action']['name'], $menu) === 1
+			&& (MenuItemComponents::identifier($item['id'] ?? null) !== $input['id']
+				|| (string) ($item['client_id'] ?? '') !== ($menu[1] === 'site' ? '0' : '1')))
+		{
+			throw new OperationException('PRECONDITION_CHANGED', 'The menu snapshot identity or client does not match the requested update.');
+		}
+
+		return ['item' => $item, 'etag' => $result['headers']['etag'] ?? null];
 	}
 
 	/** @param array<string,mixed> $resolved Write. @param array<string,mixed> $input Applied arguments. @param array<string,mixed> $mutation Mutation result. @return array<string,mixed> Honest verification coverage. @since 0.1.0 */

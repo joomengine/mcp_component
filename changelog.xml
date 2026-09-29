@@ -6,6 +6,9 @@
     <version>[[[NEXT_VERSION]]]</version>
     <fix>
       <item>Accept published, accessible Joomla custom field values in API article, content-category, contact and user create/update plans, including typed article tools and the optional com_fields alias. Reject unknown keys, expose runtime metadata in describe and freeze resolved fields with the approved plan.</item>
+      <item>Preserve installed template inheritance when creating site or administrator styles; bind verified parent metadata to the confirmed plan and refuse incomplete discovery before saving.</item>
+
+      <item>Persist native menu component IDs through an approved follow-up PATCH and verify raw stored collection values for create/update and changed component links. Preserve created identities and durable uncertain outcomes on later failure to prevent duplicate creation on replay.</item>
       <item>Supply OctoJPack with the workflow's read-only GitHub token when the optional GIT_TOKEN secret is unset, so public tagged sources can be packaged.</item>
       <item>Use the console plugin's independent-version installer fix in the installed Joomla and JCB checks.</item>
     </fix>
