@@ -5,6 +5,7 @@
 ### Fix
 
 - Supply OctoJPack with the workflow's read-only GitHub token when the optional `GIT_TOKEN` secret is unset, so public tagged sources can be packaged.
+- Use the console plugin's independent-version installer fix in the installed Joomla and JCB checks.
 
 ## 1.0.0
 
