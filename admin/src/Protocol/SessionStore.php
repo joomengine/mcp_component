@@ -15,6 +15,7 @@ use Symfony\Component\Uid\Uuid;
 use Throwable;
 use VDM\Component\JoomEngineMcp\Administrator\Contract\PrincipalInterface;
 use VDM\Component\JoomEngineMcp\Administrator\Contract\StoreInterface;
+use VDM\Component\JoomEngineMcp\Administrator\Domain\OperationException;
 use VDM\Component\JoomEngineMcp\Administrator\Security\Envelope;
 
 
@@ -28,6 +29,9 @@ use VDM\Component\JoomEngineMcp\Administrator\Security\Envelope;
  */
 final class SessionStore implements SessionStoreInterface
 {
+	/** @var int Encoded SDK session bound, including its pending response queue. @since 0.1.1 */
+	public const MAX_BYTES = 12000000;
+
 	/** @var StoreInterface Durable database. @since 0.1.0 */
 	private StoreInterface $store;
 	/** @var Envelope Installation encryption key. @since 0.1.0 */
@@ -82,9 +86,14 @@ final class SessionStore implements SessionStoreInterface
 	/** @inheritDoc */
 	public function write(Uuid $id, string $data): bool
 	{
-		if (strlen($data) > 1048576)
+		// The SDK temporarily includes fully encoded responses in session data.
+		// A catalogue response includes text and structured content, then another
+		// JSON escaping layer here. The former 1 MiB bound silently dropped valid
+		// installed-core discovery responses. Keep a bound whose encrypted,
+		// base64-encoded envelope fits the existing MEDIUMTEXT column.
+		if (strlen($data) > self::MAX_BYTES)
 		{
-			return false;
+			throw new OperationException('SESSION_LIMIT', 'The protocol response exceeds the supported session storage bound.');
 		}
 
 		$key = $id->toRfc4122();

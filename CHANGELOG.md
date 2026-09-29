@@ -1,5 +1,11 @@
 # Changelog
 
+## [[[NEXT_VERSION]]]
+
+### Fix
+
+- Deliver discovery responses that exceed the former 1 MiB encrypted-session bound. Retain principal isolation and compare-and-swap persistence, reject oversized queued state with a protocol error, and keep later requests usable.
+
 ## 1.0.2
 
 ### Fix
