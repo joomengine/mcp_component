@@ -8,7 +8,7 @@
   <creationDate>September 2026</creationDate>
   <copyright>Copyright (C) 2026 Vast Development Method. All rights reserved.</copyright>
   <license>GNU General Public License version 3 or later; see LICENSE</license>
-  <version>0.1.1</version>
+  <version>1.0.0</version>
   <description>COM_JOOMENGINE_MCP_XML_DESCRIPTION</description>
   <namespace path="src">VDM\Component\JoomEngineMcp</namespace>
   <scriptfile>Joomengine_mcpInstallerScript.php</scriptfile>
@@ -49,7 +49,7 @@
     <file driver="mysql" charset="utf8">sql/uninstall.mysql.utf8.sql</file>
     <file driver="postgresql" charset="utf8">sql/uninstall.postgresql.utf8.sql</file>
   </sql></uninstall>
-  <update><schemas schemapath="sql/updates" /></update>
+  <update><schemas schemapath="sql/updates"/></update>
   <updateservers>
     <server type="extension" priority="1" name="JoomEngine MCP updates">https://raw.githubusercontent.com/joomengine/mcp_component/main/joomengine_mcp_update_server.xml</server>
   </updateservers>

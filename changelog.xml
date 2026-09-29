@@ -3,7 +3,7 @@
   <changelog>
     <element>com_joomengine_mcp</element>
     <type>component</type>
-    <version>[[[NEXT_VERSION]]]</version>
+    <version>1.0.0</version>
     <fix>
       <item>Read MCP protocol identity and outbound API User-Agent versions from the native component manifest before and after installation.</item>
       <item>Make the source ZIP directly installable with committed production dependencies, relocation-safe autoloading, catalogue seed and administrator licence.</item>
