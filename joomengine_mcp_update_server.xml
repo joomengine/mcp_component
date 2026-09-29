@@ -7,10 +7,10 @@
     <element>com_joomengine_mcp</element>
     <type>component</type>
     <client>administrator</client>
-    <version>0.1.1</version>
-    <infourl title="JoomEngine MCP Component">https://github.com/joomengine/mcp_component/tree/v0.1.1</infourl>
+    <version>1.0.0</version>
+    <infourl title="JoomEngine MCP Component">https://github.com/joomengine/mcp_component/tree/v1.0.0</infourl>
     <downloads>
-      <downloadurl type="full" format="zip">https://github.com/joomengine/mcp_component/archive/refs/tags/v0.1.1.zip</downloadurl>
+      <downloadurl type="full" format="zip">https://github.com/joomengine/mcp_component/archive/refs/tags/v1.0.0.zip</downloadurl>
     </downloads>
     <tags><tag>stable</tag></tags>
     <maintainer>Llewellyn van der Merwe</maintainer>
