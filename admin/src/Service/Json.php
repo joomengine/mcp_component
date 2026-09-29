@@ -83,38 +83,39 @@ final class Json
 	 */
 	public static function canonical(mixed $value): string
 	{
-		$normalise = static function (mixed $item) use (&$normalise): mixed
+		return self::encode(self::normalise($value));
+	}
+
+	/** @param mixed $item JSON-compatible value. @return mixed Canonically ordered value without a cyclic recursive closure. @since 0.1.1 */
+	private static function normalise(mixed $item): mixed
+	{
+		$isObject = $item instanceof stdClass;
+
+		if ($isObject)
 		{
-			$isObject = $item instanceof stdClass;
+			$item = get_object_vars($item);
+		}
 
-			if ($isObject)
-			{
-				$item = get_object_vars($item);
-			}
+		if (!is_array($item))
+		{
+			return $item;
+		}
 
-			if (!is_array($item))
-			{
-				return $item;
-			}
+		$isList = !$isObject && array_is_list($item);
 
-			$isList = !$isObject && array_is_list($item);
+		if (!$isList)
+		{
+			ksort($item, SORT_STRING);
+		}
 
-			if (!$isList)
-			{
-				ksort($item, SORT_STRING);
-			}
+		foreach ($item as &$child)
+		{
+			$child = self::normalise($child);
+		}
 
-			foreach ($item as &$child)
-			{
-				$child = $normalise($child);
-			}
+		unset($child);
 
-			unset($child);
-
-			return $isList ? $item : (object) $item;
-		};
-
-		return self::encode($normalise($value));
+		return $isList ? $item : (object) $item;
 	}
 
 	/** @return string Random RFC 4122 version-4 identifier. @since 0.1.0 */

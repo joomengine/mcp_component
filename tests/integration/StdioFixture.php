@@ -28,16 +28,29 @@ final class StdioFixture
 	 * Launch the same PHP configuration as the current disposable test process.
 	 *
 	 * @param   int  $timeout  Maximum seconds per MCP request.
+	 * @param   ?int  $memoryLimitMiB  Optional explicit child memory allowance for endurance tests.
 	 * @since   0.1.0
 	 */
-	public function __construct(int $timeout = 60)
+	public function __construct(int $timeout = 60, ?int $memoryLimitMiB = null)
 	{
 		$arguments = [];
 		if (is_string(php_ini_loaded_file()))
 		{
 			$arguments = ['-c', php_ini_loaded_file()];
 		}
-		$arguments = array_merge($arguments, ['-d', 'extension_dir=' . ini_get('extension_dir'), __DIR__ . '/serve-cli.php']);
+		$arguments = array_merge($arguments, ['-d', 'extension_dir=' . ini_get('extension_dir')]);
+
+		if ($memoryLimitMiB !== null)
+		{
+			if ($memoryLimitMiB < 32 || $memoryLimitMiB > 4096)
+			{
+				throw new InvalidArgumentException('The fixture memory allowance is outside its supported test range.');
+			}
+
+			$arguments = array_merge($arguments, ['-d', 'memory_limit=' . $memoryLimitMiB . 'M']);
+		}
+
+		$arguments[] = __DIR__ . '/serve-cli.php';
 		/** Only native child diagnostics are printed; JSON-RPC frames are not logged. */
 		$logger = new class extends AbstractLogger
 		{
