@@ -34,9 +34,9 @@ final class EnduranceClient
 	private float $deadline = 10.0;
 
 	/** Start exactly one persistent PHP process under the reported 128 MiB limit. */
-	public function __construct()
+	public function __construct(string $mode = '')
 	{
-		$this->process = proc_open([PHP_BINARY, '-d', 'memory_limit=128M', __DIR__ . '/Support/StdioServer.php'],
+		$this->process = proc_open([PHP_BINARY, '-d', 'memory_limit=128M', __DIR__ . '/Support/StdioServer.php', $mode],
 			[0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $this->pipes);
 
 		if (!is_resource($this->process))
@@ -159,6 +159,18 @@ final class EnduranceClient
 	}
 }
 
+$idleStart = microtime(true);
+$idle = new EnduranceClient('idle');
+usleep(500000);
+$check(!$idle->prematureResponse(), 'An idle connection generated an unsolicited protocol response.');
+$check(isset($idle->rpc('ping')['result']), 'The idle input wait failed to wake for a new request.');
+$check($idle->close() === 0, 'The idle session did not close cleanly.');
+$idleElapsed = microtime(true) - $idleStart;
+$idleMetrics = json_decode(trim($idle->diagnostics), true, 64, JSON_THROW_ON_ERROR);
+$maximumIdlePolls = (int) ceil($idleElapsed / 0.05) + 8;
+$check($idleMetrics['idleSessionReads'] <= $maximumIdlePolls && $idleMetrics['idleSessionWrites'] <= $maximumIdlePolls,
+	'Idle stdio generated excessive SDK session database reads or writes.');
+
 $discovery = [];
 foreach (['joomla_capabilities', 'joomla_companion_capabilities', 'joomla://catalog/core'] as $entry)
 {
@@ -239,7 +251,7 @@ $check($canonicalGrowth < 4096, 'Canonicalization retained recursive closures wi
 
 foreach (['fatal', 'oom'] as $mode)
 {
-	$process = proc_open([PHP_BINARY, '-d', 'memory_limit=32M', '-d', 'display_errors=1', __DIR__ . '/Support/StdioServer.php', $mode],
+	$process = proc_open([PHP_BINARY, '-d', 'memory_limit=32M', '-d', 'display_errors=1', '-d', 'error_log=/dev/stdout', __DIR__ . '/Support/StdioServer.php', $mode],
 		[0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
 	fclose($pipes[0]);
 	$stdout = stream_get_contents($pipes[1]);
@@ -254,4 +266,5 @@ foreach (['fatal', 'oom'] as $mode)
 echo Json::encode(['discovery' => $discovery, 'catalogue' => '285 installed-core seed actions plus a configurable wide-schema test tool',
 	'unrotatedRequests' => 600, 'memoryLimit' => '128M', 'elapsedSeconds' => round($elapsed, 3),
 	'memorySamples' => $samples, 'postWarmupGrowthBytes' => $growth, 'canonicalGrowthWithoutGcBytes' => $canonicalGrowth,
+	'idleSessionReads' => $idleMetrics['idleSessionReads'], 'idleSessionWrites' => $idleMetrics['idleSessionWrites'], 'idleMeasuredSeconds' => round($idleElapsed, 3),
 	'fatalStdout' => 'valid protocol only', 'liveJoomla' => 'not run; native model execution uses a test double']) . PHP_EOL;

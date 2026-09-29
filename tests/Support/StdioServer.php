@@ -6,6 +6,8 @@
  * @copyright  Copyright (C) 2026 Vast Development Method. All rights reserved.
  * @license    GNU General Public License version 3 or later; see LICENSE
  */
+use Mcp\Server\Session\SessionStoreInterface;
+use Symfony\Component\Uid\Uuid;
 use VDM\Component\JoomEngineMcp\Administrator\Console\ProtocolOutput;
 use VDM\Component\JoomEngineMcp\Administrator\Contract\HandlerInterface;
 use VDM\Component\JoomEngineMcp\Administrator\Contract\PrincipalInterface;
@@ -129,8 +131,57 @@ $actions = new ActionExecutor($catalogue, $schemas, $principal,
 $tools = new ToolDispatcher($catalogue, $actions, $permissions, $schemas, $principal, $settings);
 $definitions = new DatabaseRegistry($catalogue, $tools, $actions, $schemas);
 $sessions = new SessionStore($store, $envelope, $principal, 3600, $clock);
+
+if (($argv[1] ?? '') === 'idle')
+{
+	$sessions = new class($sessions) implements SessionStoreInterface
+	{
+		/** @var SessionStoreInterface Actual encrypted component sessions. */
+		private SessionStoreInterface $sessions;
+		/** @var int SDK session reads, including idle queue polling. */
+		public int $reads = 0;
+		/** @var int SDK session writes, including clearing idle queues. */
+		public int $writes = 0;
+		/** @param SessionStoreInterface $sessions Actual tested persistence. */
+		public function __construct(SessionStoreInterface $sessions)
+		{
+			$this->sessions = $sessions;
+		}
+		/** @inheritDoc */
+		public function exists(Uuid $id): bool
+		{
+			return $this->sessions->exists($id);
+		}
+		/** @inheritDoc */
+		public function read(Uuid $id): string|false
+		{
+			$this->reads++;
+
+			return $this->sessions->read($id);
+		}
+		/** @inheritDoc */
+		public function write(Uuid $id, string $data): bool
+		{
+			$this->writes++;
+
+			return $this->sessions->write($id, $data);
+		}
+		/** @inheritDoc */
+		public function destroy(Uuid $id): bool
+		{
+			return $this->sessions->destroy($id);
+		}
+		/** @inheritDoc */
+		public function gc(): array
+		{
+			return $this->sessions->gc();
+		}
+	};
+}
 $factory = new ServerFactory($definitions, $sessions, $settings);
 $status = (new ProtocolOutput())->run(static fn (): int => (int) $factory->create()->run(
 	new StdioTransport(maxLineBytes: $settings->get('max_request_bytes'), wire: $factory->wireInput())));
-fwrite(STDERR, Json::encode(['final' => true, 'used' => memory_get_usage(), 'allocated' => memory_get_usage(true), 'peak' => memory_get_peak_usage(true), 'memoryLimit' => ini_get('memory_limit')]) . "\n");
+fwrite(STDERR, Json::encode(['final' => true, 'used' => memory_get_usage(), 'allocated' => memory_get_usage(true), 'peak' => memory_get_peak_usage(true), 'memoryLimit' => ini_get('memory_limit'),
+	'idleSessionReads' => ($argv[1] ?? '') === 'idle' ? $sessions->reads : null,
+	'idleSessionWrites' => ($argv[1] ?? '') === 'idle' ? $sessions->writes : null]) . "\n");
 exit($status);

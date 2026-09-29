@@ -80,7 +80,19 @@ final class StdioTransport extends SdkStdioTransport
 
 		if ($chunk === false)
 		{
-			usleep(1000);
+			if (!feof($this->inputStream))
+			{
+				// The SDK polls its persisted outgoing queue once per loop.
+				// Preserve its 50 ms idle cadence without delaying newly
+				// arriving stdin frames: select wakes as soon as bytes arrive.
+				$read = [$this->inputStream];
+				$write = $except = [];
+
+				if (stream_select($read, $write, $except, 0, 50000) === false)
+				{
+					usleep(50000);
+				}
+			}
 
 			return;
 		}
