@@ -19,6 +19,7 @@ use VDM\Component\JoomEngineMcp\Administrator\Domain\OperationException;
 use VDM\Component\JoomEngineMcp\Administrator\Handler\ApiHandler;
 use VDM\Component\JoomEngineMcp\Administrator\Handler\ApiRequestBuilder;
 use VDM\Component\JoomEngineMcp\Administrator\Job\Jobs;
+use VDM\Component\JoomEngineMcp\Administrator\Security\SchemaDocument;
 use VDM\Component\JoomEngineMcp\Administrator\Security\SchemaValidator;
 use VDM\Component\JoomEngineMcp\Administrator\State\Audit;
 use VDM\Component\JoomEngineMcp\Administrator\State\Executions;
@@ -117,7 +118,8 @@ final class ActionExecutor
 	public function describe(string $name): array
 	{
 		$resolved = $this->catalogue->action($name);
-		$schema = Json::decode($this->catalogue->schema((int) $resolved['binding']['input_schema_id']));
+		$document = $this->catalogue->schema((int) $resolved['binding']['input_schema_id']);
+		$schema = SchemaDocument::decode($document);
 		$context = CustomFields::context($resolved);
 
 		if ($context === null)
@@ -135,7 +137,8 @@ final class ActionExecutor
 				'reason' => 'Custom field discovery requires access to the matching fields list read action.']];
 		}
 
-		$metadata = $this->customFields($context, $schema);
+		$metadata = $this->customFields($context, Json::decode($document));
+		$schema['properties']['data']['properties'] = (array) ($schema['properties']['data']['properties'] ?? []);
 
 		return ['inputSchema' => CustomFields::schema($schema, $metadata, true), 'customFields' => $metadata];
 	}

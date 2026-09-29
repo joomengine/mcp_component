@@ -4,6 +4,7 @@
 
 ### Fix
 
+- Preserve JSON Schema object mappings and object-valued defaults in tools/list, action search and descriptions, while retaining legitimate array values and numeric object keys.
 - Preserve exact zero-based list offsets across Joomla's native last-page clamping, including empty, partial-final, exact-end and beyond-end pages. Count cache groups from the complete native collection before slicing.
 - Deliver discovery responses that exceed the former 1 MiB encrypted-session bound. Retain principal isolation and compare-and-swap persistence, reject oversized queued state with a protocol error, and keep later requests usable.
 

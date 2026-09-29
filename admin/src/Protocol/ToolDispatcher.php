@@ -12,6 +12,7 @@ namespace VDM\Component\JoomEngineMcp\Administrator\Protocol;
 use VDM\Component\JoomEngineMcp\Administrator\Contract\PrincipalInterface;
 use VDM\Component\JoomEngineMcp\Administrator\Domain\OperationException;
 use VDM\Component\JoomEngineMcp\Administrator\Job\Jobs;
+use VDM\Component\JoomEngineMcp\Administrator\Security\SchemaDocument;
 use VDM\Component\JoomEngineMcp\Administrator\Security\SchemaValidator;
 use VDM\Component\JoomEngineMcp\Administrator\Service\ActionExecutor;
 use VDM\Component\JoomEngineMcp\Administrator\Service\Catalogue;
@@ -263,8 +264,8 @@ final class ToolDispatcher
 		$data['domain'] = $row['domain'];
 		$data['toolset'] = $row['toolset'];
 		$data['risk'] = $row['risk'];
-		$data['inputSchema'] = Json::decode($this->catalogue->schema((int) $binding['input_schema_id']));
-		$data['outputSchema'] = empty($binding['output_schema_id']) ? null : Json::decode($this->catalogue->schema((int) $binding['output_schema_id']));
+		$data['inputSchema'] = SchemaDocument::decode($this->catalogue->schema((int) $binding['input_schema_id']));
+		$data['outputSchema'] = empty($binding['output_schema_id']) ? null : SchemaDocument::decode($this->catalogue->schema((int) $binding['output_schema_id']));
 		$data['availableTransports'] = [$binding['track']];
 
 		return $data;

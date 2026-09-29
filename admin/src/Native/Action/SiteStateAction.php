@@ -85,7 +85,7 @@ final class SiteStateAction implements ActionInterface
 					'_edgeConfirmed' => ['type' => 'boolean', 'writeOnly' => true],
 				],
 				'additionalProperties' => false,
-			] : ['type' => 'object', 'properties' => [], 'additionalProperties' => false],
+			] : ['type' => 'object', 'properties' => (object) [], 'additionalProperties' => false],
 			$this->write ? [
 				'type' => 'object',
 				'required' => ['applied', 'dryRun', 'requestedState', 'preState', 'recovery'],

@@ -61,7 +61,7 @@ final class CoreUpdateStatusAction implements ActionInterface
 			'Return cached Joomla core update status without downloading or installing an update.',
 			'read',
 			[['action' => 'core.manage', 'asset' => 'com_joomlaupdate']],
-			['type' => 'object', 'properties' => [], 'additionalProperties' => false],
+			['type' => 'object', 'properties' => (object) [], 'additionalProperties' => false],
 			[
 				'type' => 'object',
 				'required' => ['installed', 'latest', 'hasUpdate'],

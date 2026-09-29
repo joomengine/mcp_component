@@ -8,6 +8,8 @@ Issue #11: the SDK queues encoded replies in its session before delivery. The fo
 
 ## Repository and source baseline
 
+Issue #8: persisted source schemas already distinguish empty objects and lists. Associative runtime decoding erased that distinction before tool/action discovery. Schema-only decoding now preserves object mappings, defaults and numeric object keys. Four native empty-input descriptors publish properties as an object. `tests/schema-discovery.php` passes 88 checks through SDK HTTP tools/list on API and CLI authorities, serialized action search/description and companion capabilities. It also preserves legitimate required/enum/default/examples arrays and independently validates the system.info input schema.
+
 Issue #9: Joomla ListModel rewinds a start offset when the remaining rows cannot fill its native limit. Shared native pagination now reads the total first, returns empty pages at or beyond it, and reduces the native limit only for a partial last slice. Returned metadata retains the requested MCP limit and exact offset. CacheModel's getData collection is counted before slicing. Four adapter families have regression coverage for zero, one and multiple rows, fresh and reused models, partial final pages and exact/beyond-end offsets. Installed verification of each reported action is in progress.
 
 The migration PR #1 and release realignment PR #3 are merged. Original MCP source: `2cff50f4f6b440da3c684f9995a77efad32e1a36`. JCB source: `extension-builder/joomla@5ee658dd07eb749dca43ed4722f6cca7eb8208cf`. The component has published tag `v1.0.0`. OctoJPack selects the tagged component and independent plugins from its fixed configuration and publishes to `joomengine/mcp_package`.

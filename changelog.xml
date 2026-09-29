@@ -5,6 +5,7 @@
     <type>component</type>
     <version>[[[NEXT_VERSION]]]</version>
     <fix>
+      <item>Preserve JSON Schema object mappings and object-valued defaults through tool discovery, action search and descriptions, while retaining legitimate arrays and numeric object keys.</item>
       <item>Preserve exact zero-based native list offsets and consistent totals for empty, partial-final, exact-end and beyond-end pages. Count the full cache-group collection before slicing.</item>
       <item>Deliver discovery replies exceeding the former 1 MiB encrypted-session bound while retaining principal isolation and compare-and-swap persistence. Return a bounded protocol error for oversized queued state and keep subsequent requests usable.</item>
     </fix>

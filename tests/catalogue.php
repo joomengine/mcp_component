@@ -292,7 +292,19 @@ $factory = new NativeFactory($models, $operations, new stdClass());
 foreach ($native['actions'] as $row)
 {
 	$descriptor = $factory->create(['handler' => $row['handler'], 'configuration' => $row['configuration']])->descriptor()->jsonSerialize();
-	$check($descriptor === $row['descriptor'], 'A database-constructed native descriptor differs from its immutable source.');
+	$expected = $row['descriptor'];
+
+	// The imported PHP companion emitted [] for a known JSON Schema map.
+	// Correct only that representation; list keywords/defaults remain unchanged.
+	foreach (['inputSchema', 'outputSchema'] as $field)
+	{
+		if (($expected[$field]['properties'] ?? null) === [])
+		{
+			$expected[$field]['properties'] = (object) [];
+		}
+	}
+
+	$check(Json::canonical($descriptor) === Json::canonical($expected), 'A database-constructed native descriptor differs from its immutable source, except corrected empty schema maps.');
 }
 
 echo Json::encode(['checks' => $checks, 'sourceParity' => 'all inventoried tools/actions and native constructor contracts', 'cataloguePolicy' => 'passed', 'encryption' => 'passed', 'liveJoomla' => 'not run by this unit suite']) . PHP_EOL;
