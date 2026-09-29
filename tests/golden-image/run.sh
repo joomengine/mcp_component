@@ -46,8 +46,9 @@ if [[ "$ready" != 1 ]]; then
 fi
 git archive --format=zip --prefix=component-source/ --output="$root/build/component-source.zip" HEAD
 php tests/package.php "$root/build/component-source.zip"
-compose exec -T joomla mkdir -p /tmp/mcp-component/tests /tmp/mcp-evidence
+compose exec -T joomla mkdir -p /tmp/mcp-component/tests /tmp/mcp-component/data /tmp/mcp-evidence
 compose cp tests/. joomla:/tmp/mcp-component/tests/
+compose cp data/upstream-native.json joomla:/tmp/mcp-component/data/upstream-native.json
 compose cp "build/component-source.zip" joomla:/tmp/mcp-component.zip
 # JCB installs its library tree through its own installer, not a test-side copy.
 (cd build/jcb-source && zip -qr "$root/build/jcb-under-test.zip" . -x '.git/*' '.github/*' 'libraries/vendor_jcb/tests/*')
