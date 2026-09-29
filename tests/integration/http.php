@@ -80,9 +80,13 @@ try
 		->where($db->quoteName('extension') . ' = ' . $db->quote('com_content'))->where($db->quoteName('published') . ' = 1')->order($db->quoteName('id') . ' ASC'), 0, 1)->loadResult();
 	$check($category > 0, 'Actual installed article category selected');
 	$fieldModel = $createFieldModel();
+	// The native model save does not apply form defaults. Supply the editable
+	// #__fields columns from Joomla's supports.sql/field.xml; leave audit fields
+	// and assets to the native table lifecycle.
 	$check($fieldModel->save(['id' => 0, 'context' => 'com_content.article', 'title' => $fieldName, 'name' => $fieldName,
 		'label' => 'MCP disposable custom field', 'type' => 'text', 'state' => 1, 'access' => 1, 'language' => '*',
-		'group_id' => 0, 'required' => 0, 'only_use_in_subform' => 0, 'assigned_cat_ids' => [0], 'default_value' => '', 'params' => [], 'fieldparams' => []]),
+		'group_id' => 0, 'required' => 0, 'only_use_in_subform' => 0, 'assigned_cat_ids' => [0], 'default_value' => '',
+		'description' => '', 'note' => '', 'ordering' => 0, 'params' => [], 'fieldparams' => []]),
 		'Native administrator model creates a published text field: ' . implode('; ', $fieldModel->getErrors()));
 	$fieldId = (int) $db->setQuery($db->createQuery()->select($db->quoteName('id'))->from($db->quoteName('#__fields'))
 		->where($db->quoteName('context') . ' = ' . $db->quote('com_content.article'))->where($db->quoteName('name') . ' = ' . $db->quote($fieldName)))->loadResult();
