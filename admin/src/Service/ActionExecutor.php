@@ -132,7 +132,7 @@ final class ActionExecutor
 		catch (OperationException)
 		{
 			return ['inputSchema' => $schema, 'customFields' => $context + ['status' => 'unavailable', 'fields' => [],
-				'reason' => 'Custom field discovery requires access to the matching structure.read action.']];
+				'reason' => 'Custom field discovery requires access to the matching fields list read action.']];
 		}
 
 		$metadata = $this->customFields($context, $schema);
