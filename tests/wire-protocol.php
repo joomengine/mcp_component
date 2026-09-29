@@ -125,6 +125,24 @@ foreach ([[], null, 7, false, 'scalar'] as $index => $invalid)
 	$messages[] = ['jsonrpc' => '2.0', 'id' => $id, 'method' => 'tools/call', 'params' => ['name' => 'joomla_sites_list', 'arguments' => $invalid]];
 }
 
+$invalidIds['unknown-method'] = -32601;
+$invalidIds['missing-name'] = -32602;
+$invalidIds[31] = -32602;
+$invalidIds['unknown-tool'] = -32602;
+$invalidIds['invalid-resource-params'] = -32602;
+$invalidIds['invalid-list-params'] = -32602;
+$invalidIds['invalid-prompt-params'] = -32602;
+$invalidIds['invalid-list-envelope-params'] = -32602;
+$messages[] = ['jsonrpc' => '2.0', 'id' => 'unknown-method', 'method' => 'unsupported/method'];
+$messages[] = ['jsonrpc' => '2.0', 'id' => 'missing-name', 'method' => 'tools/call', 'params' => (object) []];
+$messages[] = ['jsonrpc' => '2.0', 'id' => 31, 'method' => 'tools/call', 'params' => ['name' => 42]];
+$messages[] = ['jsonrpc' => '2.0', 'id' => 'unknown-tool', 'method' => 'tools/call', 'params' => ['name' => 'unavailable_tool']];
+$messages[] = ['jsonrpc' => '2.0', 'id' => 'invalid-resource-params', 'method' => 'resources/read', 'params' => ['uri' => 7]];
+$messages[] = ['jsonrpc' => '2.0', 'id' => 'invalid-list-params', 'method' => 'tools/list', 'params' => ['cursor' => 7]];
+$messages[] = ['jsonrpc' => '2.0', 'id' => 'invalid-prompt-params', 'method' => 'prompts/get', 'params' => ['name' => 7]];
+$messages[] = ['jsonrpc' => '2.0', 'id' => 'invalid-list-envelope-params', 'method' => 'tools/list', 'params' => []];
+$messages[] = ['jsonrpc' => '2.0', 'method' => 'notifications/unknown'];
+$messages[] = ['jsonrpc' => '2.0', 'method' => 'tools/call', 'params' => ['name' => 42]];
 $deep = 'leaf';
 
 for ($depth = 0; $depth < 70; $depth++)
@@ -134,6 +152,7 @@ for ($depth = 0; $depth < 70; $depth++)
 
 $messages[] = ['jsonrpc' => '2.0', 'id' => 'deep-invalid-input', 'method' => 'tools/call', 'params' => ['name' => 'joomla_action_read',
 	'arguments' => ['action' => 'system.info', 'input' => []], '_meta' => ['reviewDepth' => $deep]]];
+$messages[] = ['jsonrpc' => '2.0', 'id' => null, 'method' => 'ping'];
 $messages[] = ['jsonrpc' => '2.0', 'id' => 'ping-after-errors', 'method' => 'ping'];
 $messages[] = ['jsonrpc' => '2.0', 'id' => 100, 'method' => 'ping'];
 $input = fopen('php://temp', 'w+');
@@ -190,7 +209,7 @@ try
 
 	$check($native->calls === 4, 'Invalid scalar, list and null arguments never reach the native handler.');
 	$check($depthFailures === 1, 'Deep metadata cannot bypass original JSON argument shape validation.');
-	$check($nullFailures === 0 && count($replies) === 1 + count($validIds) + count($invalidIds) + 2,
+	$check($nullFailures === 1 && count($replies) === 1 + count($validIds) + count($invalidIds) + 2,
 		'Unknown and malformed notifications emit no response.');
 	$check(($replies['ping-after-errors']['result'] ?? null) === [] && ($replies[100]['result'] ?? null) === [],
 		'Consecutive pings remain usable with exact string and integer IDs after rejected input.');
@@ -285,6 +304,28 @@ foreach ([false, true] as $modern)
 		$check(($reply['error']['code'] ?? null) === -32602, 'HTTP never coerces empty JSON arrays into required objects or objects into arrays.');
 	}
 
+	$reply = $http(['jsonrpc' => '2.0', 'id' => 'http-unknown', 'method' => 'unsupported/method'], $modern);
+	$check(($reply['error']['code'] ?? null) === -32601 && ($reply['id'] ?? null) === 'http-unknown', 'Both HTTP eras classify unknown methods and preserve IDs.');
+
+	foreach ([['tools/call', (object) []], ['tools/call', ['name' => 7]], ['resources/read', ['uri' => 7]],
+		['tools/list', ['cursor' => 7]], ['prompts/get', ['name' => 7]]] as [$method, $params])
+	{
+		$reply = $http(['jsonrpc' => '2.0', 'id' => 403, 'method' => $method, 'params' => (array) $params], $modern);
+		$check(($reply['error']['code'] ?? null) === -32602 && ($reply['id'] ?? null) === 403,
+			'Both HTTP eras classify recognized methods with invalid parameters and preserve integer IDs.');
+	}
+
+	foreach ([['method' => 'notifications/unknown'], ['method' => 'tools/call', 'params' => ['name' => 7]]] as $notification)
+	{
+		$reply = $http(['jsonrpc' => '2.0'] + $notification, $modern);
+		$check($reply === [], 'Both HTTP eras emit no response to unknown or malformed notifications.');
+	}
+
+	$reply = $http(['jsonrpc' => '1.0', 'id' => 'invalid-envelope', 'method' => 'tools/list'], $modern);
+	$check(($reply['error']['code'] ?? null) === -32600, 'Invalid envelopes remain invalid requests in both HTTP eras.');
+	$reply = $http(['jsonrpc' => '2.0', 'id' => 'http-request-after-errors', 'method' => $modern ? 'tools/list' : 'ping'], $modern);
+	$check(isset($reply['result']) && !isset($reply['error']) && ($reply['id'] ?? null) === 'http-request-after-errors',
+		'Both HTTP eras remain usable with exact IDs after protocol failures and notifications: ' . Json::encode($reply));
 }
 
-echo Json::encode(['checks' => $checks, 'newlineStdio' => 'passed', 'jsonObjectTypes' => 'passed', 'invalidInputTypes' => 'passed', 'httpEras' => 'passed']) . PHP_EOL;
+echo Json::encode(['checks' => $checks, 'newlineStdio' => 'passed', 'jsonObjectTypes' => 'passed', 'errorCodesAndIds' => 'passed', 'httpEras' => 'passed']) . PHP_EOL;
