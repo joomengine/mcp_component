@@ -179,8 +179,9 @@ $approve = static function (array $services, string $scope = 'content.write'): v
 	$services['permissions']->approve($request['requestId'], $request['acknowledgement']);
 };
 $articleFields = ['/v1/fields/content/articles' => [
-	$field('external-reference'), $field('audiences', ['type' => 'list']), $field('2026-reference'),
+	$field('external-reference'), $field('audiences', ['type' => 'list']), $field('2026-reference'), $field('équipe'), $field('团队'), $field('123'), $field('0'),
 	$field('unpublished-field', ['state' => 0]), $field('foreign-context', ['context' => 'com_contact.contact']),
+	$field('subform-only-field', ['only_use_in_subform' => 1]),
 	$field('private-field', ['access' => 7]), $field('private-group', ['group_id' => 3, 'group_state' => 1, 'group_access' => 7]),
 	$field('unpublished-group', ['group_id' => 4, 'group_state' => 0, 'group_access' => 1]),
 	$field('visible-group', ['group_id' => 5, 'group_state' => 1, 'group_access' => 1]),
@@ -192,7 +193,7 @@ $check($dry['dryRun'] && $s['http']->discovery === [] && $s['http']->writes === 
 $description = $s['tools']->call('joomla_action_describe', ['action' => 'content.articles.create'])['action'];
 $names = array_column($description['customFields']['fields'], 'name');
 sort($names);
-$check($names === ['2026-reference', 'audiences', 'external-reference', 'visible-group'], 'Discovery exposed an unpublished, foreign-context or inaccessible field/group, or rejected a numeric-leading field name.');
+$check($names === ['2026-reference', 'audiences', 'external-reference', 'visible-group', 'équipe', '团队'], 'Discovery exposed an unpublished, foreign-context or inaccessible field/group, or rejected numeric-leading/Unicode field names.');
 $check($description['customFields']['context'] === 'com_content.article'
 	&& $description['customFields']['sourceAction'] === 'fields.content-articles.list', 'Action description lost the native field context and source.');
 $properties = $description['inputSchema']['properties']['data']['properties'];
@@ -206,7 +207,8 @@ $check($dry['dryRun'] && isset($dry['operation']['customFields']) && $s['store']
 	'A custom field dry-run must validate and describe input without approval state or mutation.');
 
 $approve($s);
-$data = ['title' => 'Custom field article', 'catid' => 2, 'external-reference' => 'reference-secret', 'audiences' => ['members', 'partners'], '2026-reference' => 'numeric-leading'];
+$data = ['title' => 'Custom field article', 'catid' => 2, 'external-reference' => 'reference-secret', 'audiences' => ['members', 'partners'],
+	'2026-reference' => 'numeric-leading', 'équipe' => 'Unicode Latin', '团队' => 'Unicode Han'];
 $plan = $s['tools']->call('joomla_action_write_plan', ['action' => 'content.articles.create', 'input' => ['data' => $data], 'idempotencyKey' => Json::uuid()]);
 $check(!str_contains(Json::encode($plan), 'reference-secret'), 'A confirmation preview disclosed custom field values.');
 $check($s['http']->writes === [] && $plan['operation']['customFields']['context'] === 'com_content.article', 'Planning must publish field metadata without mutation.');
@@ -240,6 +242,7 @@ foreach ([
 	['external-reference' => null], ['com_fields' => ['external-reference' => null]],
 	['com_fields' => []], ['com_fields' => 'invalid'], ['com_fields' => ['value']], ['com_fields' => ['unknown-field' => 'value']],
 	['external-reference' => 'value', 'com_fields' => ['external-reference' => 'duplicate']], ['com_fields' => ['title' => 'core collision']],
+	['com_fields' => ['123' => 'numeric-only']], ['com_fields' => ['0' => 'numeric-only']],
 ] as $invalid)
 {
 	$writes = count($s['http']->writes);
@@ -284,15 +287,14 @@ foreach (['hiddenField' => 'partial', 'changedField' => 'uncertain'] as $mode =>
 }
 
 foreach ([
-	new Response(403, [], '{"errors":[{"title":"Permission denied"}]}'),
-	new Response(200, [], '{"data":{"not":"a collection"}}'),
-	new Response(200, [], '{"data":[]}'),
-] as $response)
+	[new Response(403, [], '{"errors":[{"title":"Permission denied"}]}'), 'CUSTOM_FIELDS_UNAVAILABLE'],
+	[new Response(200, [], '{"data":{"not":"a collection"}}'), 'CUSTOM_FIELDS_UNAVAILABLE'],
+	[new Response(200, [], '{"data":[]}'), 'INVALID_INPUT'],
+] as [$response, $expected])
 {
 	$s = $fixture($articleFields);
 	$s['http']->fieldResponse = $response;
-	$reject(static fn () => $s['executor']->plan('content.articles.create', ['data' => ['title' => 'Unavailable fields', 'catid' => 2, 'external-reference' => 'value']], Json::uuid()),
-		$response->getStatusCode() === 200 && (string) $response->getBody() === '{"data":[]}' ? 'INVALID_INPUT' : 'CUSTOM_FIELDS_UNAVAILABLE');
+	$reject(static fn () => $s['executor']->plan('content.articles.create', ['data' => ['title' => 'Unavailable fields', 'catid' => 2, 'external-reference' => 'value']], Json::uuid()), $expected);
 	$check($s['http']->writes === [] && $s['store']->find('plan') === [], 'Failed discovery must not permit mutation or confirmation.');
 }
 $s = $fixture($articleFields);
@@ -302,11 +304,22 @@ $check(count($s['http']->discovery) <= 100 && $s['http']->writes === [], 'Unboun
 $s = $fixture(['/v1/fields/content/articles' => [$field('title')]]);
 $reject(static fn () => $s['executor']->describe('content.articles.create'), 'CUSTOM_FIELDS_UNAVAILABLE');
 $check($s['http']->writes === [], 'A discovered field name collision must not replace the core form contract.');
+foreach ([null, 'invalid', -1, false] as $group)
+{
+	$s = $fixture(['/v1/fields/content/articles' => [$field('external-reference', ['group_id' => $group])]]);
+	$reject(static fn () => $s['executor']->describe('content.articles.create'), 'CUSTOM_FIELDS_UNAVAILABLE');
+}
 $s = $fixture($articleFields);
 $source = $s['store']->one('action', ['name' => 'fields.content-articles.list']);
 $s['store']->update('action', ['published' => 0], ['id' => $source['id']]);
 $s['catalogue']->refresh();
-$reject(static fn () => $s['executor']->describe('content.articles.create'), 'CUSTOM_FIELDS_UNAVAILABLE');
+$resolved = $s['catalogue']->action('content.articles.create');
+$staticSchema = Json::decode($s['catalogue']->schema((int) $resolved['binding']['input_schema_id']));
+$description = $s['executor']->describe('content.articles.create');
+$check($description['inputSchema'] === $staticSchema && $description['customFields']['status'] === 'unavailable'
+	&& $description['customFields']['fields'] === [], 'Unavailable field discovery must retain the unchanged core action schema and report its unavailable status.');
+$reject(static fn () => $s['executor']->plan('content.articles.create', ['data' => ['title' => 'Unauthorized discovery', 'catid' => 2,
+	'external-reference' => 'value']], Json::uuid()), 'CUSTOM_FIELDS_UNAVAILABLE');
 $check($s['http']->discovery === [], 'Unpublished field discovery actions must remain behind catalogue authorization.');
 $s = $fixture($articleFields, 'cli');
 $description = $s['executor']->describe('content.articles.create');

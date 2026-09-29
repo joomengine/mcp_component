@@ -112,11 +112,17 @@ final class CustomFields
 				$identities[(string) $id] = true;
 				$name = $attributes['name'] ?? null;
 				$type = $attributes['type'] ?? null;
+				$group = $attributes['group_id'] ?? null;
+
+				if ((!is_int($group) && !is_string($group)) || preg_match('/\A[0-9]+\z/D', (string) $group) !== 1)
+				{
+					throw new OperationException('CUSTOM_FIELDS_UNAVAILABLE', 'Custom field discovery returned an invalid field group identity.');
+				}
 
 				if (($attributes['context'] ?? null) !== $context['context'] || !in_array($attributes['state'] ?? null, [1, '1'], true)
 					|| in_array($attributes['only_use_in_subform'] ?? null, [true, 1, '1'], true)
 					|| (isset($attributes['access']) && !in_array((int) $attributes['access'], $viewLevels, true))
-					|| (!empty($attributes['group_id']) && (!in_array($attributes['group_state'] ?? null, [1, '1'], true)
+					|| ((int) $group !== 0 && (!in_array($attributes['group_state'] ?? null, [1, '1'], true)
 						|| (isset($attributes['group_access']) && !in_array((int) $attributes['group_access'], $viewLevels, true)))))
 				{
 					continue;
@@ -127,7 +133,8 @@ final class CustomFields
 					throw new OperationException('CUSTOM_FIELDS_UNAVAILABLE', 'A published custom field collides with a core or reserved Joomla form key. Rename that field before planning custom values.');
 				}
 
-				if (!is_string($name) || preg_match('/\A[A-Za-z0-9][A-Za-z0-9_-]{0,254}\z/D', $name) !== 1
+				if (!is_string($name) || strlen($name) > 255 || preg_match('/\A[\p{L}\p{N}\p{M}_-]+\z/uD', $name) !== 1
+					|| preg_match('/\A[0-9]+\z/D', $name) === 1
 					|| in_array($name, self::RESERVED, true) || array_key_exists($name, $core))
 				{
 					continue;
