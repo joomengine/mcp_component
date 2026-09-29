@@ -20,6 +20,7 @@ use VDM\Component\JoomEngineMcp\Administrator\Native\Domain\ActionDescriptor;
 use VDM\Component\JoomEngineMcp\Administrator\Native\Domain\ActionException;
 use VDM\Component\JoomEngineMcp\Administrator\Native\Domain\CoreEntityDefinition;
 use VDM\Component\JoomEngineMcp\Administrator\Native\Domain\Input;
+use VDM\Component\JoomEngineMcp\Administrator\Native\Joomla\ModelListPage;
 use VDM\Component\JoomEngineMcp\Administrator\Native\Joomla\TemplateStyleInheritance;
 
 
@@ -179,10 +180,7 @@ final class CoreEntityAction implements ActionInterface
 		$model->setState('list.ordering', $order);
 		$model->setState('list.direction', $direction);
 
-		if ($search !== '')
-		{
-			$model->setState('filter.search', $search);
-		}
+		$model->setState('filter.search', $search);
 
 		if (array_key_exists('state', $input))
 		{
@@ -194,7 +192,12 @@ final class CoreEntityAction implements ActionInterface
 
 		try
 		{
-			$rawItems = $model->getItems();
+			$page = ModelListPage::read($model, $offset, $limit);
+			$rawItems = $page['items'];
+		}
+		catch (ActionException $exception)
+		{
+			throw new ActionException($exception->errorCode, $exception->getMessage() . $this->modelFailureDetail($model));
 		}
 		catch (Throwable $exception)
 		{
@@ -222,15 +225,6 @@ final class CoreEntityAction implements ActionInterface
 			}
 		}
 
-		try
-		{
-			$total = method_exists($model, 'getTotal') ? (int) $model->getTotal() : count($items);
-		}
-		catch (Throwable)
-		{
-			$total = count($items);
-		}
-
 		return [
 			'entity' => $this->entity->id,
 			'items' => $items,
@@ -238,7 +232,7 @@ final class CoreEntityAction implements ActionInterface
 				'offset' => $offset,
 				'limit' => $limit,
 				'count' => count($items),
-				'total' => max(0, $total),
+				'total' => $page['total'],
 			],
 		];
 	}
