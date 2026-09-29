@@ -86,6 +86,32 @@ final class Json
 		return self::encode(self::normalise($value));
 	}
 
+	/**
+	 * Expose ordinary JSON maps to PHP while retaining ambiguous object shapes.
+	 *
+	 * @param mixed $value JSON decoded with object/list distinctions retained.
+	 * @return mixed Named maps as arrays; empty and numeric-only objects as stdClass.
+	 * @since 0.1.2
+	 */
+	public static function native(mixed $value): mixed
+	{
+		$isObject = $value instanceof stdClass;
+
+		if (!is_array($value) && !$isObject)
+		{
+			return $value;
+		}
+
+		$members = (array) $value;
+
+		foreach ($members as $key => $child)
+		{
+			$members[$key] = self::native($child);
+		}
+
+		return $isObject && array_is_list($members) ? (object) $members : $members;
+	}
+
 	/** @param mixed $item JSON-compatible value. @return mixed Canonically ordered value without a cyclic recursive closure. @since 0.1.1 */
 	private static function normalise(mixed $item): mixed
 	{

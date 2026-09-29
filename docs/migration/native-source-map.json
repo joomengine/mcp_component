@@ -125,11 +125,12 @@
         "source": "companion/plugin/src/Domain/Input.php",
         "sourceSha256": "b114e0a807c0444636b1658b8d760d7b4b79a3b04ebd022980cfc173ce387f15",
         "target": "admin/src/Native/Domain/Input.php",
-        "targetSha256": "02b0c83de104b61dde9161101a66441b4275e0c357faa00dae1dc9cbe4fe7af1",
+        "targetSha256": "690cbb22aeca7b5ea3ea790763424bc86145ea6f9229fd72925b04bdd32cf5ef",
         "targetTransformations": [
             "namespace/path migration",
             "JCB PHP style and explicit dependency properties",
-            "class and member contract documentation"
+            "class and member contract documentation",
+            "Bound explicit JSON objects without erasing nested empty or numeric-key mappings"
         ]
     },
     {
@@ -364,7 +365,7 @@
         "source": "companion/plugin/src/Action/CoreEntityAction.php",
         "sourceSha256": "045c352b2a1cad22dcc037e4e611930afa78626e57c64dceab7284237f184474",
         "target": "admin/src/Native/Action/CoreEntityAction.php",
-        "targetSha256": "450797da0a7ed35ded35fb9113219d77563ee3a12aa8765abb6aa39d006bddf9",
+        "targetSha256": "b01b123669091e1611013aab13302d82d34b10c12895aef5ad69eec9e8c63976",
         "targetTransformations": [
             "namespace/path migration",
             "JCB PHP style and explicit dependency properties",
@@ -372,7 +373,8 @@
             "Template style creation verifies native manifest inheritance before preview/save (joomla-mcp issue #40)",
             "Field creation defaults omitted default_value to an empty string before preview/save (joomla-mcp issue #42)",
             "exact zero-based native list pagination without Joomla last-page clamping",
-            "resolve public identifier ordering through the native physical primary key and approved columns"
+            "resolve public identifier ordering through the native physical primary key and approved columns",
+            "Convert validated object mappings to Joomla native form bind arrays only at model save"
         ]
     },
     {

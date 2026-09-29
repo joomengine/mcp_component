@@ -119,7 +119,7 @@ final class SchemaValidator
 			]);
 		}
 
-		return $strictShapes ? (array) $data : array_map([$this, 'nativeValue'], (array) $data);
+		return $strictShapes ? (array) $data : array_map([Json::class, 'native'], (array) $data);
 	}
 
 	/**
@@ -243,33 +243,4 @@ final class SchemaValidator
 		return $isObject ? (object) $value : $value;
 	}
 
-	/**
-	 * Keep ambiguous JSON objects while exposing ordinary maps to PHP handlers.
-	 *
-	 * Empty and numeric-only objects would otherwise encode as JSON lists after
-	 * associative decoding. Their original object kind remains authoritative in
-	 * later action validation, storage fingerprints and outbound serialization.
-	 *
-	 * @param mixed $value Validated JSON value.
-	 * @return mixed Native maps with object/list distinctions retained.
-	 * @since 0.1.2
-	 */
-	private function nativeValue(mixed $value): mixed
-	{
-		$isObject = $value instanceof stdClass;
-
-		if (!is_array($value) && !$isObject)
-		{
-			return $value;
-		}
-
-		$members = (array) $value;
-
-		foreach ($members as $key => $child)
-		{
-			$members[$key] = $this->nativeValue($child);
-		}
-
-		return $isObject && array_is_list($members) ? (object) $members : $members;
-	}
 }

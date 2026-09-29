@@ -14,6 +14,7 @@ namespace VDM\Component\JoomEngineMcp\Administrator\Native\Action;
 use JsonSerializable;
 use Joomla\CMS\Factory;
 use Throwable;
+use stdClass;
 use VDM\Component\JoomEngineMcp\Administrator\Native\Contract\ActionInterface;
 use VDM\Component\JoomEngineMcp\Administrator\Native\Contract\ModelProviderInterface;
 use VDM\Component\JoomEngineMcp\Administrator\Native\Domain\ActionDescriptor;
@@ -701,7 +702,7 @@ final class CoreEntityAction implements ActionInterface
 	{
 		try
 		{
-			$saved = $model->save($payload);
+			$saved = $model->save($this->modelData($payload));
 		}
 		catch (Throwable $exception)
 		{
@@ -718,6 +719,31 @@ final class CoreEntityAction implements ActionInterface
 				sprintf('Joomla did not save %s.%s', $this->entity->label, $this->modelFailureDetail($model)),
 			);
 		}
+	}
+
+	/**
+	 * Adapt validated JSON objects to Joomla's native form and Table bind arrays.
+	 *
+	 * @param mixed $value Validated form data.
+	 * @return mixed Array-based native bind data.
+	 * @since 0.1.2
+	 */
+	private function modelData(mixed $value): mixed
+	{
+		if ($value instanceof stdClass)
+		{
+			$value = get_object_vars($value);
+		}
+
+		if (is_array($value))
+		{
+			foreach ($value as $key => $child)
+			{
+				$value[$key] = $this->modelData($child);
+			}
+		}
+
+		return $value;
 	}
 
 	/**

@@ -120,7 +120,8 @@ $fixture = static function (bool $deferred = false, string $track = 'api') use (
 	$schema = $seed['schema'][0];
 	$schema['id'] = 99999;
 	$schema['name'] = 'fixture.lifecycle.input';
-	$schema['document'] = Json::encode(['type' => 'object', 'properties' => ['value' => ['type' => 'string']], 'required' => ['value'], 'additionalProperties' => false]);
+	$schema['document'] = Json::encode(['type' => 'object', 'properties' => ['value' => ['anyOf' => [
+		['type' => 'string'], ['type' => 'object', 'additionalProperties' => (object) []]]]], 'required' => ['value'], 'additionalProperties' => false]);
 	$seed['schema'][] = $schema;
 	$actionId = null;
 
@@ -210,6 +211,40 @@ try
 	$localPlan = $local['executor']->plan('content.articles.create', $input, Json::uuid());
 	$local['executor']->apply($localPlan['confirmationToken']);
 	$check($local['handler']->writes === 1 && $local['handler']->arguments === [$input, $input], 'The Planned lifecycle never injects legacy dryRun or confirmation flags into CLI schemas.');
+
+	foreach ([false, true] as $deferred)
+	{
+		$typed = $fixture($deferred);
+		($typed['grant'])();
+		$value = (object) ['0' => (object) [], '1' => (object) ['empty' => (object) [], 'list' => []]];
+		$typedPlan = $typed['executor']->plan('content.articles.create', ['value' => $value], Json::uuid());
+		$saved = $typed['executions']->resolve($typedPlan['confirmationToken']);
+		$check(Json::canonical($saved['payload']['input']['value']) === Json::canonical($value)
+			&& Json::canonical($saved['payload']['prepared']['value']) === Json::canonical($value),
+			'Encrypted confirmation read-back preserves approved numeric object maps, empty objects and lists.');
+		$applied = $typed['executor']->apply($typedPlan['confirmationToken']);
+
+		if ($deferred)
+		{
+			$queued = $applied['job'];
+			$completed = $typed['jobs']->run($queued['jobId'], $typed['dispatch']->tickets[$queued['jobId']], [$typed['executor'], 'runJob']);
+			$check($completed['status'] === 'completed', 'The durable worker applies the unchanged approved object-valued input.');
+		}
+
+		$check($typed['handler']->writes === 1 && count($typed['handler']->arguments) >= 2,
+			'Object-valued input completes exactly one approved mutation through each lifecycle.');
+
+		foreach ($typed['handler']->arguments as $arguments)
+		{
+			$check(Json::canonical($arguments['value']) === Json::canonical($value),
+				'Planning, confirmed apply and deferred execution receive the same JSON object/list types.');
+		}
+
+		$replayed = $typed['executor']->apply($typedPlan['confirmationToken']);
+		$check($replayed['idempotentReplay'] && $typed['handler']->writes === 1
+			&& Json::canonical($replayed['mutation']['observed'] ?? null) === Json::canonical($value),
+			'Durable execution replay preserves observed JSON types without repeating the approved mutation.');
+	}
 
 	foreach (['partial', 'unverified'] as $verification)
 	{
