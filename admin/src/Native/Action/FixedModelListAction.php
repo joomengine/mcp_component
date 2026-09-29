@@ -17,6 +17,7 @@ use VDM\Component\JoomEngineMcp\Administrator\Native\Contract\ModelProviderInter
 use VDM\Component\JoomEngineMcp\Administrator\Native\Domain\ActionDescriptor;
 use VDM\Component\JoomEngineMcp\Administrator\Native\Domain\ActionException;
 use VDM\Component\JoomEngineMcp\Administrator\Native\Domain\Input;
+use VDM\Component\JoomEngineMcp\Administrator\Native\Joomla\ModelListPage;
 
 
 /**
@@ -183,7 +184,12 @@ final class FixedModelListAction implements ActionInterface
 
 		try
 		{
-			$rawItems = $model->{$this->getter}();
+			$page = ModelListPage::read($model, $offset, $limit, $this->getter);
+			$rawItems = $page['items'];
+		}
+		catch (ActionException $exception)
+		{
+			throw $exception;
 		}
 		catch (Throwable)
 		{
@@ -216,18 +222,9 @@ final class FixedModelListAction implements ActionInterface
 			$items[] = $normalised;
 		}
 
-		try
-		{
-			$total = method_exists($model, 'getTotal') ? (int) $model->getTotal() : count($items);
-		}
-		catch (Throwable)
-		{
-			$total = count($items);
-		}
-
 		return [
 			'items' => $items,
-			'page' => ['offset' => $offset, 'limit' => $limit, 'count' => count($items), 'total' => max(0, $total)],
+			'page' => ['offset' => $offset, 'limit' => $limit, 'count' => count($items), 'total' => $page['total']],
 		];
 	}
 }

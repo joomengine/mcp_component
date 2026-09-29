@@ -16,6 +16,7 @@ use VDM\Component\JoomEngineMcp\Administrator\Native\Domain\ActionDescriptor;
 use VDM\Component\JoomEngineMcp\Administrator\Native\Domain\ActionException;
 use VDM\Component\JoomEngineMcp\Administrator\Native\Domain\Input;
 use VDM\Component\JoomEngineMcp\Administrator\Native\Joomla\JoomlaModelProvider;
+use VDM\Component\JoomEngineMcp\Administrator\Native\Joomla\ModelListPage;
 
 
 /**
@@ -123,7 +124,8 @@ final class ListArticlesAction implements ActionInterface
 			$model->setState('filter.search', $search);
 		}
 
-		$rawItems = $model->getItems();
+		$page = ModelListPage::read($model, $offset, $limit);
+		$rawItems = $page['items'];
 
 		if (!is_array($rawItems))
 		{
@@ -139,7 +141,6 @@ final class ListArticlesAction implements ActionInterface
 				$items[] = $this->normalise($item);
 			}
 		}
-		$total = method_exists($model, 'getTotal') ? (int) $model->getTotal() : count($items);
 
 		return [
 			'items' => $items,
@@ -147,7 +148,7 @@ final class ListArticlesAction implements ActionInterface
 				'offset' => $offset,
 				'limit' => $limit,
 				'count' => count($items),
-				'total' => $total,
+				'total' => $page['total'],
 			],
 		];
 	}

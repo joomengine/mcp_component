@@ -379,7 +379,7 @@ test('generic list action bounds model state and strips non-allowlisted output',
 
         public function getTotal(): int
         {
-            return 1;
+            return 8;
         }
     };
     $provider = new class ($model) implements ModelProviderInterface {
@@ -397,7 +397,7 @@ test('generic list action bounds model state and strips non-allowlisted output',
     $result = (new CoreEntityAction($entity, 'list', $provider))->execute([
         'offset' => 5, 'limit' => 10, 'search' => 'ada', 'direction' => 'DESC',
     ]);
-    expect($model->state['list.start'] === 5 && $model->state['list.limit'] === 10, 'Pagination was not applied.');
+    expect($model->state['list.start'] === 5 && $model->state['list.limit'] === 3, 'Pagination was not applied.');
     expect($model->state['filter.search'] === 'ada', 'Search was not applied.');
     expect(!array_key_exists('password', $result['items'][0]), 'A user password escaped the read allowlist.');
     expect(!str_contains(json_encode($result, JSON_THROW_ON_ERROR), 'must-not-leak'), 'A secret value escaped normalization.');
@@ -1049,6 +1049,7 @@ test('migrated native runtime is independent of the old plugin namespace', stati
 
 require __DIR__ . '/template-style-inheritance.php';
 require __DIR__ . '/field-defaults.php';
+require __DIR__ . '/pagination.php';
 
 if ($GLOBALS['failures'] > 0) {
     file_put_contents('php://stderr', sprintf("%d test(s) failed.\n", $GLOBALS['failures']), FILE_APPEND);
