@@ -20,6 +20,6 @@
 		<targetplatform name="joomla" version="6\.[1-9][0-9]*"/>
 		<php_minimum>8.3.0</php_minimum>
 		<changelogurl>https://raw.githubusercontent.com/joomengine/mcp_component/main/changelog.xml</changelogurl>
-		
+		<sha512>ea15d5ffcf3084aff6defe8bbc3caccfb0115ffc66181181a51753ad229370344992d6369c6dfb014e90469baf4a022ae63b41799c3ad4b0568593bf027430b5</sha512>
 	</update>
 </updates>
