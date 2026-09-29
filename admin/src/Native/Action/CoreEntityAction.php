@@ -304,6 +304,13 @@ final class CoreEntityAction implements ActionInterface
 			throw new ActionException('INVALID_INPUT', 'Create data must contain at least one allowed field.');
 		}
 
+		// Match the administrator form without changing explicit defaults or updates.
+		if ($this->entity->component === 'com_fields' && $this->entity->itemModel === 'Field'
+			&& !array_key_exists('default_value', $data))
+		{
+			$data['default_value'] = '';
+		}
+
 		$inheritance = in_array($this->entity->id, ['templates.site-styles', 'templates.administrator-styles'], true)
 			? TemplateStyleInheritance::resolve($this->models, $data['template'] ?? null, (int) $this->entity->defaults['client_id'])
 			: null;

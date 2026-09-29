@@ -356,12 +356,13 @@
         "source": "companion/plugin/src/Action/CoreEntityAction.php",
         "sourceSha256": "045c352b2a1cad22dcc037e4e611930afa78626e57c64dceab7284237f184474",
         "target": "admin/src/Native/Action/CoreEntityAction.php",
-        "targetSha256": "cbce35c737fb79250fbbf99cae27512e2ddcdd3b5b084fc9a7a75ba03410f19a",
+        "targetSha256": "45c461ec932a278ae134c511ccf7f0701fce76d6ce81c8780b0cdf77e3e367ae",
         "targetTransformations": [
             "namespace/path migration",
             "JCB PHP style and explicit dependency properties",
             "class and member contract documentation",
-            "Template style creation verifies native manifest inheritance before preview/save (joomla-mcp issue #40)"
+            "Template style creation verifies native manifest inheritance before preview/save (joomla-mcp issue #40)",
+            "Field creation defaults omitted default_value to an empty string before preview/save (joomla-mcp issue #42)"
         ]
     },
     {

@@ -3,6 +3,14 @@
   <changelog>
     <element>com_joomengine_mcp</element>
     <type>component</type>
+    <version>[[[NEXT_VERSION]]]</version>
+    <fix>
+      <item>Default omitted custom field creation defaults to an empty string on API and native console transports, matching the administrator form and avoiding null-default backend DOM deprecations. Preserve explicit defaults and partial-update behavior.</item>
+    </fix>
+  </changelog>
+  <changelog>
+    <element>com_joomengine_mcp</element>
+    <type>component</type>
     <version>1.0.1</version>
     <fix>
       <item>Accept published, accessible Joomla custom field values in API article, content-category, contact and user create/update plans, including typed article tools and the optional com_fields alias. Reject unknown keys, expose runtime metadata in describe and freeze resolved fields with the approved plan.</item>

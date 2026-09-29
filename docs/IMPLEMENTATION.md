@@ -12,6 +12,12 @@ The first [installed matrix run for PR #6](https://github.com/joomengine/mcp_com
 
 ## Implemented server
 
+### Custom field creation defaults (upstream issue #42)
+
+Field creation supplies `default_value: ""` when the caller omits that key, matching Joomla's administrator form and preventing a newly created field from passing a null default into the backend DOM pipeline. The API request builder covers all six reviewed field routes, and the native `com_fields` Field create action applies the same fallback before preview/save. Explicit defaults, including null, remain caller-owned; partial updates keep their existing behavior. This is a create-time default, not a migration of existing field rows.
+
+Regression coverage includes confirmed API plans and replay, every native field context, explicit values and partial updates. Installed Joomla coverage creates disposable fields through both HTTP and console, inspects persisted defaults, and invokes the real field plugin DOM hook with deprecation failures enabled. Current-head CI supplies the installed evidence before readiness.
+
 ### Runtime custom field values (upstream issue #38)
 
 The API write path now supports article, content-category, contact and user create/update actions, including typed article plan tools. Published custom field definitions come from the authenticated, authorized `fields.*.list` action for the matching Joomla context. Planning preserves the strict reviewed core-field schema, normalizes the optional `com_fields` alias, freezes discovered metadata with the encrypted approved payload, and reuses that snapshot on apply without rediscovery. Describe exposes the site-specific names and field types; callers without field-discovery permission still receive the core schema with an explicit unavailable status. Articles, contacts and users use top-level API field names; categories use Joomla's nested `com_fields` form group.
