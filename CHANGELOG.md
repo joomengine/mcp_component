@@ -4,6 +4,7 @@
 
 ### Fix
 
+- Accept published, accessible Joomla custom field values in API article, content-category, contact and user create/update plans, including typed article tools and the optional `com_fields` alias. Keep unknown keys blocked, expose runtime field metadata in describe, and bind the resolved fields to the approved plan without rediscovery at apply.
 - Supply OctoJPack with the workflow's read-only GitHub token when the optional `GIT_TOKEN` secret is unset, so public tagged sources can be packaged.
 - Use the console plugin's independent-version installer fix in the installed Joomla and JCB checks.
 
