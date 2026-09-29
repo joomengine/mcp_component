@@ -1047,6 +1047,8 @@ test('migrated native runtime is independent of the old plugin namespace', stati
     }
 });
 
+require __DIR__ . '/template-style-inheritance.php';
+
 if ($GLOBALS['failures'] > 0) {
     file_put_contents('php://stderr', sprintf("%d test(s) failed.\n", $GLOBALS['failures']), FILE_APPEND);
     exit(1);

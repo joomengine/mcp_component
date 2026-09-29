@@ -356,11 +356,12 @@
         "source": "companion/plugin/src/Action/CoreEntityAction.php",
         "sourceSha256": "045c352b2a1cad22dcc037e4e611930afa78626e57c64dceab7284237f184474",
         "target": "admin/src/Native/Action/CoreEntityAction.php",
-        "targetSha256": "02c4f7ac1154a36507e97c267523e03b110487f3ebd2a033e82271abb1c29a1e",
+        "targetSha256": "cbce35c737fb79250fbbf99cae27512e2ddcdd3b5b084fc9a7a75ba03410f19a",
         "targetTransformations": [
             "namespace/path migration",
             "JCB PHP style and explicit dependency properties",
-            "class and member contract documentation"
+            "class and member contract documentation",
+            "Template style creation verifies native manifest inheritance before preview/save (joomla-mcp issue #40)"
         ]
     },
     {
@@ -411,7 +412,10 @@
         "source": "companion/tests/run.php",
         "sourceSha256": "65afa803b87bbf22f2b813c2f2493dea51b245d75172b014ed6b8948e04cd242",
         "target": "tests/native/run.php",
-        "targetSha256": "7fdf348c83dcbd316997118fd5024931612e89c1a700e2211b53421998c080af"
+        "targetSha256": "2927717a8e949bec6f356e2340e969cddeec7e48f06de59d2d5238e8e8767107",
+        "targetTransformations": [
+            "Template style creation verifies native manifest inheritance before preview/save (joomla-mcp issue #40)"
+        ]
     },
     {
         "source": "companion/tests/bootstrap.php",

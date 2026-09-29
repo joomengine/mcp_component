@@ -11,6 +11,7 @@ namespace VDM\Component\JoomEngineMcp\Administrator\Handler;
 
 use VDM\Component\JoomEngineMcp\Administrator\Domain\OperationException;
 use VDM\Component\JoomEngineMcp\Administrator\Service\Json;
+use VDM\Component\JoomEngineMcp\Administrator\Service\TemplateStyleInheritance;
 
 
 /**
@@ -185,6 +186,18 @@ final class ApiRequestBuilder
 				{
 					throw new OperationException('BINDING_INVALID', 'An unregistered form derivation was requested.');
 				}
+			}
+
+			if (TemplateStyleInheritance::client($configuration) !== null)
+			{
+				if (array_key_exists('parent', $body) || array_key_exists('inheritable', $body)
+					|| !array_key_exists('parent', $current) || !array_key_exists('inheritable', $current))
+				{
+					throw new OperationException('TEMPLATE_INHERITANCE_UNAVAILABLE', 'Template style creation requires server-verified inheritance metadata.');
+				}
+
+				$body = array_replace($body, TemplateStyleInheritance::manifest(['name' => $body['template'] ?? null,
+					'parent' => $current['parent'], 'inheritable' => $current['inheritable']]));
 			}
 
 			$body = array_replace($body, (array) ($configuration['body_defaults'] ?? []));
