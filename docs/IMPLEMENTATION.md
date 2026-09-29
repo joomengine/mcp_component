@@ -1,8 +1,12 @@
-# Implementation status — 28 September 2026
+# Implementation status — 29 September 2026
 
 ## Repository and source baseline
 
-The migration PR #1 and release realignment PR #3 are merged. Original MCP source: `2cff50f4f6b440da3c684f9995a77efad32e1a36`. JCB source: `extension-builder/joomla@5ee658dd07eb749dca43ed4722f6cca7eb8208cf`. The development component version is 0.1.1. OctoJPack selects the tagged component and independent plugins from its fixed configuration and publishes to `joomengine/mcp_package`.
+The migration PR #1 and release realignment PR #3 are merged. Original MCP source: `2cff50f4f6b440da3c684f9995a77efad32e1a36`. JCB source: `extension-builder/joomla@5ee658dd07eb749dca43ed4722f6cca7eb8208cf`. The component has published tag `v1.0.0`. OctoJPack selects the tagged component and independent plugins from its fixed configuration and publishes to `joomengine/mcp_package`.
+
+## Package release follow-up
+
+[Release run 36543905015](https://github.com/joomengine/mcp_component/actions/runs/36543905015) updated and hashed the component feed, then stopped before packaging because `GIT_TOKEN` was unavailable and `VDM_GLOBAL_TOKEN` was empty. The `.octojpack` format matches the native loader; its `.global.token` error is the fallback for a missing environment token. The workflow now supplies the built-in read-only GitHub token unless `GIT_TOKEN` is configured. SSH publication still uses the single Git User setup. No published tag or checksum is changed by this fix; package publication remains unverified until the release workflow completes.
 
 ## Implemented server
 
@@ -24,7 +28,7 @@ The administrator Operations screen includes jobs/artifact metadata and cancella
 
 The tracked component source contains production dependencies, installation data and its administrator licence. Source ZIP installation replaces local archive builders. The manual release freezes metadata and tags the component, updates its component-only feed and hashes its tagged ZIP, then OctoJPack publishes the package with that version. The package tag triggers its own feed and OctoShoom workflow in `mcp_package`. The shared versioned changelog remains here. See [RELEASE.md](RELEASE.md).
 
-The native Octoleo actions use one Git setup and fully concrete `.octojpack` values. Each extension explicitly selects its latest tag. The component feed has the current 0.1.1 prepared metadata; the first release run updates it to the published component version and adds its real hash. Package automation and its separate feed stay under `mcp_package/.github`, which native OctoJPack preserves during replacement. The extracted webservices plugin remains independently installed, upgraded and uninstalled; no component runtime changes are needed for feed separation.
+The native Octoleo actions use one Git setup and fully concrete `.octojpack` values. Each extension explicitly selects its latest tag. The component feed has the published 1.0.0 download and its OctoShoom hash. Package automation and its separate feed stay under `mcp_package/.github`, which native OctoJPack preserves during replacement. The extracted webservices plugin remains independently installed, upgraded and uninstalled; no component runtime changes are needed for feed separation.
 
 The first-package follow-up adds the missing webservices version/feed/OctoShoom workflow and completes the rollout instructions in [RELEASE.md](RELEASE.md). Release both plugins through their manual workflows, then release the component; no hand-edited release metadata is required. Repository secrets and an authorized release run remain deployment setup, not something inferred from green source/installation CI. This follow-up does not create release tags or publish a package.
 
