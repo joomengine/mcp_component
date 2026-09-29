@@ -8,6 +8,7 @@
  */
 
 use Joomla\CMS\Installer\Installer;
+use Joomla\CMS\Form\Form;
 use Joomla\CMS\User\UserFactoryInterface;
 use Joomla\Database\DatabaseInterface;
 use VDM\Component\JoomEngineMcp\Administrator\Service\Json;
@@ -96,6 +97,7 @@ try
 				$styleModel = $app->bootComponent('com_templates')->getMVCFactory()->createModel('Style', 'Administrator', ['ignore_request' => true]);
 				$styleModel->setCurrentUser($admin);
 				$formData = $data + ['client_id' => $nativeClient];
+				Form::addFormPath(JPATH_ADMINISTRATOR . '/components/com_templates/forms');
 				$form = $styleModel->getForm($formData, false);
 				$check($form !== false, 'Load the native child style form');
 				$filtered = $styleModel->validate($form, $formData);
