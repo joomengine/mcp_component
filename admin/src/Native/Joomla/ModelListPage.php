@@ -10,6 +10,7 @@
 namespace VDM\Component\JoomEngineMcp\Administrator\Native\Joomla;
 
 
+use Joomla\Component\Installer\Administrator\Model\InstallerModel;
 use VDM\Component\JoomEngineMcp\Administrator\Native\Domain\ActionException;
 
 
@@ -42,13 +43,16 @@ final class ModelListPage
 			throw new ActionException('MODEL_INCOMPATIBLE', 'The Joomla model cannot provide a bounded list.');
 		}
 
-		if ($getter === 'getData')
+		if ($getter === 'getData' || $model instanceof InstallerModel)
 		{
 			// CacheModel caches its full collection but returns a slice on the first
 			// getData() call. Its getTotal() can therefore count that slice alone.
+			// InstallerModel searches translated metadata inside getItems(), then
+			// caches the filtered total; base getTotal() counts unfiltered SQL rows.
+			// Both models already load the full collection natively for filtering.
 			$model->setState('list.start', 0);
 			$model->setState('list.limit', 0);
-			$items = $model->getData();
+			$items = $model->{$getter}();
 			self::requireItems($items);
 
 			return ['items' => array_slice($items, $offset, $limit), 'total' => count($items)];

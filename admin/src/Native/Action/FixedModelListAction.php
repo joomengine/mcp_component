@@ -182,6 +182,12 @@ final class FixedModelListAction implements ActionInterface
 		$model->setState('list.limit', $limit);
 		$model->setState('filter.search', $search);
 
+		if ($this->component === 'com_installer' && $this->modelName === 'Updatesites')
+		{
+			$model->setState('list.ordering', 'update_site_id');
+			$model->setState('list.direction', 'ASC');
+		}
+
 		try
 		{
 			$page = ModelListPage::read($model, $offset, $limit, $this->getter);
