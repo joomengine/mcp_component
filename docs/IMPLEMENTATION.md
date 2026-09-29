@@ -1,5 +1,11 @@
 # Implementation status — 29 September 2026
 
+## Runtime regression follow-up — issues #7–#13
+
+All seven reports are being addressed on `fix/issues-7-13-stable-runtime`. The reported v4 wire logs are unavailable; independent reproductions and current-source tests are recorded separately from that historical run.
+
+Issue #11: the SDK queues encoded replies in its session before delivery. The former 1 MiB persistence bound returned false and silently dropped large discovery replies. The encrypted SDK state now has a 12,000,000-byte bound whose base64 envelope fits the existing MySQL MEDIUMTEXT column. Exceeding it raises a bounded JSON-RPC error rather than dropping a reply. `php -d memory_limit=128M tests/session-storage.php` verifies a queued reply larger than 1 MiB, owner isolation, overflow rejection, preservation of previous state, and a following same-session ping. Full installed-catalogue checks are still pending.
+
 ## Repository and source baseline
 
 The migration PR #1 and release realignment PR #3 are merged. Original MCP source: `2cff50f4f6b440da3c684f9995a77efad32e1a36`. JCB source: `extension-builder/joomla@5ee658dd07eb749dca43ed4722f6cca7eb8208cf`. The component has published tag `v1.0.0`. OctoJPack selects the tagged component and independent plugins from its fixed configuration and publishes to `joomengine/mcp_package`.
