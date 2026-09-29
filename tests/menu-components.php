@@ -222,7 +222,7 @@ foreach ([['component_id' => 41], ['link' => 'index.php?option=com_content&optio
 	$check($writes($s) === [] && $s['store']->find('plan') === [], 'Invalid component identity input passed planning.');
 }
 
-foreach (['repairFailure' => 500, 'discardRepair' => true, 'initialFailure' => true, 'listDenied' => true] as $mode => $value)
+foreach ([['repairFailure', 412], ['repairFailure', 500], ['discardRepair', true], ['initialFailure', true], ['listDenied', true]] as [$mode, $value])
 {
 	$s = $fixture();
 	$s['http']->{$mode} = $value;
@@ -250,5 +250,25 @@ $body = array_replace($data, ['type' => 'url', 'link' => 'https://example.invali
 $plan = $s['executor']->plan('menus.site-items.create', ['data' => $body], Json::uuid());
 $result = $s['executor']->apply($plan['confirmationToken']);
 $check(count($writes($s)) === 1 && $s['http']->items[1]['component_id'] === 0 && $result['verification']['menuComponent']['status'] === 'verified', 'Noncomponent menu entries must retain zero without a corrective PATCH.');
+$s = $fixture();
+
+foreach ([1, 2, 3] as $id)
+{
+	$s['http']->items[$id] = $data + ['id' => $id, 'client_id' => 0, 'component_id' => 41];
+}
+
+$plan = $s['executor']->plan('menus.site-items.create', ['data' => $data], Json::uuid());
+$result = $s['executor']->apply($plan['confirmationToken']);
+$pages = array_values(array_filter($s['http']->requests, static fn (array $r): bool => $r['method'] === 'GET' && str_ends_with($r['path'], '/items')));
+$check($result['verification']['menuComponent']['id'] === 4 && count($pages) === 2
+	&& $pages[1]['query']['page']['offset'] === '2' && $pages[1]['query']['filter']['menutype'] === 'fixture',
+	'Collection verification must traverse bounded pages with the frozen native menu filter.');
+$s = $fixture();
+$plan = $s['executor']->plan('menus.site-items.create', ['data' => $data], Json::uuid());
+$repairAction = $s['store']->one('action', ['name' => 'menus.site-items.update']);
+$s['store']->update('action', ['published' => 0], ['id' => $repairAction['id']]);
+$s['catalogue']->refresh();
+$reject(static fn () => $s['executor']->apply($plan['confirmationToken']), 'DEFINITION_UNAVAILABLE');
+$check($writes($s) === [], 'Revoked repair authority must prevent the initial mutation too.');
 
 echo Json::encode(['checks' => $checks, 'menuComponentContracts' => 'passed with recording API and transactional memory doubles', 'liveJoomla' => 'not run by this unit suite']) . PHP_EOL;
