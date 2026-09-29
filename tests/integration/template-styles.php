@@ -69,6 +69,7 @@ try
 	}
 	$check($manifest->asXML($source . '/templateDetails.xml'), 'Write a native child manifest without copying its parent files');
 	$installer = new Installer();
+	$installer->setDatabase($db);
 	$check($installer->install($source), 'Install the disposable child through Joomla Installer');
 	$extensionId = (int) $db->setQuery('SELECT extension_id FROM ' . $db->quoteName('#__extensions') . ' WHERE type = ' . $db->quote('template') . ' AND element = ' . $db->quote($template) . ' AND client_id = 0')->loadResult();
 	$check($extensionId > 0 && !is_file(JPATH_ROOT . '/templates/' . $template . '/index.php'), 'Installed child requires parent template rendering');
@@ -139,7 +140,9 @@ finally
 	$extensionId ??= (int) $db->setQuery('SELECT extension_id FROM ' . $db->quoteName('#__extensions') . ' WHERE type = ' . $db->quote('template') . ' AND element = ' . $db->quote($template))->loadResult();
 	if ($extensionId > 0)
 	{
-		$check((new Installer())->uninstall('template', $extensionId), 'Uninstall the disposable child template through Joomla Installer');
+		$uninstaller = new Installer();
+		$uninstaller->setDatabase($db);
+		$check($uninstaller->uninstall('template', $extensionId), 'Uninstall the disposable child template through Joomla Installer');
 	}
 	if ($grantId !== null)
 	{
