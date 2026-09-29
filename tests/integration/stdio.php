@@ -65,7 +65,8 @@ try
 	$check($client->sdk()->isConnected(), 'Installed stdio remains usable after rejected object/list input');
 	$category = (int) $db->setQuery('SELECT id FROM ' . $db->quoteName('#__categories') . ' WHERE extension = ' . $db->quote('com_content') . ' AND published = 1 ORDER BY id', 0, 1)->loadResult();
 	$plan = $client->tool('joomla_action_write_plan', ['action' => 'content.articles.create', 'transport' => 'cli',
-		'idempotencyKey' => Json::uuid(), 'input' => ['data' => ['title' => $title, 'catid' => $category, 'introtext' => '<p>Written through MCP stdio.</p>', 'language' => '*']]]);
+		'idempotencyKey' => Json::uuid(), 'input' => ['data' => ['title' => $title, 'catid' => $category, 'introtext' => '<p>Written through MCP stdio.</p>',
+			'language' => '*', 'metadata' => (object) [], 'attribs' => (object) []]]]);
 	$check(is_string($plan['confirmationToken'] ?? null), 'Native write preflight returns an executable principal-bound plan');
 	$check(!(bool) $db->setQuery('SELECT id FROM ' . $db->quoteName('#__content') . ' WHERE title = ' . $db->quote($title))->loadResult(), 'MCP planning never persists an article');
 	$result = $client->tool('joomla_write_apply', ['confirmationToken' => $plan['confirmationToken']]);
