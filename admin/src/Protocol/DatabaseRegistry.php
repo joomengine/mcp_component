@@ -22,6 +22,7 @@ use Mcp\Schema\Prompt;
 use Mcp\Schema\ResourceDefinition;
 use Mcp\Schema\ResourceTemplate;
 use Mcp\Schema\Tool;
+use VDM\Component\JoomEngineMcp\Administrator\Security\SchemaDocument;
 use VDM\Component\JoomEngineMcp\Administrator\Security\SchemaValidator;
 use VDM\Component\JoomEngineMcp\Administrator\Service\ActionExecutor;
 use VDM\Component\JoomEngineMcp\Administrator\Service\Catalogue;
@@ -72,11 +73,11 @@ final class DatabaseRegistry implements RegistryInterface
 			$data['name'] = $row['name'];
 			$data['title'] = $row['title'];
 			$data['description'] = $row['description'];
-			$data['inputSchema'] = Json::decode($this->catalogue->schema((int) $row['input_schema_id']));
+			$data['inputSchema'] = SchemaDocument::decode($this->catalogue->schema((int) $row['input_schema_id']));
 
 			if (!empty($row['output_schema_id']))
 			{
-				$data['outputSchema'] = Json::decode($this->catalogue->schema((int) $row['output_schema_id']));
+				$data['outputSchema'] = SchemaDocument::decode($this->catalogue->schema((int) $row['output_schema_id']));
 			}
 
 			$tools[] = ['definition' => Tool::fromArray($data), 'handler' => new ToolHandler($this->tools, $row['name'])];

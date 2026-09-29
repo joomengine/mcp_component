@@ -330,7 +330,7 @@ test('production operation schemas expose no caller-selected Joomla primitive', 
     ];
 
     foreach ($productionActions as $name) {
-        $properties = $registry->get($name)->descriptor()->inputSchema['properties'] ?? [];
+        $properties = (array) ($registry->get($name)->descriptor()->inputSchema['properties'] ?? []);
 
         foreach (['command', 'component', 'model', 'method', 'url', 'path', 'php', 'sql'] as $escape) {
             expect(!array_key_exists($escape, $properties), sprintf('Action "%s" exposes "%s".', $name, $escape));

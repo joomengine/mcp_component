@@ -257,11 +257,12 @@
         "source": "companion/plugin/src/Action/SafeConfigurationAction.php",
         "sourceSha256": "bb7266e6b14a17563332e053f2f69a9e621f102983bb1ed59c631b726322f274",
         "target": "admin/src/Native/Action/SafeConfigurationAction.php",
-        "targetSha256": "082ff3f070754d4b29959c083989a6b526b18e1e2c3358340546c0d4fca44099",
+        "targetSha256": "59bc4f1e1562277bdff3ed35467ee516503fae1f6bb925ba6deb40ed5faa28d9",
         "targetTransformations": [
             "namespace/path migration",
             "JCB PHP style and explicit dependency properties",
-            "class and member contract documentation"
+            "class and member contract documentation",
+            "preserve empty JSON Schema properties as object mappings"
         ]
     },
     {
@@ -279,22 +280,24 @@
         "source": "companion/plugin/src/Action/SiteStateAction.php",
         "sourceSha256": "b34b1b3fcda2958ec394940fcf9b59c05fb46b8109ba1d0aee542586f6d198b7",
         "target": "admin/src/Native/Action/SiteStateAction.php",
-        "targetSha256": "f35c91e1e70856207c61994df89d907ed56078770ef0ee5be13c78cbd8765f33",
+        "targetSha256": "cc5228e0e56b5b47c4d4c209ee675ef04e2518dd1772dad6974823dd2055c2f0",
         "targetTransformations": [
             "namespace/path migration",
             "JCB PHP style and explicit dependency properties",
-            "class and member contract documentation"
+            "class and member contract documentation",
+            "preserve empty JSON Schema properties as object mappings"
         ]
     },
     {
         "source": "companion/plugin/src/Action/SystemInfoAction.php",
         "sourceSha256": "ddb3ed7c33f716969c8cb6f5121963ff2cbfd8206feaa9e2d95cdffe1350781f",
         "target": "admin/src/Native/Action/SystemInfoAction.php",
-        "targetSha256": "c13d1d118eb608b644868081255a85f80871d0c3e62b54c94500e45d0f9078a2",
+        "targetSha256": "854f1e53fc7f31907f1cf982b082034edd5bf7f2d898a61701ffc07a27447fb8",
         "targetTransformations": [
             "namespace/path migration",
             "JCB PHP style and explicit dependency properties",
-            "class and member contract documentation"
+            "class and member contract documentation",
+            "preserve empty JSON Schema properties as object mappings"
         ]
     },
     {
@@ -373,11 +376,12 @@
         "source": "companion/plugin/src/Action/CoreUpdateStatusAction.php",
         "sourceSha256": "8ca5a3fa45363c3459017862be62d0d2b3d612b4e6a048a71783b6f731692e2c",
         "target": "admin/src/Native/Action/CoreUpdateStatusAction.php",
-        "targetSha256": "6b882e5a299cc9e2f024db13f84fe765494bd5ccbcafdc4c8e39ab5d2ac28dfc",
+        "targetSha256": "7e3cd488b37ea435f99622b9e49105ab93c3ae9bc92a2a12bd513fb90cf4859d",
         "targetTransformations": [
             "namespace/path migration",
             "JCB PHP style and explicit dependency properties",
-            "class and member contract documentation"
+            "class and member contract documentation",
+            "preserve empty JSON Schema properties as object mappings"
         ]
     },
     {
