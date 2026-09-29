@@ -4,6 +4,7 @@
 
 ### Fix
 
+- Keep long-lived stdio processes within a 128 MB limit by reusing bounded schema validation, avoiding cyclic canonicalization closures, and selecting only the requested discovery catalogue. Bound fragmented frames, drain oversized frames, handle output backpressure, and route runtime diagnostics to stderr.
 - Return distinct JSON-RPC errors for malformed envelopes, unknown methods and invalid method parameters; preserve request IDs, ignore notifications, and keep subsequent requests usable under the SDK's original session/version rules.
 - Validate tool calls using original JSON object/list types at stdio and authenticated HTTP boundaries. Accept omitted or explicit empty-object input, reject arrays/null/scalars, and preserve empty and numeric-key mappings through nested action validation.
 - Map content-language identifier ordering to Joomla's physical `lang_id` column and approved table aliases, preserving the public `id` alias on fresh single-language sites.

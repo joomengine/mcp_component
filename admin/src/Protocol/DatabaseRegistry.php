@@ -22,6 +22,7 @@ use Mcp\Schema\Prompt;
 use Mcp\Schema\ResourceDefinition;
 use Mcp\Schema\ResourceTemplate;
 use Mcp\Schema\Tool;
+use VDM\Component\JoomEngineMcp\Administrator\Domain\OperationException;
 use VDM\Component\JoomEngineMcp\Administrator\Security\SchemaDocument;
 use VDM\Component\JoomEngineMcp\Administrator\Security\SchemaValidator;
 use VDM\Component\JoomEngineMcp\Administrator\Service\ActionExecutor;
@@ -58,8 +59,8 @@ final class DatabaseRegistry implements RegistryInterface
 		$this->schemas = $schemas;
 	}
 
-	/** @return Registry Fresh authorized SDK references; never a process-global catalogue. @since 0.1.0 */
-	private function snapshot(): Registry
+	/** @param string $entity Requested capability family. @param ?string $name Optional exact tool or prompt. @return Registry Fresh authorized SDK references for this lookup only. @since 0.1.0 */
+	private function snapshot(string $entity, ?string $name = null): Registry
 	{
 		$this->catalogue->refresh();
 		$tools = [];
@@ -67,7 +68,7 @@ final class DatabaseRegistry implements RegistryInterface
 		$templates = [];
 		$prompts = [];
 
-		foreach ($this->catalogue->all('tool') as $row)
+		foreach ($entity === 'tool' ? $this->rows('tool', $name) : [] as $row)
 		{
 			$data = $row['definition'];
 			$data['name'] = $row['name'];
@@ -83,7 +84,7 @@ final class DatabaseRegistry implements RegistryInterface
 			$tools[] = ['definition' => Tool::fromArray($data), 'handler' => new ToolHandler($this->tools, $row['name'])];
 		}
 
-		foreach ($this->catalogue->all('resource') as $row)
+		foreach ($entity === 'resource' ? $this->catalogue->all('resource') : [] as $row)
 		{
 			$data = ['name' => $row['name'], 'title' => $row['title'], 'description' => $row['description'], 'mimeType' => $row['mime_type']];
 			$handler = new ResourceHandler($this->catalogue, $this->tools, $this->actions, $row['name']);
@@ -99,7 +100,7 @@ final class DatabaseRegistry implements RegistryInterface
 			}
 		}
 
-		foreach ($this->catalogue->all('prompt') as $row)
+		foreach ($entity === 'prompt' ? $this->rows('prompt', $name) : [] as $row)
 		{
 			$schema = Json::decode($this->catalogue->schema((int) $row['input_schema_id']));
 			$arguments = [];
@@ -120,100 +121,123 @@ final class DatabaseRegistry implements RegistryInterface
 		return $registry;
 	}
 
+	/** @param string $entity Requested table. @param ?string $name Optional exact identifier. @return array Authorized rows without normalizing unrelated schemas. @since 0.1.1 */
+	private function rows(string $entity, ?string $name): array
+	{
+		if ($name === null)
+		{
+			return $this->catalogue->all($entity);
+		}
+
+		try
+		{
+			return [$this->catalogue->get($entity, $name)];
+		}
+		catch (OperationException $error)
+		{
+			if ($error->getIdentifier() !== 'DEFINITION_UNAVAILABLE')
+			{
+				throw $error;
+			}
+
+			return [];
+		}
+	}
+
 	/** @inheritDoc */
 	public function hasTool(string $name): bool
 	{
-		return $this->snapshot()->hasTool($name);
+		return $this->snapshot('tool', $name)->hasTool($name);
 	}
 
 	/** @inheritDoc */
 	public function hasResource(string $uri): bool
 	{
-		return $this->snapshot()->hasResource($uri);
+		return $this->snapshot('resource')->hasResource($uri);
 	}
 
 	/** @inheritDoc */
 	public function hasResourceTemplate(string $uriTemplate): bool
 	{
-		return $this->snapshot()->hasResourceTemplate($uriTemplate);
+		return $this->snapshot('resource')->hasResourceTemplate($uriTemplate);
 	}
 
 	/** @inheritDoc */
 	public function hasPrompt(string $name): bool
 	{
-		return $this->snapshot()->hasPrompt($name);
+		return $this->snapshot('prompt', $name)->hasPrompt($name);
 	}
 
 	/** @inheritDoc */
 	public function hasTools(): bool
 	{
-		return $this->snapshot()->hasTools();
+		return $this->snapshot('tool')->hasTools();
 	}
 
 	/** @inheritDoc */
 	public function getTools(?int $limit = null, ?string $cursor = null): Page
 	{
-		return $this->snapshot()->getTools($limit, $cursor);
+		return $this->snapshot('tool')->getTools($limit, $cursor);
 	}
 
 	/** @inheritDoc */
 	public function getTool(string $name): ToolReference
 	{
-		return $this->snapshot()->getTool($name);
+		return $this->snapshot('tool', $name)->getTool($name);
 	}
 
 	/** @inheritDoc */
 	public function hasResources(): bool
 	{
-		return $this->snapshot()->hasResources();
+		return $this->snapshot('resource')->hasResources();
 	}
 
 	/** @inheritDoc */
 	public function getResources(?int $limit = null, ?string $cursor = null): Page
 	{
-		return $this->snapshot()->getResources($limit, $cursor);
+		return $this->snapshot('resource')->getResources($limit, $cursor);
 	}
 
 	/** @inheritDoc */
 	public function getResource(string $uri, bool $includeTemplates = true): ResourceReference|ResourceTemplateReference
 	{
-		return $this->snapshot()->getResource($uri, $includeTemplates);
+		return $this->snapshot('resource')->getResource($uri, $includeTemplates);
 	}
 
 	/** @inheritDoc */
 	public function hasResourceTemplates(): bool
 	{
-		return $this->snapshot()->hasResourceTemplates();
+		return $this->snapshot('resource')->hasResourceTemplates();
 	}
 
 	/** @inheritDoc */
 	public function getResourceTemplates(?int $limit = null, ?string $cursor = null): Page
 	{
-		return $this->snapshot()->getResourceTemplates($limit, $cursor);
+		return $this->snapshot('resource')->getResourceTemplates($limit, $cursor);
 	}
 
 	/** @inheritDoc */
 	public function getResourceTemplate(string $uriTemplate): ResourceTemplateReference
 	{
-		return $this->snapshot()->getResourceTemplate($uriTemplate);
+		return $this->snapshot('resource')->getResourceTemplate($uriTemplate);
 	}
 
 	/** @inheritDoc */
 	public function hasPrompts(): bool
 	{
-		return $this->snapshot()->hasPrompts();
+		return $this->snapshot('prompt')->hasPrompts();
 	}
 
 	/** @inheritDoc */
 	public function getPrompts(?int $limit = null, ?string $cursor = null): Page
 	{
-		return $this->snapshot()->getPrompts($limit, $cursor);
+		return $this->snapshot('prompt')->getPrompts($limit, $cursor);
 	}
 
 	/** @inheritDoc */
 	public function getPrompt(string $name): PromptReference
 	{
-		return $this->snapshot()->getPrompt($name);
+		return $this->snapshot('prompt', $name)->getPrompt($name);
 	}
 
 	/** @inheritDoc */
