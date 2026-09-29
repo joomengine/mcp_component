@@ -5,7 +5,7 @@
     <type>component</type>
     <version>[[[NEXT_VERSION]]]</version>
     <fix>
-      <item>Keep long-lived stdio processes within a 128 MB limit through bounded shared validation, cycle-free canonicalization and selective discovery. Bound fragmented frames, drain oversized frames, handle output backpressure and route runtime diagnostics to stderr.</item>
+      <item>Keep long-lived stdio processes within a 128 MB limit through bounded shared validation, cycle-free canonicalization and selective discovery. Bound fragmented frames, drain oversized frames, handle output backpressure and retain native idle polling cadence and route runtime diagnostics to stderr even with inherited stdout logging.</item>
       <item>Distinguish malformed JSON-RPC envelopes, unknown methods and invalid method parameters, preserve IDs, ignore notifications and keep subsequent requests usable under the original SDK session and protocol-version rules.</item>
       <item>Validate original tool-call JSON object and list types on stdio and authenticated HTTP. Accept omitted or empty-object input, reject arrays, null and scalars, and preserve empty and numeric-key mappings through nested action validation, encrypted plans, deferred jobs and replay. Adapt validated objects to Joomla form arrays only at native save.</item>
       <item>Map content-language identifier ordering to the native lang_id column and approved table aliases, preserving public id compatibility on fresh single-language sites.</item>

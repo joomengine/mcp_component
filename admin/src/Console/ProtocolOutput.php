@@ -31,7 +31,7 @@ final class ProtocolOutput
 	{
 		$configuration = [];
 
-		foreach (['display_errors' => 'stderr', 'html_errors' => '0', 'log_errors' => '1'] as $key => $value)
+		foreach (['display_errors' => 'stderr', 'html_errors' => '0', 'log_errors' => '1', 'error_log' => 'php://stderr'] as $key => $value)
 		{
 			$configuration[$key] = ini_get($key);
 			ini_set($key, $value);
