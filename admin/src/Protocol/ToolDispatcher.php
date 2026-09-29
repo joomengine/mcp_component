@@ -188,7 +188,7 @@ final class ToolDispatcher
 	{
 		$resolved = $this->catalogue->action($name);
 
-		return ['site' => $this->settings->get('site_alias'), 'action' => $this->descriptor($resolved),
+		return ['site' => $this->settings->get('site_alias'), 'action' => array_replace($this->descriptor($resolved), $this->actions->describe($name)),
 			'availability' => ['executable' => true, 'transports' => [$this->principal->getTrack()], 'blockedReason' => null]];
 	}
 

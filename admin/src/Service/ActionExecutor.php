@@ -108,6 +108,39 @@ final class ActionExecutor
 	}
 
 	/**
+	 * Describe site-specific names using the same authorized source as planning.
+	 *
+	 * @param string $name Current visible semantic action.
+	 * @return array<string,mixed> Input schema and optional resolved custom field metadata.
+	 * @since 1.0.0
+	 */
+	public function describe(string $name): array
+	{
+		$resolved = $this->catalogue->action($name);
+		$schema = Json::decode($this->catalogue->schema((int) $resolved['binding']['input_schema_id']));
+		$context = CustomFields::context($resolved);
+
+		if ($context === null)
+		{
+			return ['inputSchema' => $schema];
+		}
+
+		try
+		{
+			$this->resolve($context['sourceAction'], 'api', 'read');
+		}
+		catch (OperationException)
+		{
+			return ['inputSchema' => $schema, 'customFields' => $context + ['status' => 'unavailable', 'fields' => [],
+				'reason' => 'Custom field discovery requires access to the matching structure.read action.']];
+		}
+
+		$metadata = $this->customFields($context, $schema);
+
+		return ['inputSchema' => CustomFields::schema($schema, $metadata, true), 'customFields' => $metadata];
+	}
+
+	/**
 	 * Apply an authorized fixed-tool query mapping without exposing binding overrides.
 	 *
 	 * Only the server's tool dispatcher supplies the already-authorized tool row.
@@ -169,6 +202,15 @@ final class ActionExecutor
 			$input['_edgeConfirmed'] = false;
 		}
 
+		$schema = Json::decode($this->catalogue->schema((int) $resolved['binding']['input_schema_id']));
+		$context = CustomFields::context($resolved);
+
+		if ($context !== null && CustomFields::needed($input, $schema))
+		{
+			$resolved['custom_fields'] = $this->customFields($context, $schema);
+			$input = CustomFields::normalize($input, $resolved['custom_fields']);
+		}
+
 		$input = $this->validate($resolved, $input);
 		$before = $handler instanceof PlannedHandlerInterface ? null : $this->snapshot($resolved, $input);
 		$preflight = $this->preflight($resolved, $input, $before);
@@ -178,6 +220,11 @@ final class ActionExecutor
 			'summary' => $resolved['action']['description'], 'fields' => array_keys($input['data'] ?? []),
 			'idempotencyKey' => $idempotencyKey, 'preconditions' => $before === null ? 'handler-preflight' : 'resource-snapshot',
 		];
+
+		if (isset($resolved['custom_fields']))
+		{
+			$preview['customFields'] = $resolved['custom_fields'];
+		}
 
 		if ($handler instanceof PlanPreviewInterface)
 		{
@@ -194,6 +241,7 @@ final class ActionExecutor
 
 		return $this->executions->plan($resolved, [
 			'input' => $input, 'before' => $before,
+			'custom_fields' => $resolved['custom_fields'] ?? null,
 			'prepared' => $handler instanceof PlannedHandlerInterface ? $preflight : null,
 			'preflight_hash' => hash('sha256', Json::canonical($preflight)),
 		], $preview, $idempotencyKey, $grant);
@@ -235,6 +283,12 @@ final class ActionExecutor
 		}
 
 		$this->executions->assertFresh($plan, $resolved);
+
+		if (isset($plan['payload']['custom_fields']))
+		{
+			$resolved['custom_fields'] = $plan['payload']['custom_fields'];
+		}
+
 		$handler = $this->handlers->get($resolved['binding']['handler']);
 		$this->requireWorker($handler);
 		$input = $this->validate($resolved, $plan['payload']['input']);
@@ -422,7 +476,22 @@ final class ActionExecutor
 	/** @param array<string,mixed> $resolved Resolution. @param array<string,mixed> $input Arguments. @return array<string,mixed> Validated arguments. @since 0.1.0 */
 	private function validate(array $resolved, array $input): array
 	{
-		return $this->schemas->input($input, $this->catalogue->schema((int) $resolved['binding']['input_schema_id']));
+		$document = $this->catalogue->schema((int) $resolved['binding']['input_schema_id']);
+
+		if (isset($resolved['custom_fields']))
+		{
+			$document = Json::encode(CustomFields::schema(Json::decode($document), $resolved['custom_fields']));
+			CustomFields::validateValues($input, $resolved['custom_fields']);
+		}
+
+		return $this->schemas->input($input, $document);
+	}
+
+	/** @param array $context Reviewed API context. @param array $schema Static write schema. @return array Frozen discovery metadata. @since 1.0.0 */
+	private function customFields(array $context, array $schema): array
+	{
+		return CustomFields::discover($context, $schema, fn (string $name, array $input): array => $this->read($name, $input, 'api'),
+			$this->settings->get('max_list_limit'), $this->principal->getViewLevels());
 	}
 
 	/**
@@ -445,7 +514,8 @@ final class ActionExecutor
 
 		return $resolved['binding']['track'] === 'cli'
 			? $this->invoke($resolved, $input)
-			: $this->requests->build($input, $resolved['binding']['configuration'], $before['item'] ?? []);
+			: $this->requests->build(isset($resolved['custom_fields']) ? CustomFields::wire($input, $resolved['custom_fields']) : $input,
+				$resolved['binding']['configuration'], $before['item'] ?? []);
 	}
 
 	/** @param array<string,mixed> $resolved Resolution. @param array<string,mixed> $input Arguments. @param ?string $key Idempotency key. @param array<string,mixed> $current Existing form fields. @param bool $missing Expected 404. @return array<string,mixed> Handler result. @since 0.1.0 */
@@ -453,6 +523,12 @@ final class ActionExecutor
 	{
 		$binding = $resolved['binding'];
 		$handler = $this->handlers->get($binding['handler']);
+
+		if (isset($resolved['custom_fields']))
+		{
+			$input = CustomFields::wire($input, $resolved['custom_fields']);
+		}
+
 		$result = $handler instanceof ApiHandler
 			? $handler->request($input, $binding, $this->principal, $key, $current, $missing)
 			: $handler->execute($input, $binding, $this->principal);
@@ -559,6 +635,17 @@ final class ActionExecutor
 		}
 
 		$desired = $operation === 'state' ? [($rule['state_field'] ?? 'state') => $input['state']] : ($input['data'] ?? []);
+
+		foreach ($resolved['custom_fields']['fields'] ?? [] as $field)
+		{
+			$name = $field['name'];
+
+			if (!array_key_exists($name, $record) && is_array($record['com_fields'] ?? null) && array_key_exists($name, $record['com_fields']))
+			{
+				$record[$name] = $record['com_fields'][$name];
+			}
+		}
+
 		$matched = [];
 		$different = [];
 		$unobservable = [];
