@@ -201,6 +201,17 @@ final class ApiRequestBuilder
 			}
 
 			$body = array_replace($body, (array) ($configuration['body_defaults'] ?? []));
+
+			// Joomla's administrator form posts an empty default for a new field.
+			// Omitting it in the API otherwise leaves NULL in the field DOM pipeline.
+			if ($method === 'POST' && ($configuration['operation'] ?? null) === 'create'
+				&& in_array($configuration['route'], ['/v1/fields/content/articles', '/v1/fields/content/categories',
+					'/v1/fields/contacts/contact', '/v1/fields/contacts/categories', '/v1/fields/contacts/mail', '/v1/fields/users'], true)
+				&& !array_key_exists('default_value', $body))
+			{
+				$body['default_value'] = '';
+			}
+
 			Json::encode((object) $body, 1048576);
 		}
 

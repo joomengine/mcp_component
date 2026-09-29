@@ -1,5 +1,11 @@
 # Changelog
 
+## [[[NEXT_VERSION]]]
+
+### Fix
+
+- Default omitted custom field creation defaults to an empty string on API and native console transports, matching Joomla's administrator form and avoiding null-default backend DOM deprecations. Preserve explicit defaults and partial-update behavior.
+
 ## 1.0.1
 
 ### Fix
