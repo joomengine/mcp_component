@@ -125,7 +125,7 @@ final class Executions
 			throw new OperationException('PLAN_UNAVAILABLE', 'The confirmation plan is unavailable.');
 		}
 
-		$row['payload'] = Json::decode($this->envelope->decrypt($row['input_cipher'], $this->context('plan', $id)));
+		$row['payload'] = Json::native(Json::decode($this->envelope->decrypt($row['input_cipher'], $this->context('plan', $id)), false));
 		$row['preview'] = Json::decode($row['preview_json']);
 
 		return $row;
@@ -157,7 +157,7 @@ final class Executions
 			throw new OperationException('EXECUTION_UNCERTAIN', 'The operation is running or lost its worker. Inspect the execution record before taking any further write action.', ['executionId' => $row['uuid']]);
 		}
 
-		$result = Json::decode($this->envelope->decrypt($row['result_cipher'], $this->context('execution', $row['uuid'])));
+		$result = Json::native(Json::decode($this->envelope->decrypt($row['result_cipher'], $this->context('execution', $row['uuid'])), false));
 
 		return array_replace($result, ['replayed' => true, 'idempotentReplay' => true, 'executionId' => $row['uuid']]);
 	}

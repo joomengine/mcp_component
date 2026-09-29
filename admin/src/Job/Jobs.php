@@ -147,7 +147,7 @@ final class Jobs
 
 		// Authenticate stored identity through the encrypted payload before any
 		// application constructor can use its track to select local privilege.
-		$payload = Json::decode($envelope->decrypt($row['payload_cipher'], 'job:' . $row['principal_key'] . ':' . $row['uuid']), maximum: 4194304);
+		$payload = Json::native(Json::decode($envelope->decrypt($row['payload_cipher'], 'job:' . $row['principal_key'] . ':' . $row['uuid']), false, 4194304));
 
 		if (($payload['authority']['principal_id'] ?? null) !== $row['principal_id'] || ($payload['authority']['track'] ?? null) !== $row['track'])
 		{
@@ -273,7 +273,7 @@ final class Jobs
 		if (($execution['status'] ?? '') === 'reconciled' && $row['status'] !== 'reconciled')
 		{
 			$result = $execution['result_cipher'] === '' ? ['executionId' => $row['execution_uuid']]
-				: Json::decode($this->envelope->decrypt($execution['result_cipher'], $this->context('execution', $row['execution_uuid'])));
+				: Json::native(Json::decode($this->envelope->decrypt($execution['result_cipher'], $this->context('execution', $row['execution_uuid'])), false));
 			$this->store->update('job', ['status' => 'reconciled', 'token_hash' => '', 'payload_cipher' => '', 'lease_until' => 0,
 				'message' => 'An authorized administrator recorded the inspected effects.', 'updated_at' => ($this->clock)(),
 				'result_cipher' => $this->envelope->encrypt(Json::encode($result), $this->context('job-result', $id)),
@@ -495,7 +495,7 @@ final class Jobs
 	/** @param array $row Owned row. @return array Frozen private plan. @since 0.1.0 */
 	private function payload(array $row): array
 	{
-		return Json::decode($this->envelope->decrypt($row['payload_cipher'], $this->context('job', $row['uuid'])), maximum: 4194304);
+		return Json::native(Json::decode($this->envelope->decrypt($row['payload_cipher'], $this->context('job', $row['uuid'])), false, 4194304));
 	}
 
 	/** @param array $row Owned row. @return array Public state without payload, credentials or filesystem paths. @since 0.1.0 */
@@ -508,7 +508,7 @@ final class Jobs
 
 		if ($row['result_cipher'] !== '')
 		{
-			$result['result'] = Json::decode($this->envelope->decrypt($row['result_cipher'], $this->context('job-result', $row['uuid'])), maximum: 8388608);
+			$result['result'] = Json::native(Json::decode($this->envelope->decrypt($row['result_cipher'], $this->context('job-result', $row['uuid'])), false, 8388608));
 		}
 
 		return $result;

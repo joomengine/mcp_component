@@ -105,7 +105,8 @@ $claim = static function () use ($store, $owner, &$now): array
 
 	return $execution;
 };
-$payload = ['action' => 'fixture.compile', 'prepared' => ['definition' => 'secret-owned-input']];
+$payload = ['action' => 'fixture.compile', 'prepared' => ['definition' => 'secret-owned-input',
+	'objects' => (object) ['0' => (object) [], '1' => (object) []], 'list' => []]];
 
 try
 {
@@ -180,13 +181,18 @@ try
 	{
 		$invocations++;
 		$check($frozen['prepared']['definition'] === 'secret-owned-input' && $frozen['authority']['track'] === 'api', 'Worker receives immutable validated input under original authority.');
+		$check(Json::encode($frozen['prepared']['objects']) === '{"0":{},"1":{}}' && $frozen['prepared']['list'] === [],
+			'Durable worker input retains numeric-only object maps, empty objects and JSON lists.');
 		$progress(25, 'Compiling approved definitions.');
 		$check($jobs->status($id)['progress'] === 25 && $cancel() === false, 'Progress persists and heartbeats remain observable.');
 		$reject(static fn () => $jobs->run($id, $tickets[$id], static fn (): array => []), 'JOB_UNAVAILABLE');
 
-		return ['mutation' => ['artifacts' => [$descriptor]], 'verification' => ['status' => 'verified']];
+		return ['mutation' => ['artifacts' => [$descriptor]], 'verification' => ['status' => 'verified'], 'inputMaps' => $frozen['prepared']['objects']];
 	});
 	$check($result['status'] === 'completed' && $result['progress'] === 100 && $invocations === 1 && $finalized === 1, 'One worker finalizes one claimed execution.');
+	$check(Json::encode($result['result']['inputMaps'] ?? null) === '{"0":{},"1":{}}'
+		&& Json::encode($jobs->status($id)['result']['inputMaps'] ?? null) === '{"0":{},"1":{}}',
+		'Completed and subsequently retrieved job outcomes preserve observed JSON object types.');
 	$check($store->one('lease', ['owner_uuid' => $execution['uuid']]) === null && $store->one('job', ['uuid' => $id])['payload_cipher'] === '', 'Known completion releases its lease and removes saved private inputs.');
 	$check(!str_contains(Json::encode($result), $base), 'Public artifact results contain no filesystem paths.');
 	$artifact = $jobs->artifacts($id)['artifacts'][0];

@@ -11,6 +11,9 @@
 namespace VDM\Component\JoomEngineMcp\Administrator\Native\Domain;
 
 
+use stdClass;
+
+
 /**
  * Validate and bound native action input without executing supplied content.
  *
@@ -154,8 +157,14 @@ final class Input
 	public static function object(array $input, string $key): array
 	{
 		$value = $input[$key] ?? null;
+		$isObject = $value instanceof stdClass;
 
-		if (!is_array($value) || ($value !== [] && array_is_list($value)))
+		if ($isObject)
+		{
+			$value = get_object_vars($value);
+		}
+
+		if (!is_array($value) || (!$isObject && $value !== [] && array_is_list($value)))
 		{
 			throw new ActionException('INVALID_INPUT', sprintf('Input "%s" must be an object.', $key));
 		}
@@ -203,6 +212,13 @@ final class Input
 			return $value;
 		}
 
+		$isObject = $value instanceof stdClass;
+
+		if ($isObject)
+		{
+			$value = get_object_vars($value);
+		}
+
 		if (!is_array($value) || $depth >= self::MAX_NESTING_DEPTH || count($value) > self::MAX_COLLECTION_ITEMS)
 		{
 			throw new ActionException('INVALID_INPUT', sprintf('Input "%s" contains an unsupported or oversized value.', $key));
@@ -220,7 +236,7 @@ final class Input
 			$result[$member] = self::boundedValue($nested, $key, $depth + 1);
 		}
 
-		return $result;
+		return $isObject ? (object) $result : $result;
 	}
 
 	/**
