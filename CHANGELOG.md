@@ -4,6 +4,7 @@
 
 ### Fix
 
+- Validate tool calls using original JSON object/list types at stdio and authenticated HTTP boundaries. Accept omitted or explicit empty-object input, reject arrays/null/scalars, and preserve empty and numeric-key mappings through nested action validation.
 - Map content-language identifier ordering to Joomla's physical `lang_id` column and approved table aliases, preserving the public `id` alias on fresh single-language sites.
 - Preserve JSON Schema object mappings and object-valued defaults in tools/list, action search and descriptions, while retaining legitimate array values and numeric object keys.
 - Preserve exact zero-based list offsets across Joomla's native last-page clamping, including empty, partial-final, exact-end and beyond-end pages. Count cache groups from the complete native collection before slicing.

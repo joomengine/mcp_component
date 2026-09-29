@@ -12,7 +12,6 @@ namespace VDM\Component\JoomEngineMcp\Administrator\Console;
 use Closure;
 use Joomla\CMS\Application\ConsoleApplication;
 use Joomla\Database\DatabaseInterface;
-use Mcp\Server\Transport\StdioTransport;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Throwable;
@@ -20,6 +19,7 @@ use VDM\Component\JoomEngineMcp\Administrator\Contract\ConsoleRuntimeInterface;
 use VDM\Component\JoomEngineMcp\Administrator\Domain\OperationException;
 use VDM\Component\JoomEngineMcp\Administrator\Native\Domain\ActionException;
 use VDM\Component\JoomEngineMcp\Administrator\Native\Protocol\RequestDecoder;
+use VDM\Component\JoomEngineMcp\Administrator\Protocol\StdioTransport;
 use VDM\Component\JoomEngineMcp\Administrator\Security\ConsoleIdentity;
 use VDM\Component\JoomEngineMcp\Administrator\Service\Json;
 use VDM\Component\JoomEngineMcp\Administrator\Service\RequestRuntime;
@@ -59,10 +59,10 @@ final class Runtime implements ConsoleRuntimeInterface
 	/** @inheritDoc */
 	public function serveStdio(): int
 	{
-		return $this->scoped(function (): int
+		return (new ProtocolOutput())->run(fn (): int => $this->scoped(function (): int
 		{
-			return (int) $this->runtime->server()->run(new StdioTransport(maxLineBytes: $this->runtime->settings()->get('max_request_bytes')));
-		});
+			return (int) $this->runtime->server()->run(new StdioTransport(maxLineBytes: $this->runtime->settings()->get('max_request_bytes'), wire: $this->runtime->wireInput()));
+		}));
 	}
 
 	/** @inheritDoc */

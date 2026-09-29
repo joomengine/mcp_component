@@ -13,6 +13,7 @@ use Mcp\Server;
 use VDM\Component\JoomEngineMcp\Administrator\Job\Jobs;
 use VDM\Component\JoomEngineMcp\Administrator\Protocol\ServerFactory;
 use VDM\Component\JoomEngineMcp\Administrator\Protocol\ToolDispatcher;
+use VDM\Component\JoomEngineMcp\Administrator\Protocol\WireInput;
 
 
 /**
@@ -50,6 +51,12 @@ final class RequestRuntime
 	public function server(): Server
 	{
 		return $this->servers->create();
+	}
+
+	/** @return WireInput Dispatch-scoped original JSON types for both transports. @since 0.1.2 */
+	public function wireInput(): WireInput
+	{
+		return $this->servers->wireInput();
 	}
 
 	/** @return ToolDispatcher Protocol primitives. @since 0.1.0 */

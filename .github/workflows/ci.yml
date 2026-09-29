@@ -50,7 +50,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p build/evidence
-          for suite in run catalogue schema-shapes schema-discovery session-storage execution actions custom-fields field-defaults template-styles menu-components planned jobs process job-process jcb jcb-plan-preview protocol http ownership native/run release; do
+          for suite in run catalogue schema-shapes schema-discovery session-storage wire-protocol execution actions custom-fields field-defaults template-styles menu-components planned jobs process job-process jcb jcb-plan-preview protocol http ownership native/run release; do
             php "tests/$suite.php" | tee "build/evidence/${suite//\//-}.log"
           done
       - name: Preserve the tested PHP runtime for reproducible investigation

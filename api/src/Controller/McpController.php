@@ -21,6 +21,7 @@ use Throwable;
 use VDM\Component\JoomEngineMcp\Administrator\Contract\RuntimeAwareInterface;
 use VDM\Component\JoomEngineMcp\Administrator\Http\Boundary;
 use VDM\Component\JoomEngineMcp\Administrator\Http\RequestHeaders;
+use VDM\Component\JoomEngineMcp\Administrator\Protocol\WireInputMiddleware;
 use VDM\Component\JoomEngineMcp\Administrator\Service\Json;
 use VDM\Component\JoomEngineMcp\Administrator\Service\RuntimeFactory;
 use VDM\Component\JoomEngineMcp\Administrator\Service\Settings;
@@ -60,7 +61,8 @@ final class McpController extends BaseController implements RuntimeAwareInterfac
 			$request = $this->request($settings);
 			$factory = new Psr17Factory();
 			$response = $runtime->server()->run(new StreamableHttpTransport($request, $factory, $factory,
-				middleware: [new Boundary($settings)], maxBodyBytes: $settings->get('max_request_bytes')));
+				middleware: [new Boundary($settings), new WireInputMiddleware($runtime->wireInput(), $factory, $factory,
+					$settings->get('max_request_bytes'))], maxBodyBytes: $settings->get('max_request_bytes')));
 
 			if (!$response instanceof ResponseInterface || $response->getBody()->getSize() > $settings->get('max_result_bytes'))
 			{

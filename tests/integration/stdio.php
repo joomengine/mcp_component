@@ -36,6 +36,13 @@ try
 	$check(in_array('joomla_action_write_plan', $names, true), 'Real installed stdio discovery exposes confirmed native writes');
 	$system = $client->tool('joomla_action_read', ['action' => 'system.info', 'transport' => 'cli']);
 	$check(($system['response']['data']['joomlaVersion'] ?? '') === JVERSION, 'MCP stdio dispatches actual installed Joomla system handler');
+
+	foreach (['joomla_action_read', 'joomla_companion_action_read'] as $name)
+	{
+		$system = $client->tool($name, ['action' => 'system.info', 'input' => (object) []]);
+		$check(($system['response']['data']['joomlaVersion'] ?? '') === JVERSION,
+			'Installed stdio accepts explicit empty-object input through ' . $name);
+	}
 	$category = (int) $db->setQuery('SELECT id FROM ' . $db->quoteName('#__categories') . ' WHERE extension = ' . $db->quote('com_content') . ' AND published = 1 ORDER BY id', 0, 1)->loadResult();
 	$plan = $client->tool('joomla_action_write_plan', ['action' => 'content.articles.create', 'transport' => 'cli',
 		'idempotencyKey' => Json::uuid(), 'input' => ['data' => ['title' => $title, 'catid' => $category, 'introtext' => '<p>Written through MCP stdio.</p>', 'language' => '*']]]);

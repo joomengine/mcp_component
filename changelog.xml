@@ -5,6 +5,7 @@
     <type>component</type>
     <version>[[[NEXT_VERSION]]]</version>
     <fix>
+      <item>Validate original tool-call JSON object and list types on stdio and authenticated HTTP. Accept omitted or empty-object input, reject arrays, null and scalars, and preserve empty and numeric-key mappings through nested action validation.</item>
       <item>Map content-language identifier ordering to the native lang_id column and approved table aliases, preserving public id compatibility on fresh single-language sites.</item>
       <item>Preserve JSON Schema object mappings and object-valued defaults through tool discovery, action search and descriptions, while retaining legitimate arrays and numeric object keys.</item>
       <item>Preserve exact zero-based native list offsets and consistent totals for empty, partial-final, exact-end and beyond-end pages. Count the full cache-group collection before slicing.</item>
