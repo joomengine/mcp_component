@@ -3,7 +3,7 @@
   <changelog>
     <element>com_joomengine_mcp</element>
     <type>component</type>
-    <version>[[[NEXT_VERSION]]]</version>
+    <version>1.0.1</version>
     <fix>
       <item>Accept published, accessible Joomla custom field values in API article, content-category, contact and user create/update plans, including typed article tools and the optional com_fields alias. Reject unknown keys, expose runtime metadata in describe and freeze resolved fields with the approved plan.</item>
       <item>Preserve installed template inheritance when creating site or administrator styles; bind verified parent metadata to the confirmed plan and refuse incomplete discovery before saving.</item>

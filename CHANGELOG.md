@@ -1,6 +1,6 @@
 # Changelog
 
-## [[[NEXT_VERSION]]]
+## 1.0.1
 
 ### Fix
 

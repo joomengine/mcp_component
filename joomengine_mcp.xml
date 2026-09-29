@@ -8,7 +8,7 @@
   <creationDate>September 2026</creationDate>
   <copyright>Copyright (C) 2026 Vast Development Method. All rights reserved.</copyright>
   <license>GNU General Public License version 3 or later; see LICENSE</license>
-  <version>1.0.0</version>
+  <version>1.0.1</version>
   <description>COM_JOOMENGINE_MCP_XML_DESCRIPTION</description>
   <namespace path="src">VDM\Component\JoomEngineMcp</namespace>
   <scriptfile>Joomengine_mcpInstallerScript.php</scriptfile>
