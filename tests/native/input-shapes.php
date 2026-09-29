@@ -11,6 +11,114 @@ use VDM\Component\JoomEngineMcp\Administrator\Native\Action\CoreEntityAction;
 use VDM\Component\JoomEngineMcp\Administrator\Native\Contract\ModelProviderInterface;
 use VDM\Component\JoomEngineMcp\Administrator\Native\Joomla\CoreEntityCatalogue;
 
+test('native item read-back retains the stored Registry JSON types', static function (): void
+{
+	$entity = array_values(array_filter(CoreEntityCatalogue::all(), static fn ($candidate): bool => $candidate->id === 'content.articles'))[0];
+	$cases = [
+		['{}', true, '{}', null],
+		['{"0":{},"1":{"items":[{},[]]}}', true, '{"0":{},"1":{"items":[{},[]]}}', null],
+		['[]', true, '[]', null],
+		['{}', false, '[]', null],
+		['malformed', true, '[]', null],
+		['"scalar"', true, '[]', null],
+		[str_repeat(' ', 524_289), true, '[]', null],
+		['{"public":"safe","private":"redacted"}', true, '{"public":"safe"}', ['public' => 'safe']],
+		['{"value":"1"}', true, '{"value":1}', ['value' => 1]],
+		['{}', true, '[]', null, true],
+	];
+
+	foreach ($cases as $case)
+	{
+		[$raw, $loaded, $expected, $projection, $missingId] = array_pad($case, 5, false);
+		$model = new class($raw, $loaded, $projection)
+		{
+			public int $tableReads = 0;
+			public bool $missingId = false;
+			private string $raw;
+			private bool $loaded;
+			private array $projection;
+
+			public function __construct(string $raw, bool $loaded, ?array $projection)
+			{
+				$this->raw = $raw;
+				$this->loaded = $loaded;
+				$parsed = json_decode($raw, true);
+				$this->projection = $projection ?? (is_array($parsed) ? $parsed : []);
+			}
+
+			public function setState(string $key, mixed $value): void
+			{
+			}
+
+			public function getItem(int $id): object
+			{
+				return (object) ['id' => $this->missingId ? null : $id, 'metadata' => $this->projection, 'attribs' => new class implements JsonSerializable
+				{
+					public function jsonSerialize(): mixed
+					{
+						return (object) ['nested' => (object) [], 'list' => []];
+					}
+				}];
+			}
+
+			public function getTable(): object
+			{
+				$this->tableReads++;
+
+				return new class($this->raw, $this->loaded)
+				{
+					public string $metadata;
+					public string $password = '{"secret":"must not be projected"}';
+					private bool $loaded;
+
+					public function __construct(string $raw, bool $loaded)
+					{
+						$this->metadata = $raw;
+						$this->loaded = $loaded;
+					}
+
+					public function load(int $id): bool
+					{
+						return $this->loaded;
+					}
+				};
+			}
+
+			public function getItems(): array
+			{
+				return [$this->getItem(91)];
+			}
+
+			public function getTotal(): int
+			{
+				return 1;
+			}
+		};
+		$model->missingId = $missingId;
+		$provider = new class($model) implements ModelProviderInterface
+		{
+			private object $model;
+
+			public function __construct(object $model)
+			{
+				$this->model = $model;
+			}
+
+			public function administrator(string $component, string $modelName): object
+			{
+				return $this->model;
+			}
+		};
+		$record = (new CoreEntityAction($entity, 'get', $provider))->execute(['id' => 91])['item'];
+		expect(json_encode($record['metadata'], JSON_THROW_ON_ERROR) === $expected, 'Only successfully loaded persisted JSON changes the native read-back types.');
+		expect(json_encode($record['attribs'], JSON_THROW_ON_ERROR) === '{"nested":{},"list":[]}', 'Native Registry serialization retains nested objects and lists.');
+		expect(!array_key_exists('password', $record), 'Table rehydration cannot widen the readable field projection.');
+		expect($model->tableReads === ($missingId ? 0 : 1), 'Only an identity-bound native item uses one table read for all reviewed JSON fields.');
+		(new CoreEntityAction($entity, 'list', $provider))->execute(['offset' => 0, 'limit' => 1]);
+		expect($model->tableReads === ($missingId ? 0 : 1), 'List projection performs no extra table reads.');
+	}
+});
+
 test('validated JSON objects become native arrays only at Joomla form save', static function (): void
 {
 	$cases = [

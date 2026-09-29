@@ -365,7 +365,7 @@
         "source": "companion/plugin/src/Action/CoreEntityAction.php",
         "sourceSha256": "045c352b2a1cad22dcc037e4e611930afa78626e57c64dceab7284237f184474",
         "target": "admin/src/Native/Action/CoreEntityAction.php",
-        "targetSha256": "b01b123669091e1611013aab13302d82d34b10c12895aef5ad69eec9e8c63976",
+        "targetSha256": "0905bc9458971e2db2c511703e4cbb29935512d6f39c0038390b0374f903dee4",
         "targetTransformations": [
             "namespace/path migration",
             "JCB PHP style and explicit dependency properties",
@@ -374,7 +374,8 @@
             "Field creation defaults omitted default_value to an empty string before preview/save (joomla-mcp issue #42)",
             "exact zero-based native list pagination without Joomla last-page clamping",
             "resolve public identifier ordering through the native physical primary key and approved columns",
-            "Convert validated object mappings to Joomla native form bind arrays only at model save"
+            "Convert validated object mappings to Joomla native form bind arrays only at model save",
+            "Recover only content-equivalent, identity-bound Registry JSON kinds during native item read-back; preserve model redaction and avoid extra list queries"
         ]
     },
     {
