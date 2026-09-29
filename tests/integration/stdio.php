@@ -9,6 +9,7 @@
 
 use Joomla\CMS\User\UserFactoryInterface;
 use Joomla\Database\DatabaseInterface;
+use Mcp\Exception\RequestException;
 use VDM\Component\JoomEngineMcp\Administrator\Service\Json;
 
 require __DIR__ . '/bootstrap.php';
@@ -42,7 +43,26 @@ try
 		$system = $client->tool($name, ['action' => 'system.info', 'input' => (object) []]);
 		$check(($system['response']['data']['joomlaVersion'] ?? '') === JVERSION,
 			'Installed stdio accepts explicit empty-object input through ' . $name);
+
+		foreach ([[], null, true, 7, 'scalar'] as $invalid)
+		{
+			$rejected = false;
+
+			try
+			{
+				$client->sdk()->callTool($name, ['action' => 'system.info', 'input' => $invalid]);
+			}
+			catch (RequestException $error)
+			{
+				$rejected = $error->getCode() === -32602;
+			}
+
+			$check($rejected, 'Installed stdio rejects non-object input with invalid-parameters through ' . $name);
+		}
 	}
+
+	$client->sdk()->ping();
+	$check($client->sdk()->isConnected(), 'Installed stdio remains usable after rejected object/list input');
 	$category = (int) $db->setQuery('SELECT id FROM ' . $db->quoteName('#__categories') . ' WHERE extension = ' . $db->quote('com_content') . ' AND published = 1 ORDER BY id', 0, 1)->loadResult();
 	$plan = $client->tool('joomla_action_write_plan', ['action' => 'content.articles.create', 'transport' => 'cli',
 		'idempotencyKey' => Json::uuid(), 'input' => ['data' => ['title' => $title, 'catid' => $category, 'introtext' => '<p>Written through MCP stdio.</p>', 'language' => '*']]]);

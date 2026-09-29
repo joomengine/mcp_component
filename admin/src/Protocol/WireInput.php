@@ -50,12 +50,12 @@ final class WireInput
 	 * Filter notifications and parameter failures before the lossy SDK decoder.
 	 *
 	 * @param string $payload Already bounded transport JSON.
-	 * @return array{payload:?string,arguments:array<string,list<stdClass>>,errors:list<Error>,batch:bool} Prepared dispatch.
+	 * @return array{payload:?string,arguments:array<string,list<stdClass>>,errors:list<Error>,ignored:list<string>,batch:bool} Prepared dispatch.
 	 * @since 0.1.2
 	 */
 	public function prepare(string $payload): array
 	{
-		$prepared = ['payload' => $payload, 'arguments' => [], 'errors' => [], 'batch' => false];
+		$prepared = ['payload' => $payload, 'arguments' => [], 'errors' => [], 'ignored' => [], 'batch' => false];
 
 		try
 		{
@@ -93,8 +93,37 @@ final class WireInput
 
 			$notification = !property_exists($node, 'id');
 			$parsed = $this->messages->create(Json::encode($node))[0];
-			if (!$notification && $node->method === CallToolRequest::getMethod()
-				&& ($node->params ?? null) instanceof stdClass && is_string($node->params->name ?? null))
+			$unknown = $parsed instanceof InvalidInputMessageException
+				&& $parsed->getMessage() === sprintf('Unknown method "%s".', $node->method)
+				&& !in_array($node->method, [StatelessProtocol::DISCOVER_METHOD, StatelessProtocol::LISTEN_METHOD], true);
+
+			if ($notification)
+			{
+				// JSON-RPC notifications never receive a response, including unknown
+				// methods and malformed parameters on otherwise valid notifications.
+				if ($parsed instanceof InvalidInputMessageException)
+				{
+					$prepared['ignored'][] = $parsed->getMessage();
+					continue;
+				}
+			}
+			elseif ($unknown)
+			{
+				$prepared['errors'][] = Error::forMethodNotFound('The requested MCP method is unavailable.', $node->id);
+				continue;
+			}
+			elseif (property_exists($node, 'params') && !$node->params instanceof stdClass)
+			{
+				$prepared['errors'][] = Error::forInvalidParams('MCP method parameters must be a JSON object.', $node->id);
+				continue;
+			}
+			elseif ($parsed instanceof InvalidInputMessageException
+				&& !in_array($node->method, [StatelessProtocol::DISCOVER_METHOD, StatelessProtocol::LISTEN_METHOD], true))
+			{
+				$prepared['errors'][] = Error::forInvalidParams('The parameters do not match the requested MCP method.', $node->id);
+				continue;
+			}
+			elseif ($node->method === CallToolRequest::getMethod())
 			{
 				$params = $node->params ?? null;
 

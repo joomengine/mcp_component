@@ -11,13 +11,13 @@ namespace VDM\Component\JoomEngineMcp\Administrator\Protocol;
 
 use Mcp\Schema\JsonRpc\Error;
 use Mcp\Server\Transport\ReadsBoundedBody;
-use Mcp\Server\Wire\InboundClassifier;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
+use stdClass;
 use VDM\Component\JoomEngineMcp\Administrator\Service\Json;
 
 
@@ -70,66 +70,52 @@ final class WireInputMiddleware implements MiddlewareInterface
 			return $this->response($prepared['errors'], false, 400);
 		}
 
-		$headers = [];
+		// Native era, session, metadata, version and header checks always receive
+		// the original payload. Parameter failures on decoded requests are served
+		// by the registered guard only after those native checks have completed.
+		$request = $request->withBody($this->streams->createStream($payload));
+		$response = $this->wire->scoped($prepared['arguments'], static fn () => $handler->handle($request), $prepared['errors']);
+		$body = (string) $response->getBody();
 
-		foreach ($request->getHeaders() as $name => $values)
+		if ($body === '' || !str_starts_with($response->getHeaderLine('Content-Type'), 'application/json')
+			|| ($prepared['errors'] === [] && $prepared['ignored'] === []))
 		{
-			$headers[$name] = implode(', ', $values);
+			return $response;
 		}
 
-		$classification = (new InboundClassifier())->classify($request->getMethod(), $payload, $headers);
+		$decoded = Json::decode($body, false);
+		$messages = is_array($decoded) ? $decoded : [$decoded];
+		$adapted = [];
 
-		if ($classification->isRejected() || $classification->modern)
+		foreach ($messages as $message)
 		{
-			// Native era, metadata, version and header checks see the original
-			// message, including prohibited modern batches. Only a method-param
-			// decoder failure is remapped after those checks have completed.
-			$request = $request->withBody($this->streams->createStream($payload));
-			$response = $this->wire->scoped($prepared['arguments'], static fn () => $handler->handle($request), $prepared['errors']);
-			$body = (string) $response->getBody();
-
-			if (!$classification->isRejected() && $body !== '' && $prepared['errors'] !== [])
+			if ($message instanceof stdClass && ($message->error->code ?? null) === Error::INVALID_REQUEST)
 			{
-				$reply = Json::decode($body);
-
-				if (($reply['error']['code'] ?? null) === Error::INVALID_REQUEST)
+				if (!property_exists($message, 'id') && in_array($message->error->message ?? '', $prepared['ignored'], true))
 				{
-					foreach ($prepared['errors'] as $failure)
+					continue;
+				}
+
+				foreach ($prepared['errors'] as $failure)
+				{
+					if ($failure->id !== null && ($message->id ?? null) === $failure->id)
 					{
-						if (($reply['id'] ?? null) === $failure->id)
-						{
-							$response = $response->withBody($this->streams->createStream(Json::encode($failure)));
-							break;
-						}
+						$message = $failure;
+						break;
 					}
 				}
 			}
 
-			return $response;
+			$adapted[] = $message;
 		}
 
-		if ($prepared['payload'] === null)
+		if ($adapted === [])
 		{
-			return $prepared['errors'] === [] ? $this->responses->createResponse(202)
-				: $this->response($prepared['errors'], $prepared['batch'], 400);
+			return $response->withStatus(202)->withBody($this->streams->createStream(''));
 		}
-
-		$request = $request->withBody($this->streams->createStream($prepared['payload']));
-		$response = $this->wire->scoped($prepared['arguments'], static fn () => $handler->handle($request));
-
-		if ($prepared['errors'] === [])
-		{
-			return $response;
-		}
-
-		// Keep native session headers and valid batch responses alongside errors.
-		$body = (string) $response->getBody();
-		$messages = $body === '' ? [] : Json::decode($body, false);
-		$messages = is_array($messages) ? $messages : [$messages];
-		$messages = array_merge($prepared['errors'], $messages);
 
 		return $response->withHeader('Content-Type', 'application/json')
-			->withBody($this->streams->createStream(Json::encode($messages)));
+			->withBody($this->streams->createStream(Json::encode(is_array($decoded) ? $adapted : $adapted[0])));
 	}
 
 	/** @param array $errors Wire failures. @param bool $batch Batch response shape. @param int $status HTTP status. @return ResponseInterface Bounded error response. @since 0.1.2 */
