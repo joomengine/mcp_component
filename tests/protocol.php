@@ -19,6 +19,7 @@ use VDM\Component\JoomEngineMcp\Administrator\Protocol\DatabaseRegistry;
 use VDM\Component\JoomEngineMcp\Administrator\Protocol\ServerFactory;
 use VDM\Component\JoomEngineMcp\Administrator\Protocol\SessionStore;
 use VDM\Component\JoomEngineMcp\Administrator\Protocol\ToolDispatcher;
+use VDM\Component\JoomEngineMcp\Administrator\Protocol\WireInputMiddleware;
 use VDM\Component\JoomEngineMcp\Administrator\Security\Authorizer;
 use VDM\Component\JoomEngineMcp\Administrator\Security\Envelope;
 use VDM\Component\JoomEngineMcp\Administrator\Security\SchemaValidator;
@@ -95,10 +96,11 @@ $actions = new ActionExecutor($catalogue, $schemas, $principal, new HandlerRegis
 $tools = new ToolDispatcher($catalogue, $actions, $permissions, $schemas, $principal, $settings);
 $registry = new DatabaseRegistry($catalogue, $tools, $actions, $schemas);
 $sessions = new SessionStore($store, $envelope, $principal, 3600, $clock);
-$server = (new ServerFactory($registry, $sessions, $settings))->create();
+$serverFactory = new ServerFactory($registry, $sessions, $settings);
+$server = $serverFactory->create();
 $factory = new Psr17Factory();
 $sessionId = '';
-$exchange = static function (array $message, string $method = 'POST') use ($server, $factory, &$sessionId): array
+$exchange = static function (array $message, string $method = 'POST') use ($server, $serverFactory, $factory, &$sessionId): array
 {
 	$headers = ['Content-Type' => 'application/json', 'Accept' => 'application/json, text/event-stream', 'MCP-Protocol-Version' => '2025-11-25'];
 
@@ -108,7 +110,8 @@ $exchange = static function (array $message, string $method = 'POST') use ($serv
 	}
 
 	$request = new ServerRequest($method, 'http://127.0.0.1/mcp', $headers, Json::encode($message));
-	$response = $server->run(new StreamableHttpTransport($request, $factory, $factory));
+	$response = $server->run(new StreamableHttpTransport($request, $factory, $factory,
+		middleware: [...StreamableHttpTransport::defaultMiddleware(), new WireInputMiddleware($serverFactory->wireInput(), $factory, $factory)]));
 	$sessionId = $response->getHeaderLine('Mcp-Session-Id') ?: $sessionId;
 	$body = (string) $response->getBody();
 
@@ -165,7 +168,7 @@ $check(!$first->exists($uuid), 'Expired session remained valid.');
 $check(count($first->gc()) === 1, 'Expired session was not collected.');
 $check($store->one('session', ['uuid' => $sessionId]) === null, 'Expired session row remains.');
 
-$modernExchange = static function (string $method, array $params = [], array $extraHeaders = []) use ($server, $factory): array
+$modernExchange = static function (string $method, array $params = [], array $extraHeaders = []) use ($server, $serverFactory, $factory): array
 {
 	$params['_meta'] = ['io.modelcontextprotocol/protocolVersion' => '2026-07-28',
 		'io.modelcontextprotocol/clientCapabilities' => (object) [],
@@ -180,7 +183,8 @@ $modernExchange = static function (string $method, array $params = [], array $ex
 	$headers = array_replace($headers, $extraHeaders);
 	$request = new ServerRequest('POST', 'http://127.0.0.1/mcp', $headers,
 		Json::encode(['jsonrpc' => '2.0', 'id' => 100, 'method' => $method, 'params' => $params]));
-	$response = $server->run(new StreamableHttpTransport($request, $factory, $factory));
+	$response = $server->run(new StreamableHttpTransport($request, $factory, $factory,
+		middleware: [...StreamableHttpTransport::defaultMiddleware(), new WireInputMiddleware($serverFactory->wireInput(), $factory, $factory)]));
 
 	return ['status' => $response->getStatusCode(), 'body' => Json::decode((string) $response->getBody()),
 		'session' => $response->getHeaderLine('Mcp-Session-Id')];

@@ -84,10 +84,11 @@ final class SchemaValidator
 	 *
 	 * @param array<string,mixed> $arguments Action or tool arguments.
 	 * @param string $document Schema from the current authorized database record.
+	 * @param bool $strictShapes Whether the arguments retain original wire object/list types.
 	 * @return array<string,mixed> Validated arguments with declared defaults.
 	 * @since 0.1.0
 	 */
-	public function input(array $arguments, string $document): array
+	public function input(array $arguments, string $document, bool $strictShapes = false): array
 	{
 		$schema = $this->document($document);
 
@@ -98,7 +99,7 @@ final class SchemaValidator
 
 		$this->bounds($arguments);
 		Json::encode((object) $arguments, 1048576);
-		$data = $this->shape($arguments, $schema, true);
+		$data = $this->shape((object) $arguments, $schema, true, $strictShapes);
 
 		try
 		{
@@ -118,7 +119,7 @@ final class SchemaValidator
 			]);
 		}
 
-		return Json::decode(Json::encode($data));
+		return $strictShapes ? (array) $data : array_map([$this, 'nativeValue'], (array) $data);
 	}
 
 	/**
@@ -210,15 +211,16 @@ final class SchemaValidator
 		}
 	}
 
-	/** @param mixed $value JSON data. @param mixed $schema Matching schema node. @param bool $defaults Whether declared defaults apply. @return mixed Shape-preserving JSON data. @since 0.1.0 */
-	private function shape(mixed $value, mixed $schema, bool $defaults): mixed
+	/** @param mixed $value JSON data. @param mixed $schema Matching schema node. @param bool $defaults Whether declared defaults apply. @param bool $strictShapes Original wire types are authoritative. @return mixed Shape-preserving JSON data. @since 0.1.0 */
+	private function shape(mixed $value, mixed $schema, bool $defaults, bool $strictShapes = false): mixed
 	{
 		if (!is_array($value) && !$value instanceof stdClass)
 		{
 			return $value;
 		}
 
-		$isObject = $value instanceof stdClass || !array_is_list((array) $value) || (($schema->type ?? null) === 'object' && $value === []);
+		$isObject = $value instanceof stdClass || !array_is_list((array) $value)
+			|| (!$strictShapes && ($schema->type ?? null) === 'object' && $value === []);
 		$value = (array) $value;
 
 		if ($isObject && $defaults)
@@ -235,9 +237,39 @@ final class SchemaValidator
 		foreach ($value as $key => $child)
 		{
 			$childSchema = $isObject ? ($schema->properties->{$key} ?? $schema->additionalProperties ?? null) : ($schema->items ?? null);
-			$value[$key] = $this->shape($child, $childSchema, $defaults);
+			$value[$key] = $this->shape($child, $childSchema, $defaults, $strictShapes);
 		}
 
 		return $isObject ? (object) $value : $value;
+	}
+
+	/**
+	 * Keep ambiguous JSON objects while exposing ordinary maps to PHP handlers.
+	 *
+	 * Empty and numeric-only objects would otherwise encode as JSON lists after
+	 * associative decoding. Their original object kind remains authoritative in
+	 * later action validation, storage fingerprints and outbound serialization.
+	 *
+	 * @param mixed $value Validated JSON value.
+	 * @return mixed Native maps with object/list distinctions retained.
+	 * @since 0.1.2
+	 */
+	private function nativeValue(mixed $value): mixed
+	{
+		$isObject = $value instanceof stdClass;
+
+		if (!is_array($value) && !$isObject)
+		{
+			return $value;
+		}
+
+		$members = (array) $value;
+
+		foreach ($members as $key => $child)
+		{
+			$members[$key] = $this->nativeValue($child);
+		}
+
+		return $isObject && array_is_list($members) ? (object) $members : $members;
 	}
 }

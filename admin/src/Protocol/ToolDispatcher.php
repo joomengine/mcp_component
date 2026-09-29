@@ -9,6 +9,7 @@
 namespace VDM\Component\JoomEngineMcp\Administrator\Protocol;
 
 
+use stdClass;
 use VDM\Component\JoomEngineMcp\Administrator\Contract\PrincipalInterface;
 use VDM\Component\JoomEngineMcp\Administrator\Domain\OperationException;
 use VDM\Component\JoomEngineMcp\Administrator\Job\Jobs;
@@ -104,7 +105,7 @@ final class ToolDispatcher
 			'catalog.search' => $this->search($input),
 			'catalog.describe' => $this->describe($input['action']),
 			'action.read' => isset($config['action']) ? $this->actions->fixedRead($tool, $input)
-				: $this->actions->read($input['action'], $input['input'] ?? [], $config['transport'] ?? $input['transport'] ?? 'auto'),
+				: $this->actions->read($input['action'], $this->actionInput($input['input'] ?? []), $config['transport'] ?? $input['transport'] ?? 'auto'),
 			'action.plan' => $this->plan($tool, $input),
 			'action.apply' => $this->actions->apply($input['confirmationToken']),
 			'action.safe_configuration' => $this->safeConfiguration(),
@@ -275,10 +276,16 @@ final class ToolDispatcher
 	private function plan(array $tool, array $input): array
 	{
 		$action = $tool['configuration']['action'] ?? $input['action'];
-		$arguments = isset($tool['configuration']['action']) ? $input : ($input['input'] ?? []);
+		$arguments = isset($tool['configuration']['action']) ? $input : $this->actionInput($input['input'] ?? []);
 		unset($arguments['site'], $arguments['idempotencyKey'], $arguments['transport']);
 
 		return $this->actions->plan($action, $arguments, $input['idempotencyKey'], $input['dryRun'] ?? false, $input['transport'] ?? 'auto');
+	}
+
+	/** @param array|stdClass $input Validated action argument object. @return array PHP argument bag retaining nested JSON types. @since 0.1.2 */
+	private function actionInput(array|stdClass $input): array
+	{
+		return (array) $input;
 	}
 
 	/** @return array<string,mixed> Safe configuration action remains behind its own row ACL. @since 0.1.0 */
