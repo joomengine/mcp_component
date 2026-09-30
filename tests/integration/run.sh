@@ -73,7 +73,7 @@ for attempt in $(seq 1 50); do
   if curl --silent --output /dev/null "$MCP_TEST_BASE_URL/api/index.php"; then break; fi
   sleep 0.2
 done
-for suite in installation administration http field-defaults template-styles menu-components native-lists content-languages catalogue-mcp acl-mcp stdio stdio-endurance browser jcb-api job-worker; do
+for suite in installation administration runtime-options http field-defaults template-styles menu-components native-lists content-languages catalogue-mcp acl-mcp stdio stdio-endurance browser jcb-api job-worker; do
   php "$root/tests/integration/$suite.php" | tee "$root/build/evidence/live-$suite.log"
 done
 if [[ -n "${MCP_PLUGIN_SOURCE:-}" ]]; then

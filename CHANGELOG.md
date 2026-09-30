@@ -1,5 +1,15 @@
 # Changelog
 
+## [[[NEXT_VERSION]]]
+
+### Fix
+
+- Allow component Options to save with blank optional PHP CLI executable and artifact directory fields when Joomla supplies null during form validation. Keep validation of supplied paths and malformed values unchanged.
+
+### Language
+
+- Clarify that the PHP CLI executable may remain empty when JCB background jobs are not used, including on shared hosting with restricted process execution.
+
 ## 1.0.3
 
 ### Fix

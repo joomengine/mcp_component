@@ -28,6 +28,8 @@ final class RuntimepathRule extends FormRule
 	public function test(SimpleXMLElement $element, $value, $group = null, ?Registry $input = null, ?Form $form = null)
 	{
 		$name = (string) $element['name'];
+		// Joomla's Registry represents blank optional form fields as null.
+		$value ??= '';
 
 		if (!in_array($name, ['php_cli_binary', 'artifact_directory'], true) || !is_string($value))
 		{
