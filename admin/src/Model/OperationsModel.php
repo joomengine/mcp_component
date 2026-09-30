@@ -9,12 +9,9 @@
 namespace VDM\Component\JoomEngineMcp\Administrator\Model;
 
 
-use Joomla\CMS\MVC\Model\ListModel;
 use Joomla\CMS\Factory;
-use VDM\Component\JoomEngineMcp\Administrator\Administration\Operations;
-use VDM\Component\JoomEngineMcp\Administrator\Database\JoomlaStore;
+use Joomla\CMS\MVC\Model\ListModel;
 use VDM\Component\JoomEngineMcp\Administrator\Database\Structure;
-use VDM\Component\JoomEngineMcp\Administrator\Security\Envelope;
 
 
 /**
@@ -27,13 +24,27 @@ final class OperationsModel extends ListModel
 	/** @var string Exact extension element; the namespace intentionally has a different spelling. @since 0.1.0 */
 	protected $option = 'com_joomengine_mcp';
 
-	/** @inheritDoc */
+	/**
+	 * Keep native request pagination independent for each fixed operations list.
+	 *
+	 * @param string $ordering Native default ordering column.
+	 * @param string $direction Native default ordering direction.
+	 * @return void
+	 * @since 0.1.0
+	 */
 	protected function populateState($ordering = 'id', $direction = 'desc')
 	{
 		$kind = Factory::getApplication()->getInput()->getCmd('kind', 'execution');
-		$this->setState('filter.kind', in_array($kind, ['execution', 'job', 'artifact', 'grant', 'audit'], true) ? $kind : 'execution');
+		$kind = in_array($kind, ['execution', 'job', 'artifact', 'grant', 'audit'], true) ? $kind : 'execution';
+		$this->context .= '.' . $kind;
 		parent::populateState('id', 'desc');
-		$this->setState('list.limit', max(1, min(100, (int) $this->state->get('list.limit', 20))));
+		$limit = max(1, min(100, (int) $this->state->get('list.limit', 20)));
+		$start = max(0, (int) $this->state->get('list.start', 0));
+		$this->setState('filter.kind', $kind);
+		$this->setState('list.ordering', 'id');
+		$this->setState('list.direction', 'desc');
+		$this->setState('list.limit', $limit);
+		$this->setState('list.start', intdiv($start, $limit) * $limit);
 	}
 
 	/** @inheritDoc */
