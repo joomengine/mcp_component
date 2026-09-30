@@ -3,7 +3,7 @@
   <changelog>
     <element>com_joomengine_mcp</element>
     <type>component</type>
-    <version>[[[NEXT_VERSION]]]</version>
+    <version>1.0.3</version>
     <fix>
       <item>Keep long-lived stdio processes within a 128 MB limit through bounded shared validation, cycle-free canonicalization and selective discovery. Bound fragmented frames, drain oversized frames, handle output backpressure and retain native idle polling cadence and route runtime diagnostics to stderr even with inherited stdout logging.</item>
       <item>Distinguish malformed JSON-RPC envelopes, unknown methods and invalid method parameters, preserve IDs, ignore notifications and keep subsequent requests usable under the original SDK session and protocol-version rules.</item>
