@@ -3,7 +3,7 @@
   <changelog>
     <element>com_joomengine_mcp</element>
     <type>component</type>
-    <version>[[[NEXT_VERSION]]]</version>
+    <version>1.0.4</version>
     <fix>
       <item>Preserve native administrator catalogue pagination when unchanged blank SearchTools filters are resubmitted, reset only genuine filter changes, and align bounded page offsets. Keep Operations pagination independent for each list kind and align its bounded page size.</item>
       <item>Allow component Options to save with blank optional PHP CLI executable and artifact directory fields when Joomla supplies null during form validation. Retain validation of supplied paths and malformed values.</item>
