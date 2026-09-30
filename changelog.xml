@@ -3,6 +3,17 @@
   <changelog>
     <element>com_joomengine_mcp</element>
     <type>component</type>
+    <version>[[[NEXT_VERSION]]]</version>
+    <fix>
+      <item>Allow component Options to save with blank optional PHP CLI executable and artifact directory fields when Joomla supplies null during form validation. Retain validation of supplied paths and malformed values.</item>
+    </fix>
+    <language>
+      <item>Clarify that the PHP CLI executable may remain empty when JCB background jobs are not used, including on shared hosting with restricted process execution.</item>
+    </language>
+  </changelog>
+  <changelog>
+    <element>com_joomengine_mcp</element>
+    <type>component</type>
     <version>1.0.3</version>
     <fix>
       <item>Keep long-lived stdio processes within a 128 MB limit through bounded shared validation, cycle-free canonicalization and selective discovery. Bound fragmented frames, drain oversized frames, handle output backpressure and retain native idle polling cadence and route runtime diagnostics to stderr even with inherited stdout logging.</item>

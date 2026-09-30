@@ -1,4 +1,12 @@
-# Implementation status — 29 September 2026
+# Implementation status — 30 September 2026
+
+## Optional runtime path configuration — issue #17
+
+The component's native Options form now normalizes Joomla Registry's null representation of a blank optional path to the empty string accepted by `Settings`. This applies to both `php_cli_binary` and `artifact_directory`. Supplied paths still require the existing absolute-path, filesystem and private-storage checks; other non-string values remain rejected. The console and webservices plugins own neither these fields nor their rule, so this fix belongs solely in the component.
+
+The PHP CLI field description explains that operators may leave it empty when JCB background jobs are unused, including on shared hosting. Blank configuration retains the existing default CLI path and system temporary storage behavior; it does not remove hosting process restrictions.
+
+`tests/integration/runtime-options.php` loads the installed component form through Joomla's native `com_config` model, validates omitted/null/empty and supplied paths, saves accepted options, checks the persisted extension parameters and restores the original values. It also checks invalid paths and malformed values. The existing PHP 8.3/8.4 × MySQL/PostgreSQL installed workflow executes this suite. Validation results are recorded in the linked PR after execution.
 
 ## Runtime regression follow-up — issues #7–#13
 
