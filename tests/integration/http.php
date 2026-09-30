@@ -36,6 +36,8 @@ $check = static function (bool $value, string $name) use (&$checks): void
 $uuid = static fn (): string => Json::uuid();
 $articleId = null;
 $title = 'MCP installed fixture ' . bin2hex(random_bytes(6));
+$followupArticleId = null;
+$followupTitle = $title . ' after delete';
 $fieldId = null;
 $fieldName = 'mcp-fixture-' . bin2hex(random_bytes(6));
 $fieldValue = 'Installed custom field ' . bin2hex(random_bytes(6));
@@ -142,7 +144,44 @@ try
 	$plan = $client->tool('joomla_content_article_delete_plan', ['id' => $articleId, 'idempotencyKey' => $uuid()]);
 	$result = $client->tool('joomla_write_apply', ['confirmationToken' => $plan['confirmationToken']]);
 	$row = $db->setQuery($db->createQuery()->select('*')->from($db->quoteName('#__content'))->where($db->quoteName('id') . ' = ' . $articleId))->loadAssoc();
-	$check(($row === null || $row === false || (int) $row['state'] === -2) && $result['verification']['status'] === 'verified', 'HTTP delete verified persisted Joomla deletion/trash semantics');
+	$check(($row === null || $row === false) && $result['verification']['status'] === 'verified'
+		&& $result['verification']['postcondition'] === 'resource-absent', 'HTTP permanent delete verifies native resource absence rather than a retained trashed article');
+	$deleteExecution = $store->one('execution', ['uuid' => $result['executionId']]);
+	$deleteAudit = $store->find('audit', ['execution_uuid' => $result['executionId']]);
+	$check(($deleteExecution['status'] ?? '') === 'completed'
+		&& $store->one('lease', ['owner_uuid' => $result['executionId']]) === null,
+		'Verified deletion completes its durable execution and releases the installation write lease');
+	$check(count(array_filter($deleteAudit, static fn (array $event): bool => $event['event'] === 'write.claimed')) === 1
+		&& count(array_filter($deleteAudit, static fn (array $event): bool => $event['event'] === 'write.finished' && $event['outcome'] === 'completed')) === 1,
+		'Installed deletion has exactly one claimed and completed mutation execution');
+	$repeat = $client->tool('joomla_write_apply', ['confirmationToken' => $plan['confirmationToken']]);
+	$check($repeat['idempotentReplay'] === true && $repeat['executionId'] === $result['executionId']
+		&& $repeat['mutation'] === $result['mutation'] && $repeat['verification'] === $result['verification'],
+		'Replayed deletion preserves its original mutation and verified resource-absent result');
+	$check($store->one('execution', ['uuid' => $result['executionId']]) === $deleteExecution
+		&& $store->find('audit', ['execution_uuid' => $result['executionId']]) === $deleteAudit
+		&& $store->one('execution', ['idempotency_key' => $result['idempotencyKey']]) === $deleteExecution,
+		'Deletion replay leaves the installed execution and mutation audit unchanged');
+
+	// Exercise another confirmed native write immediately after deletion. A
+	// retained uncertain lease must fail this real operation, not pass by cleanup.
+	$plan = $client->tool('joomla_content_article_create_plan', ['idempotencyKey' => $uuid(), 'data' => [
+		'title' => $followupTitle, 'catid' => $category, 'articletext' => '<p>Confirmed write after permanent deletion.</p>', 'state' => 0, 'language' => '*',
+	]]);
+	$result = $client->tool('joomla_write_apply', ['confirmationToken' => $plan['confirmationToken']]);
+	$followupArticleId = (int) $db->setQuery($db->createQuery()->select($db->quoteName('id'))->from($db->quoteName('#__content'))
+		->where($db->quoteName('title') . ' = ' . $db->quote($followupTitle)))->loadResult();
+	$check($followupArticleId > 0 && in_array($result['verification']['status'], ['verified', 'partial'], true)
+		&& in_array('title', $result['verification']['matchedFields'], true)
+		&& ($store->one('execution', ['uuid' => $result['executionId']])['status'] ?? '') === 'completed',
+		'Next confirmed HTTP create persists and completes without WRITE_BUSY after deletion');
+	$plan = $client->tool('joomla_content_article_update_plan', ['id' => $followupArticleId, 'idempotencyKey' => $uuid(),
+		'data' => ['title' => $followupTitle . ' updated']]);
+	$result = $client->tool('joomla_write_apply', ['confirmationToken' => $plan['confirmationToken']]);
+	$persistedTitle = $db->setQuery($db->createQuery()->select($db->quoteName('title'))->from($db->quoteName('#__content'))
+		->where($db->quoteName('id') . ' = ' . $followupArticleId))->loadResult();
+	$check($persistedTitle === $followupTitle . ' updated' && $result['verification']['status'] === 'verified',
+		'Subsequent confirmed HTTP update independently verifies persisted native content');
 	$revoked = $client->tool('joomla_permission_revoke', ['grantId' => $grantId]);
 	$check($revoked['revoked'] === true, 'Principal can revoke its persisted grant');
 	$grantId = null;
@@ -151,23 +190,29 @@ finally
 {
 	try
 	{
-		// Native deletion is also used for failure cleanup; no fixture article remains.
-		if ($articleId === null)
+		// Native deletion is also used for failure cleanup of both fixture articles.
+		foreach ([[$articleId, $title], [$followupArticleId, $followupTitle]] as [$cleanupId, $cleanupTitle])
 		{
-			$articleId = (int) $db->setQuery($db->createQuery()->select($db->quoteName('id'))->from($db->quoteName('#__content'))->where($db->quoteName('title') . ' = ' . $db->quote($title)))->loadResult();
-		}
+			if ($cleanupId === null)
+			{
+				$cleanupId = (int) $db->setQuery($db->createQuery()->select($db->quoteName('id'))->from($db->quoteName('#__content'))
+					->where($db->quoteName('title') . ' = ' . $db->quote($cleanupTitle)))->loadResult();
+			}
 
-		if ($articleId > 0)
-		{
+			if ($cleanupId <= 0)
+			{
+				continue;
+			}
+
 			$model = $app->bootComponent('com_content')->getMVCFactory()->createModel('Article', 'Administrator', ['ignore_request' => true]);
 			$model->setCurrentUser($admin);
-			$pks = [$articleId];
-			$exists = $db->setQuery('SELECT id FROM ' . $db->quoteName('#__content') . ' WHERE id = ' . $articleId)->loadResult();
+			$pks = [$cleanupId];
+			$exists = $db->setQuery('SELECT id FROM ' . $db->quoteName('#__content') . ' WHERE id = ' . $cleanupId)->loadResult();
 			if ($exists && (!$model->publish($pks, -2) || !$model->delete($pks)))
 			{
 				throw new RuntimeException('Disposable article cleanup failed: ' . implode('; ', $model->getErrors()));
 			}
-			$check(!$db->setQuery('SELECT id FROM ' . $db->quoteName('#__content') . ' WHERE id = ' . $articleId)->loadResult(), 'No article test data remains');
+			$check(!$db->setQuery('SELECT id FROM ' . $db->quoteName('#__content') . ' WHERE id = ' . $cleanupId)->loadResult(), 'No article test data remains: ' . $cleanupTitle);
 		}
 	}
 	finally

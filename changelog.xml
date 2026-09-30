@@ -6,6 +6,7 @@
     <version>[[[NEXT_VERSION]]]</version>
     <fix>
       <item>Allow component Options to save with blank optional PHP CLI executable and artifact directory fields when Joomla supplies null during form validation. Retain validation of supplied paths and malformed values.</item>
+      <item>Verify permanent HTTP article deletion through an authorized, approval-bound exact-ID collection lookup across all native article states when Joomla returns HTTP 500 for the missing item. Complete verified executions and release their write lease while retaining uncertainty when absence cannot be established.</item>
     </fix>
     <language>
       <item>Clarify that the PHP CLI executable may remain empty when JCB background jobs are not used, including on shared hosting with restricted process execution.</item>
