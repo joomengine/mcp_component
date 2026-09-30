@@ -80,7 +80,7 @@ fixture() {
 }
 fixture /tmp/mcp-component/tests/golden-image/prepare.php > "$out/prepare.log" 2>&1
 fixture /tmp/mcp-component/tests/integration/prepare-http.php >> "$out/prepare.log" 2>&1
-for suite in installation administration http field-defaults template-styles menu-components native-lists content-languages catalogue-mcp acl-mcp stdio stdio-endurance browser jcb-api job-worker; do
+for suite in installation administration admin-pagination http field-defaults template-styles menu-components native-lists content-languages catalogue-mcp acl-mcp stdio stdio-endurance browser browser-pagination jcb-api job-worker; do
   fixture "/tmp/mcp-component/tests/integration/$suite.php" > "$out/$suite.log" 2>&1
 done
 fixture /tmp/mcp-plugin/tests/installed.php > "$out/console-plugin.log" 2>&1

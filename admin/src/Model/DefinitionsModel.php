@@ -10,6 +10,7 @@ namespace VDM\Component\JoomEngineMcp\Administrator\Model;
 
 
 use Joomla\CMS\Factory;
+use Joomla\CMS\Filter\InputFilter;
 use Joomla\CMS\MVC\Factory\MVCFactoryInterface;
 use Joomla\CMS\MVC\Model\ListModel;
 use VDM\Component\JoomEngineMcp\Administrator\Database\Structure;
@@ -41,7 +42,7 @@ abstract class DefinitionsModel extends ListModel
 	 */
 	public function __construct($config = [], ?MVCFactoryInterface $factory = null)
 	{
-		$config['filter_fields'] = ['id', 'a.id', 'name', 'a.name', 'title', 'a.title', 'published', 'a.published',
+		$config['filter_fields'] = ['search', 'id', 'a.id', 'name', 'a.name', 'title', 'a.title', 'published', 'a.published',
 			'access', 'a.access', 'ordering', 'a.ordering', 'modified', 'a.modified', 'provider_id', 'a.provider_id'];
 		parent::__construct($config, $factory);
 	}
@@ -57,13 +58,57 @@ abstract class DefinitionsModel extends ListModel
 	protected function populateState($ordering = 'a.name', $direction = 'asc')
 	{
 		$app = Factory::getApplication();
-		$this->setState('filter.search', $this->getUserStateFromRequest($this->context . '.search', 'filter_search', '', 'string'));
-		$this->setState('filter.published', $this->getUserStateFromRequest($this->context . '.published', 'filter_published', '', 'string'));
-		$this->setState('filter.access', $this->getUserStateFromRequest($this->context . '.access', 'filter_access', 0, 'uint'));
-		$this->setState('filter.provider_id', $this->getUserStateFromRequest($this->context . '.provider_id', 'filter_provider_id', 0, 'uint'));
+		$previous = $app->getUserState($this->context . '.filter', []);
+		// Joomla owns SearchTools' nested filter/list state and the submitted offset.
 		parent::populateState($ordering, $direction);
-		$this->setState('list.limit', max(1, min(500, (int) $this->state->get('list.limit', $app->get('list_limit', 20)))));
-		$this->setState('list.start', max(0, (int) $this->state->get('list.start', 0)));
+		$current = [];
+
+		foreach (['search', 'published', 'access', 'provider_id'] as $name)
+		{
+			$current[$name] = $this->state->get('filter.' . $name);
+		}
+
+		$current = $this->normalizeFilters($current);
+
+		foreach ($current as $name => $value)
+		{
+			$this->setState('filter.' . $name, $value);
+		}
+
+		$limit = max(1, min(500, (int) $this->state->get('list.limit', $app->get('list_limit', 20))));
+		$start = max(0, (int) $this->state->get('list.start', 0));
+
+		if ($current !== $this->normalizeFilters(is_array($previous) ? $previous : []))
+		{
+			// Reset only genuine filter changes, including direct form submissions.
+			$start = 0;
+			$app->getInput()->set('limitstart', 0);
+			$app->setUserState($this->context . '.limitstart', 0);
+		}
+
+		$this->setState('list.limit', $limit);
+		$this->setState('list.start', intdiv($start, $limit) * $limit);
+	}
+
+	/**
+	 * Compare effective filter values without consuming request or session state.
+	 *
+	 * @param array $values Native SearchTools filter values.
+	 * @return array Typed filters with equivalent blank/default values normalized.
+	 * @since 1.0.0
+	 */
+	private function normalizeFilters(array $values): array
+	{
+		$filter = InputFilter::getInstance();
+		$normalized = [];
+
+		foreach (['search' => '', 'published' => '', 'access' => 0, 'provider_id' => 0] as $name => $default)
+		{
+			$value = $values[$name] ?? $default;
+			$normalized[$name] = is_scalar($value) ? $filter->clean($value, is_string($default) ? 'string' : 'uint') : $default;
+		}
+
+		return $normalized;
 	}
 
 	/**
