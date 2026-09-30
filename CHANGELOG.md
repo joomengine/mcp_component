@@ -5,6 +5,7 @@
 ### Fix
 
 - Allow component Options to save with blank optional PHP CLI executable and artifact directory fields when Joomla supplies null during form validation. Keep validation of supplied paths and malformed values unchanged.
+- Verify permanent HTTP article deletion through an authorized, approval-bound exact-ID collection lookup across all native article states when Joomla returns HTTP 500 for the missing item. Complete verified executions and release their write lease; retain uncertain outcomes when absence cannot be established.
 
 ### Language
 

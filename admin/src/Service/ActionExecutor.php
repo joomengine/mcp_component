@@ -216,6 +216,7 @@ final class ActionExecutor
 
 		$input = $this->validate($resolved, $input);
 		$before = $handler instanceof PlannedHandlerInterface ? null : $this->snapshot($resolved, $input);
+		$delete = $this->articleDeletionPolicy($resolved, $input, $before);
 		$preflight = $this->preflight($resolved, $input, $before);
 		$menu = MenuItemComponents::intent($resolved, $preflight);
 
@@ -260,6 +261,7 @@ final class ActionExecutor
 			'input' => $input, 'before' => $before,
 			'custom_fields' => $resolved['custom_fields'] ?? null,
 			'menu_component' => $resolved['menu_component'] ?? null,
+			'delete_verification' => $delete,
 			'prepared' => $handler instanceof PlannedHandlerInterface ? $preflight : null,
 			'preflight_hash' => hash('sha256', Json::canonical($preflight)),
 		], $preview, $idempotencyKey, $grant);
@@ -302,6 +304,12 @@ final class ActionExecutor
 
 		$this->executions->assertFresh($plan, $resolved);
 
+		if (isset($plan['payload']['delete_verification']))
+		{
+			$resolved['delete_verification'] = $plan['payload']['delete_verification'];
+			$this->articleDeletionBindings($resolved['delete_verification']);
+		}
+
 		if (isset($plan['payload']['custom_fields']))
 		{
 			$resolved['custom_fields'] = $plan['payload']['custom_fields'];
@@ -321,6 +329,12 @@ final class ActionExecutor
 		if (!hash_equals(hash('sha256', Json::canonical($plan['payload']['before'])), hash('sha256', Json::canonical($before))))
 		{
 			throw new OperationException('PRECONDITION_CHANGED', 'The Joomla resource changed after planning. Create a new plan against the current resource.');
+		}
+
+		if (!empty($resolved['delete_verification']['available'])
+			&& !$this->articleDeletionVisible($resolved['delete_verification']))
+		{
+			throw new OperationException('PRECONDITION_CHANGED', 'The article is no longer visible in the approved native collection. Create a new plan against the current resource.');
 		}
 
 		$preflight = $this->preflight($resolved, $input, $before);
@@ -730,6 +744,161 @@ final class ActionExecutor
 		];
 	}
 
+	/**
+	 * Freeze independent authorized native read definitions and collection visibility.
+	 *
+	 * The collection fallback is optional: an unavailable collection cannot prevent
+	 * ordinary item-404 verification, but can never be used as evidence of absence.
+	 * Definitions with extra default query restrictions are insufficient evidence.
+	 *
+	 * @param array $resolved Approved primary write.
+	 * @param array $input Validated deletion target.
+	 * @param ?array $before Native item snapshot.
+	 * @return ?array Frozen native article verification policy.
+	 * @since 1.0.0
+	 */
+	private function articleDeletionPolicy(array $resolved, array $input, ?array $before): ?array
+	{
+		$intent = ArticleDeletion::intent($resolved, $input, $before);
+
+		if ($intent === null)
+		{
+			return null;
+		}
+
+		$rule = $this->verification($resolved);
+
+		if (($rule['read_action'] ?? '') !== $intent['readAction'] || ($rule['operation'] ?? '') !== 'delete'
+			|| ($rule['primary_key'] ?? 'id') !== 'id' || ($rule['state_field'] ?? 'state') !== 'state')
+		{
+			throw new OperationException('BINDING_INVALID', 'Permanent article deletion requires the matching native verification contract.');
+		}
+
+		$read = $this->resolve($intent['readAction'], 'api', 'read');
+		$intent['readRevision'] = $read['revision'];
+		$this->articleDeletionBindings($intent);
+
+		try
+		{
+			$list = $this->resolve($intent['listAction'], 'api', 'read');
+			$intent['listRevision'] = $list['revision'];
+			$this->articleDeletionBindings($intent);
+
+			if ($intent['state'] !== null)
+			{
+				$intent['available'] = $this->articleDeletionVisible($intent);
+			}
+		}
+		catch (OperationException $error)
+		{
+			if ($error->getIdentifier() === 'BINDING_INVALID')
+			{
+				unset($intent['listRevision']);
+			}
+
+			// Preserve the normal missing-item path, never infer absent from denied
+			// reads or a collection which could not expose the pre-mutation target.
+		}
+
+		return $intent;
+	}
+
+	/**
+	 * Recheck every bound definition and same-principal ACL before follow-up I/O.
+	 *
+	 * @param array $intent Frozen native article policy.
+	 * @return array Current authorized list resolution, or empty if never available.
+	 * @since 1.0.0
+	 */
+	private function articleDeletionBindings(array $intent): array
+	{
+		$this->catalogue->refresh();
+		$read = $this->resolve($intent['readAction'], 'api', 'read');
+
+		if (!hash_equals($intent['readRevision'], $read['revision']))
+		{
+			throw new OperationException('PLAN_STALE', 'The article verification definition changed after approval.');
+		}
+
+		$config = $read['binding']['configuration'];
+
+		if ($read['binding']['handler'] !== 'api.request' || ($config['method'] ?? '') !== 'GET'
+			|| ($config['route'] ?? '') !== '/v1/content/articles/:id' || !empty($config['query_defaults'])
+			|| !empty($config['select_fields']) || ($config['authentication'] ?? '') !== 'joomla-api-token')
+		{
+			throw new OperationException('BINDING_INVALID', 'Article verification requires the reviewed native item API binding.');
+		}
+
+		$request = $this->requests->build($this->readArguments($read, ['id' => $intent['id']]), $config);
+
+		if ($request['path'] !== '/v1/content/articles/' . $intent['id'] || $request['query'] !== [] || $request['body'] !== null)
+		{
+			throw new OperationException('BINDING_INVALID', 'Article verification requires an unfiltered native item request.');
+		}
+
+		if (!isset($intent['listRevision']))
+		{
+			return [];
+		}
+
+		$list = $this->resolve($intent['listAction'], 'api', 'read');
+
+		if (!hash_equals($intent['listRevision'], $list['revision']))
+		{
+			throw new OperationException('PLAN_STALE', 'The article collection definition changed after approval.');
+		}
+
+		$config = $list['binding']['configuration'];
+
+		if ($list['binding']['handler'] !== 'api.request' || ($config['method'] ?? '') !== 'GET'
+			|| ($config['route'] ?? '') !== '/v1/content/articles' || ($config['paginated'] ?? false) !== true
+			|| !empty($config['query_defaults']) || !empty($config['select_fields']) || !empty($config['route_parameters'])
+			|| ($config['authentication'] ?? '') !== 'joomla-api-token')
+		{
+			throw new OperationException('BINDING_INVALID', 'Article absence requires an unrestricted reviewed native collection API binding.');
+		}
+
+		return $list;
+	}
+
+	/** @param array $intent Bound native policy. @return bool Pre-mutation target visibility. @since 1.0.0 */
+	private function articleDeletionVisible(array $intent): bool
+	{
+		return ArticleDeletion::present($this->articleDeletionCollection($intent, $intent['state']), $intent['id'], $intent['state']);
+	}
+
+	/**
+	 * Read a single exact native article identity/state without caller query overrides.
+	 *
+	 * @param array $intent Bound native policy.
+	 * @param int $state Reviewed native article state.
+	 * @return array Original same-token collection response.
+	 * @since 1.0.0
+	 */
+	private function articleDeletionCollection(array $intent, int $state): array
+	{
+		$list = $this->articleDeletionBindings($intent);
+
+		if ($list === [] || !in_array($state, ArticleDeletion::STATES, true))
+		{
+			throw new OperationException('DELETE_VERIFICATION_UNAVAILABLE', 'The approved article collection evidence is unavailable.');
+		}
+
+		$list['binding']['configuration']['query_defaults'] = ['filter[search]' => 'id:' . $intent['id'], 'filter[state]' => $state];
+		$limit = min(2, $this->settings->get('max_list_limit'));
+		$arguments = $this->validate($list, ['offset' => 0, 'limit' => $limit]);
+		$request = $this->requests->build($arguments, $list['binding']['configuration']);
+		$query = ['page[offset]' => 0, 'page[limit]' => $limit, 'filter[search]' => 'id:' . $intent['id'], 'filter[state]' => $state];
+
+		if ($request['method'] !== 'GET' || $request['path'] !== '/v1/content/articles' || $request['body'] !== null
+			|| Json::canonical($request['query']) !== Json::canonical($query))
+		{
+			throw new OperationException('DELETE_VERIFICATION_UNAVAILABLE', 'The effective article collection request contains an unapproved scope or filter.');
+		}
+
+		return $this->invoke($list, $arguments);
+	}
+
 	/** @param array<string,mixed> $resolved Write resolution. @param array<string,mixed> $input Arguments. @return array<string,mixed>|null Resource state before mutation. @since 0.1.0 */
 	private function snapshot(array $resolved, array $input): ?array
 	{
@@ -772,6 +941,11 @@ final class ActionExecutor
 	/** @param array<string,mixed> $resolved Write. @param array<string,mixed> $input Applied arguments. @param array<string,mixed> $mutation Mutation result. @return array<string,mixed> Honest verification coverage. @since 0.1.0 */
 	private function verify(array $resolved, array $input, array $mutation): array
 	{
+		if (isset($resolved['delete_verification']))
+		{
+			$this->articleDeletionBindings($resolved['delete_verification']);
+		}
+
 		$rule = $this->verification($resolved);
 		$track = $resolved['binding']['track'];
 		$operation = $rule['operation'] ?? '';
@@ -793,6 +967,16 @@ final class ActionExecutor
 		}
 		catch (OperationException $error)
 		{
+			if ($operation === 'delete' && !empty($resolved['delete_verification']['available'])
+				&& ($mutation['status'] ?? null) === 204 && $error->getIdentifier() === 'JOOMLA_API_ERROR'
+				&& ($error->toArray()['details']['httpStatus'] ?? null) === 500)
+			{
+				return ArticleDeletion::verify($resolved['delete_verification'], function (int $state) use ($resolved): array
+				{
+					return $this->articleDeletionCollection($resolved['delete_verification'], $state);
+				});
+			}
+
 			if ($operation === 'delete' && in_array($error->getIdentifier(), ['NOT_FOUND', 'ITEM_NOT_FOUND'], true))
 			{
 				return ['status' => 'verified', 'postcondition' => 'resource-absent', 'id' => $id];
@@ -810,12 +994,12 @@ final class ActionExecutor
 
 			$record = $this->item($observed, $track);
 
-			if (($record[$rule['state_field'] ?? 'state'] ?? null) == -2)
+			if (!isset($resolved['delete_verification']) && ($record[$rule['state_field'] ?? 'state'] ?? null) == -2)
 			{
 				return ['status' => 'verified', 'postcondition' => 'resource-trashed', 'id' => $id];
 			}
 
-			return ['status' => 'uncertain', 'reason' => 'The deleted resource is still visible and was not verified as trashed.', 'id' => $id];
+			return ['status' => 'uncertain', 'reason' => 'The deleted resource is still visible; permanent deletion was not verified.', 'id' => $id];
 		}
 
 		$record = $this->item($observed, $track);

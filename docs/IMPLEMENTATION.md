@@ -1,5 +1,13 @@
 # Implementation status — 30 September 2026
 
+## Permanent article deletion verification — issue #18
+
+HTTP article deletion retains its approved item snapshot and, when available, an authorized `content.articles.list` definition with its action, binding and schema revisions. The target must be visible through an exact-ID collection lookup before deletion. After an accepted DELETE, a missing-item HTTP 500 triggers an independent collection lookup for each native article state (`-2`, `0`, `1`, `2`). Each response must be a complete, successful exact-ID collection; arbitrary HTTP errors, incomplete metadata, unavailable visibility and a remaining article preserve the uncertain outcome. Joomla's API integer filter converts `filter[state]=*` to zero, so a wildcard is not accepted as all-state absence evidence.
+
+Verified permanent absence completes the execution and releases its installation write lease through the existing execution lifecycle. A record that remains trashed is not permanent deletion evidence. Replay returns the retained result without a second DELETE. Existing uncertain executions retain their reconciliation requirement; this change does not automatically clear historical leases.
+
+Regression coverage checks absence and retained uncertainty, frozen definition/authorization boundaries, idempotent replay and a subsequent write. Installed HTTP acceptance independently checks the native content table, completed execution and released lease, unchanged replay evidence, then a real follow-up article create/update. Current-head validation results are recorded in the PR before readiness.
+
 ## Optional runtime path configuration — issue #17
 
 The component's native Options form now normalizes Joomla Registry's null representation of a blank optional path to the empty string accepted by `Settings`. This applies to both `php_cli_binary` and `artifact_directory`. Supplied paths still require the existing absolute-path, filesystem and private-storage checks; other non-string values remain rejected. The console and webservices plugins own neither these fields nor their rule, so this fix belongs solely in the component.
