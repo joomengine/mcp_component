@@ -1,6 +1,6 @@
 {
     "source": "2cff50f4f6b440da3c684f9995a77efad32e1a36",
-    "runtimeSource": "bcf878f4afc7bf66617d78372cc7a513971dbaaacb93c0b805d09f4b938cd3dd",
+    "runtimeSource": "79df3a13fa43f91c179b3ec0dd21e185c6b56002c42fd580cba91a12443e16b1",
     "tools": [
         "joomla_sites_list",
         "joomla_capabilities",
@@ -73,6 +73,14 @@
     "runtimeBindingSchemaOverrides": {
         "modules.site.create.api": "Issue #24: make the accepted module create ordering contract explicit before mutation, including native automatic assignment for zero or omitted ordering.",
         "modules.administrator.create.api": "Issue #24: make the accepted module create ordering contract explicit before mutation, including native automatic assignment for zero or omitted ordering."
+    },
+    "runtimeActionMetadataOverrides": {
+        "messages.messages.get": "Issue #30: Joomla 6.1 administrator/components/com_messages/src/Model/MessageModel.php::getItem marks the stored message read after loading it. Describe this native effect without changing the public read interface; internal write planning uses a separately declared recipient-scoped native-owned-record snapshot."
+    },
+    "runtimeBindingConfigurationOverrides": {
+        "messages.messages.get.api": "Issue #30: explicitly opt this native API binding into the recipient-scoped MessageTable snapshot contract. Internal planning requires the same contract on both the write binding and its configured get binding; this does not change the public API request or recipient authorization.",
+        "messages.messages.update.api": "Issue #30: explicitly opt this native API binding into the recipient-scoped MessageTable snapshot contract. Internal planning requires the same contract on both the write binding and its configured get binding; this does not change the public API request or recipient authorization.",
+        "messages.messages.delete.api": "Issue #30: explicitly opt this native API binding into the recipient-scoped MessageTable snapshot contract. Internal planning requires the same contract on both the write binding and its configured get binding; this does not change the public API request or recipient authorization."
     },
     "actions": [
         {

@@ -4,6 +4,8 @@
 
 ### Fix
 
+- Acquire private-message planning preconditions through an explicit, recipient-scoped native table snapshot without marking messages read. Retain catalogue ownership, API identity, local installation and revision checks, strict change detection, native mutation/read-back and truthful GET side-effect metadata.
+
 - Verify category empty params, user group-ID memberships and automatic module ordering using field-specific native contracts; preserve API response JSON object/list types, independent read-back, execution leases and idempotent replay.
 - Replace the catalogue All page-size option with explicit bounded sizes through 500; keep rendered selections, saved page sizes and offsets consistent for legacy and out-of-range requests across all eight catalogue views.
 

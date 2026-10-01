@@ -247,6 +247,192 @@ foreach ($runtime['bindingInputSchemaOverrides'] ?? [] as $override)
 	}
 }
 
+// Runtime metadata and snapshot declarations carry their reason and provenance
+// without changing the native public read/write interface or original gates.
+$parity = Json::decode(file_get_contents($root . '/docs/migration/parity.json'), maximum: 16777216);
+$actionRows = array_column($entities['action'], null, 'name');
+$actionNames = array_column($entities['action'], 'name', 'id');
+$bindingRows = array_column($entities['binding'], null, 'name');
+$check($parity['runtimeSource'] === hash_file('sha256', $root . '/data/runtime-tools.json'), 'Parity lost the runtime declaration revision.');
+$check($parity['sourceOnlyGates'] === $source['catalog']['api']['sourceOnlyBlockedActions']
+	&& count($parity['sourceOnlyGates']) === 5, 'Runtime extensions changed the five original source gates.');
+
+foreach ($entities['binding'] as $binding)
+{
+	$actionName = $actionNames[$binding['action_id']];
+	$check((int) $binding['published'] === ($binding['track'] === 'api' && isset($parity['sourceOnlyGates'][$actionName]) ? 0 : 1),
+		'Runtime extensions changed shipped binding callability.');
+}
+
+foreach ($runtime['actionMetadataOverrides'] ?? [] as $override)
+{
+	$row = $actionRows[$override['name']];
+	$original = $sourceApi[$override['name']];
+	unset($original['inputSchema'], $original['outputSchema']);
+	$original += ['sourceGate' => $parity['sourceOnlyGates'][$override['name']] ?? null];
+	$expected = array_replace($original, $override['metadata']);
+	$check(Json::canonical(Json::decode($row['definition'])) === Json::canonical($expected)
+		&& $row['description'] === $expected['description'], 'A metadata correction changed undeclared native action metadata.');
+	$check($row['seed_revision'] === $seed['runtimeSource']
+		&& $parity['runtimeActionMetadataOverrides'][$override['name']] === $override['reason'], 'Action metadata extension lost its source revision or reason.');
+	$check($row['effect'] === ($original['method'] === 'GET' ? 'read' : 'write')
+		&& $row['risk'] === $original['risk'] && $row['toolset'] === $original['toolset'], 'Metadata correction changed the public action authority contract.');
+	$legacySeed = $seed;
+	foreach ($legacySeed['entities']['action'] as &$action)
+	{
+		if ($action['name'] === $override['name'])
+		{
+			$action['description'] = $original['description'];
+			$action['definition'] = Json::encode($original);
+			$action['seed_revision'] = $seed['source'];
+		}
+	}
+	unset($action);
+	foreach (['untouched', 'explicit', 'implicit'] as $ownership)
+	{
+		$upgradeStore = new MemoryStore();
+		$upgrade = new SeedUpdater($upgradeStore);
+		$upgrade->apply($legacySeed);
+		$before = $upgradeStore->one('action', ['name' => $override['name']]);
+		if ($ownership !== 'untouched')
+		{
+			$upgradeStore->update('action', ['customized' => $ownership === 'explicit' ? 1 : 0,
+				'description' => 'Operator-owned action description'], ['id' => $before['id']]);
+			$before = $upgradeStore->one('action', ['name' => $override['name']]);
+		}
+		$upgrade->apply($seed);
+		$after = $upgradeStore->one('action', ['name' => $override['name']]);
+		$check($ownership === 'untouched' ? $after['definition'] === $row['definition']
+			&& $after['description'] === $row['description'] && $after['seed_revision'] === $seed['runtimeSource'] : $after === $before,
+			'Action metadata upgrade did not respect explicit or hash-detected administrator ownership.');
+		$check($upgrade->apply($seed)['updated'] === 0, 'Action metadata upgrade is not idempotent.');
+	}
+}
+
+$snapshotBindings = [];
+foreach ($runtime['bindingConfigurationOverrides'] ?? [] as $override)
+{
+	$row = $bindingRows[$override['name']];
+	$configuration = Json::decode($row['configuration']);
+	$configurationObjects = json_decode($row['configuration'], false, 128, JSON_THROW_ON_ERROR);
+	$check(array_intersect_key($configuration, $override['configuration']) === $override['configuration'], 'A binding lost its declared snapshot contract.');
+	$check($configurationObjects->query_defaults instanceof stdClass, 'Binding contract extension collapsed an unchanged JSON object into a list.');
+	$check($row['seed_revision'] === $seed['runtimeSource']
+		&& $parity['runtimeBindingConfigurationOverrides'][$override['name']] === $override['reason'], 'Binding configuration extension lost its source revision or reason.');
+	$legacySeed = $seed;
+	foreach ($legacySeed['entities']['binding'] as &$binding)
+	{
+		if ($binding['name'] === $override['name'])
+		{
+			$binding['configuration'] = Json::encode(array_diff_key($configuration, $override['configuration']));
+			$binding['seed_revision'] = $seed['source'];
+		}
+	}
+	unset($binding);
+	foreach (['untouched', 'explicit', 'implicit'] as $ownership)
+	{
+		$upgradeStore = new MemoryStore();
+		$upgrade = new SeedUpdater($upgradeStore);
+		$upgrade->apply($legacySeed);
+		$before = $upgradeStore->one('binding', ['name' => $override['name']]);
+		if ($ownership !== 'untouched')
+		{
+			$customConfiguration = Json::decode($before['configuration']);
+			$customConfiguration['route'] = '/v1/custom-messages/:id';
+			$upgradeStore->update('binding', ['customized' => $ownership === 'explicit' ? 1 : 0,
+				'configuration' => Json::encode($customConfiguration)], ['id' => $before['id']]);
+			$before = $upgradeStore->one('binding', ['name' => $override['name']]);
+		}
+		$upgrade->apply($seed);
+		$after = $upgradeStore->one('binding', ['name' => $override['name']]);
+		$check($ownership === 'untouched' ? $after['configuration'] === $row['configuration']
+			&& $after['seed_revision'] === $seed['runtimeSource'] : $after === $before,
+			'Snapshot contract upgrade did not respect explicit or hash-detected administrator ownership.');
+		$check($upgrade->apply($seed)['updated'] === 0, 'Snapshot contract upgrade is not idempotent.');
+	}
+}
+
+foreach ($entities['binding'] as $binding)
+{
+	$configuration = Json::decode($binding['configuration']);
+	if (isset($configuration['snapshot_contract']))
+	{
+		$snapshotBindings[] = $binding['name'];
+		$check($configuration['snapshot_contract'] === 'joomla.message-owned-record.v1'
+			&& $binding['track'] === 'api' && $binding['handler'] === 'api.request', 'Unexpected native message snapshot marker.');
+	}
+}
+sort($snapshotBindings);
+$check($snapshotBindings === ['messages.messages.delete.api', 'messages.messages.get.api', 'messages.messages.update.api'],
+	'The native-owned-record snapshot must be explicit on both message write bindings and their get binding only.');
+$messageMetadata = Json::decode($actionRows['messages.messages.get']['definition']);
+$check($messageMetadata['sideEffect'] === true && $actionRows['messages.messages.get']['effect'] === 'read'
+	&& $sourceApi['messages.messages.get']['sideEffect'] === false, 'Message GET side-effect correction must preserve the immutable source and public read interface.');
+
+// Exercise declaration rejection in an isolated source tree so invalid metadata
+// cannot broaden execution contracts or overwrite the working installation seed.
+$generatorRoot = sys_get_temp_dir() . '/mcp-catalogue-' . bin2hex(random_bytes(8));
+$generatorFiles = ['tools/generate-catalogue.php', 'admin/src/Database/Structure.php',
+	'data/upstream-contracts.json', 'data/upstream-native.json'];
+$invalidDeclarations = [
+	['actionMetadataOverrides', [['name' => 'missing.action']], 'Action metadata extensions'],
+	['actionMetadataOverrides', [['reason' => '']], 'Action metadata extensions'],
+	['actionMetadataOverrides', [['metadata' => ['effect' => 'write']]], 'Action metadata extensions'],
+	['actionMetadataOverrides', [['metadata' => ['sideEffect' => 'true']]], 'Action metadata extensions'],
+	['actionMetadataOverrides', [['description' => 'Undeclared top-level change']], 'Action metadata extensions'],
+	['actionMetadataOverrides', [[], []], 'Action metadata extensions'],
+	['bindingConfigurationOverrides', [['name' => 'missing.binding']], 'Binding configuration extensions'],
+	['bindingConfigurationOverrides', [['reason' => '']], 'Binding configuration extensions'],
+	['bindingConfigurationOverrides', [['configuration' => ['route' => '/v1/custom']]], 'Binding configuration extensions'],
+	['bindingConfigurationOverrides', [['configuration' => ['snapshot_contract' => '../unreviewed']]], 'Binding configuration extensions'],
+	['bindingConfigurationOverrides', [['configuration' => ['snapshot_contract' => ['nested']]]], 'Binding configuration extensions'],
+	['bindingConfigurationOverrides', [['handler' => 'unreviewed.handler']], 'Binding configuration extensions'],
+	['bindingConfigurationOverrides', [[], []], 'Binding configuration extensions'],
+];
+try
+{
+	foreach ($generatorFiles as $file)
+	{
+		if (!is_dir(dirname($generatorRoot . '/' . $file)))
+		{
+			mkdir(dirname($generatorRoot . '/' . $file), 0700, true);
+		}
+		copy($root . '/' . $file, $generatorRoot . '/' . $file);
+	}
+	foreach ($invalidDeclarations as [$collection, $changes, $expectedError])
+	{
+		$invalidRuntime = json_decode(file_get_contents($root . '/data/runtime-tools.json'), false, 128, JSON_THROW_ON_ERROR);
+		$declaration = (array) $invalidRuntime->{$collection}[0];
+		$invalidRuntime->{$collection} = array_map(static fn (array $change): object => (object) array_replace($declaration, $change), $changes);
+		file_put_contents($generatorRoot . '/data/runtime-tools.json', Json::encode($invalidRuntime));
+		$process = proc_open([PHP_BINARY, '-d', 'display_errors=stderr', $generatorRoot . '/tools/generate-catalogue.php'],
+			[0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, $generatorRoot);
+		$check(is_resource($process), 'Could not start the isolated catalogue declaration check.');
+		fclose($pipes[0]);
+		$output = stream_get_contents($pipes[1]) . stream_get_contents($pipes[2]);
+		fclose($pipes[1]);
+		fclose($pipes[2]);
+		$check(proc_close($process) !== 0 && str_contains($output, $expectedError), 'Invalid runtime declaration was not rejected by its bounded contract.');
+	}
+}
+finally
+{
+	foreach (array_merge($generatorFiles, ['data/runtime-tools.json']) as $file)
+	{
+		if (is_file($generatorRoot . '/' . $file))
+		{
+			unlink($generatorRoot . '/' . $file);
+		}
+	}
+	foreach (['tools', 'admin/src/Database', 'admin/src', 'admin', 'data', ''] as $directory)
+	{
+		if (is_dir($generatorRoot . '/' . $directory))
+		{
+			rmdir($generatorRoot . '/' . $directory);
+		}
+	}
+}
+
 $store = new MemoryStore($entities);
 $principal = new Principal();
 $settings = new Settings(['joomla_version' => '6.1.3']);

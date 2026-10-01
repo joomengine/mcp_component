@@ -59,6 +59,8 @@ final class ActionExecutor
 	private ?Jobs $jobs;
 	/** @var ?Closure Checks the fixed worker before consuming a grant. @since 0.1.1 */
 	private ?Closure $workerReady;
+	/** @var ?MessageSnapshot Explicit native API precondition reader. @since 1.0.1 */
+	private ?MessageSnapshot $messageSnapshots;
 
 	/**
 	 * Compose authorization, validation, execution and durable state boundaries.
@@ -74,7 +76,7 @@ final class ActionExecutor
 	 * @param ApiRequestBuilder $requests Safe API request construction.
 	 * @since 0.1.0
 	 */
-	public function __construct(Catalogue $catalogue, SchemaValidator $schemas, PrincipalInterface $principal, HandlerRegistry $handlers, Permissions $permissions, Executions $executions, Audit $audit, Settings $settings, ApiRequestBuilder $requests, ?Jobs $jobs = null, ?callable $workerReady = null)
+	public function __construct(Catalogue $catalogue, SchemaValidator $schemas, PrincipalInterface $principal, HandlerRegistry $handlers, Permissions $permissions, Executions $executions, Audit $audit, Settings $settings, ApiRequestBuilder $requests, ?Jobs $jobs = null, ?callable $workerReady = null, ?MessageSnapshot $messageSnapshots = null)
 	{
 		$this->catalogue = $catalogue;
 		$this->schemas = $schemas;
@@ -87,6 +89,7 @@ final class ActionExecutor
 		$this->requests = $requests;
 		$this->jobs = $jobs;
 		$this->workerReady = $workerReady === null ? null : Closure::fromCallable($workerReady);
+		$this->messageSnapshots = $messageSnapshots;
 	}
 
 	/**
@@ -234,6 +237,13 @@ final class ActionExecutor
 			'idempotencyKey' => $idempotencyKey, 'preconditions' => $before === null ? 'handler-preflight' : 'resource-snapshot',
 		];
 
+		if (isset($before['snapshotContract']))
+		{
+			$preview['snapshot'] = ['contract' => $before['snapshotContract'],
+				'source' => 'native-owned-message-table', 'sideEffect' => false,
+				'readAction' => $resolved['binding']['configuration']['read_action']];
+		}
+
 		if (isset($resolved['custom_fields']))
 		{
 			$preview['customFields'] = $resolved['custom_fields'];
@@ -329,7 +339,7 @@ final class ActionExecutor
 		$handler = $this->handlers->get($resolved['binding']['handler']);
 		$this->requireWorker($handler);
 		$input = $this->validate($resolved, $plan['payload']['input']);
-		$before = $handler instanceof PlannedHandlerInterface ? null : $this->snapshot($resolved, $input);
+		$before = $handler instanceof PlannedHandlerInterface ? null : $this->snapshot($resolved, $input, $plan['payload']['before']);
 
 		if (!hash_equals(hash('sha256', Json::canonical($plan['payload']['before'])), hash('sha256', Json::canonical($before))))
 		{
@@ -904,8 +914,8 @@ final class ActionExecutor
 		return $this->invoke($list, $arguments);
 	}
 
-	/** @param array<string,mixed> $resolved Write resolution. @param array<string,mixed> $input Arguments. @return array<string,mixed>|null Resource state before mutation. @since 0.1.0 */
-	private function snapshot(array $resolved, array $input): ?array
+	/** @param array<string,mixed> $resolved Write resolution. @param array<string,mixed> $input Arguments. @param ?array $expected Approved snapshot source and revision at apply. @return array<string,mixed>|null Resource state before mutation. @since 0.1.0 */
+	private function snapshot(array $resolved, array $input, ?array $expected = null): ?array
 	{
 		$client = $resolved['binding']['track'] === 'api'
 			? TemplateStyleInheritance::client($resolved['binding']['configuration']) : null;
@@ -929,6 +939,58 @@ final class ActionExecutor
 
 		$read = $this->resolve($rule['read_action'], $resolved['binding']['track'], 'read');
 		$arguments = $this->readArguments($read, $input);
+
+		if ($this->messageSnapshots !== null || isset($expected['snapshotContract']))
+		{
+			$provider = $this->catalogue->get('provider', (int) $resolved['action']['provider_id']);
+			$native = $this->messageSnapshots !== null && MessageSnapshot::supports($resolved, $read, $provider);
+
+			if ($native)
+			{
+				$rows = [$provider, $resolved['action'], $resolved['binding'], $read['action'], $read['binding']];
+
+				foreach ([$resolved, $read] as $dependency)
+				{
+					foreach (['action', 'binding'] as $kind)
+					{
+						foreach (['input_schema_id', 'output_schema_id'] as $key)
+						{
+							if (!empty($dependency[$kind][$key]))
+							{
+								$rows[] = $this->catalogue->get('schema', (int) $dependency[$kind][$key]);
+							}
+						}
+					}
+				}
+
+				foreach ($rows as $row)
+				{
+					if (!$this->catalogue->unmodifiedSeed($row))
+					{
+						$native = false;
+						break;
+					}
+				}
+			}
+
+			if (isset($expected['snapshotContract'])
+				&& (!$native || $expected['snapshotContract'] !== MessageSnapshot::CONTRACT
+					|| !hash_equals((string) ($expected['readRevision'] ?? ''), $read['revision'])))
+			{
+				throw new OperationException('PLAN_STALE', 'The approved native message snapshot definition changed.');
+			}
+
+			if ($native)
+			{
+				if ($expected !== null && !isset($expected['snapshotContract']))
+				{
+					throw new OperationException('PLAN_STALE', 'The message snapshot source changed after approval.');
+				}
+
+				return $this->messageSnapshots->capture($arguments, $this->principal, $read['revision']);
+			}
+		}
+
 		$result = $this->invoke($read, $arguments);
 		$item = $this->item($result, $read['binding']['track']);
 
