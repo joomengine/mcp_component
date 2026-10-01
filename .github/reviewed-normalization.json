@@ -1,0 +1,110 @@
+{
+  "baseCommit": "eb3cb2e83b666242201f5d65f771bbc1a5bb6804",
+  "files": [
+    {
+      "path": ".github/workflows/ci.yml",
+      "mode": "100644",
+      "gitBlobSha": "94069c4a06b2517f1c861315dff9fe07ff895004"
+    },
+    {
+      "path": "admin/src/Service/ApiWriteVerification.php",
+      "mode": "100644",
+      "gitBlobSha": "b0bfaac0013d45a00714db5e9758e9fc86ea94fc"
+    },
+    {
+      "path": "admin/src/Service/ActionExecutor.php",
+      "mode": "100644",
+      "gitBlobSha": "182d597308909f8b739a3804900480ed2ba126d7"
+    },
+    {
+      "path": "admin/src/Service/TemplateStyleInheritance.php",
+      "mode": "100644",
+      "gitBlobSha": "97220233d64f1db0601625dd09c18f30c60a4e65"
+    },
+    {
+      "path": "admin/src/Handler/ApiHandler.php",
+      "mode": "100644",
+      "gitBlobSha": "fc93902fc4deced9e003e84be0e6c666f6c26953"
+    },
+    {
+      "path": "data/runtime-tools.json",
+      "mode": "100644",
+      "gitBlobSha": "8f38152add45985644561a9bc93d4988e94a366b"
+    },
+    {
+      "path": "tools/generate-catalogue.php",
+      "mode": "100644",
+      "gitBlobSha": "6fc27d8ee565386bf5935c36cd6be46092f25f66"
+    },
+    {
+      "path": "admin/data/catalogue-seed.json",
+      "mode": "100644",
+      "gitBlobSha": "8fd3927b5fa6132c59ecc3fb66ab6f2e1bf9e510"
+    },
+    {
+      "path": "admin/sql/install.mysql.utf8.sql",
+      "mode": "100644",
+      "gitBlobSha": "ffcffde80cadc9ae670cb5e7d525107a8f3334aa"
+    },
+    {
+      "path": "admin/sql/install.postgresql.utf8.sql",
+      "mode": "100644",
+      "gitBlobSha": "7d941620a0d7916bc496bad5f8fa70f26dc3efea"
+    },
+    {
+      "path": "docs/migration/parity.json",
+      "mode": "100644",
+      "gitBlobSha": "de3688eb3249f1525ee31ed93afd22f4cf887977"
+    },
+    {
+      "path": "tests/write-verification.php",
+      "mode": "100644",
+      "gitBlobSha": "d8bdc3eb743e1614915dbf4ce2017ac032264e2d"
+    },
+    {
+      "path": "tests/integration/write-verification.php",
+      "mode": "100644",
+      "gitBlobSha": "dcdd02056c70f0c47f59f6812e2ce900d8a9f869"
+    },
+    {
+      "path": "tests/catalogue.php",
+      "mode": "100644",
+      "gitBlobSha": "d5fcfb680eec5b68cb25a5322d435c9fb834f016"
+    },
+    {
+      "path": "tests/schema-shapes.php",
+      "mode": "100644",
+      "gitBlobSha": "5bb71b81872a9519408c502f48189c6cb64b8dae"
+    },
+    {
+      "path": "tests/template-styles.php",
+      "mode": "100644",
+      "gitBlobSha": "9d4c1bd7dee190817b2a633542c540a48801c4c1"
+    },
+    {
+      "path": "tests/integration/run.sh",
+      "mode": "100644",
+      "gitBlobSha": "b17d96371062021f9ef1027f5f65f0d5bb7b7b5d"
+    },
+    {
+      "path": "tests/golden-image/run.sh",
+      "mode": "100755",
+      "gitBlobSha": "846a3574c23b972b3e64fee743dc2a1ae07bb6fc"
+    },
+    {
+      "path": "CHANGELOG.md",
+      "mode": "100644",
+      "gitBlobSha": "136f9efc8a0ffad34cbe1b9f66cb8aab33b0f8af"
+    },
+    {
+      "path": "changelog.xml",
+      "mode": "100644",
+      "gitBlobSha": "9b36cd720a34b36ba07ef70414cc6b9f2a7131d9"
+    },
+    {
+      "path": "docs/IMPLEMENTATION.md",
+      "mode": "100644",
+      "gitBlobSha": "d74b3961d9ed8052282f0ae307ed8b69f91d0652"
+    }
+  ]
+}

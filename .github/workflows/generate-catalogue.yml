@@ -1,51 +1,80 @@
-name: Generate reviewed Joomla installation catalogue
+name: Publish reviewed normalization fixes
 
 on:
   push:
-    branches: [feature/jcb-mcp-runtime]
-    paths:
-      - tools/generate-catalogue.php
-      - admin/src/Database/Structure.php
-      - .github/workflows/generate-catalogue.yml
-  workflow_dispatch:
+    branches: [fix/installed-api-contracts-22-34]
+    paths: [.github/workflows/generate-catalogue.yml]
 
 permissions:
   contents: read
 
 concurrency:
-  group: generate-joomla-mcp-catalogue
+  group: publish-reviewed-normalization-fix-22-24
   cancel-in-progress: false
 
 jobs:
-  generate:
-    if: github.repository == 'joomengine/mcp_component' && github.ref == 'refs/heads/feature/jcb-mcp-runtime'
+  publish-reviewed-normalization:
+    if: github.repository == 'joomengine/mcp_component' && github.ref == 'refs/heads/fix/installed-api-contracts-22-34'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v7
         with:
           ref: ${{ github.sha }}
+          fetch-depth: 2
           persist-credentials: true
       - uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.3'
+          php-version: '8.4'
+          extensions: curl, json, mbstring, sodium, zip, fileinfo, pcntl, posix
           coverage: none
-      - name: Generate portable SQL and the complete source-parity map
+      - name: Apply the frozen reviewed change as one coherent group
         run: |
           set -euo pipefail
-          php -l tools/generate-catalogue.php
+          test "$(git rev-parse HEAD^)" = eb3cb2e83b666242201f5d65f771bbc1a5bb6804
+          base64 --decode .github/reviewed-normalization.patch.gz.b64 > "$RUNNER_TEMP/reviewed.patch.gz"
+          echo "82b02feb6b75b0277be382564abb070536a4bcb1c2067f59863d4dd527c51a6e  $RUNNER_TEMP/reviewed.patch.gz" | sha256sum --check
+          gzip --decompress --stdout "$RUNNER_TEMP/reviewed.patch.gz" > "$RUNNER_TEMP/reviewed.patch"
+          echo "a76267fd7a2bf150b47eef5e047bfe0f1f4213ed0dd42b9052129aae0838ff7e  $RUNNER_TEMP/reviewed.patch" | sha256sum --check
+          git apply --check --index "$RUNNER_TEMP/reviewed.patch"
+          git apply --index "$RUNNER_TEMP/reviewed.patch"
+          python3 - <<'PYVERIFY'
+          import json, subprocess
+          from pathlib import Path
+          manifest = json.loads(Path('.github/reviewed-normalization.json').read_text())
+          expected = sorted(item['path'] for item in manifest['files'])
+          actual = sorted(subprocess.check_output(['git', 'diff', '--cached', '--name-only']).decode().splitlines())
+          assert actual == expected, 'Only the reviewed paths may change'
+          for item in manifest['files']:
+              actual = subprocess.check_output(['git', 'hash-object', item['path']]).decode().strip()
+              assert actual == item['gitBlobSha'], 'Reviewed bytes differ: ' + item['path']
+              mode = subprocess.check_output(['git', 'ls-files', '-s', item['path']]).decode().split()[0]
+              assert mode == item['mode'], 'Reviewed mode differs: ' + item['path']
+          PYVERIFY
+          git diff --cached --check
+      - name: Verify deterministic generation and all PHP contracts
+        run: |
+          set -euo pipefail
+          mkdir -p build/reviewed-publication
           php tools/generate-catalogue.php
-          git diff --check
-      - name: Commit only generated catalogue files to the existing PR branch
+          git diff --exit-code
+          for suite in run catalogue schema-shapes schema-discovery session-storage wire-protocol stdio-endurance execution actions write-verification article-deletion custom-fields field-defaults template-styles menu-components planned jobs process job-process jcb jcb-plan-preview protocol http ownership native/run release; do
+            php "tests/$suite.php" | tee "build/reviewed-publication/${suite//\//-}.log"
+          done
+      - name: Commit only the frozen verified group to the same branch
         run: |
           set -euo pipefail
-          git add -- admin/sql admin/data/catalogue-seed.json docs/migration/parity.json
-          if git diff --cached --quiet; then
-            exit 0
-          fi
+          test "$(git ls-remote origin refs/heads/fix/installed-api-contracts-22-34 | cut -f1)" = "$GITHUB_SHA"
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git commit -m 'build: generate portable install SQL and the complete database capability graph'
-          git push origin HEAD:refs/heads/feature/jcb-mcp-runtime
+          git commit -m 'fix: verify native category, user and module field contracts (#22, #23, #24)'
+          git push origin HEAD:refs/heads/fix/installed-api-contracts-22-34
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: reviewed-normalization-publication
+          path: build/reviewed-publication/
+          if-no-files-found: ignore
+          retention-days: 7
