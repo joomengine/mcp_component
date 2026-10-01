@@ -35,6 +35,18 @@ foreach (array_merge($source->tools, $runtime->tools) as $original)
 	}
 	$checks++;
 }
+$bindings = array_column($seed['entities']['binding'], null, 'name');
+foreach ($runtime->bindingInputSchemaOverrides ?? [] as $override)
+{
+	$binding = $bindings[$override->name];
+	$stored = json_decode($documents[$binding['input_schema_id']], false, 64, JSON_THROW_ON_ERROR);
+	if (Json::canonical($stored) !== Json::canonical($override->inputSchema)
+		|| $binding['seed_revision'] !== $seed['runtimeSource'])
+	{
+		throw new RuntimeException('A binding schema extension lost its declared shape or provenance: ' . $override->name);
+	}
+	$checks++;
+}
 $nested = ['data' => ['title' => 'Nested write', 'params' => ['enabled' => true, 'values' => [1, 2]]]];
 $validated = (new SchemaValidator())->input(['action' => 'fixture.create', 'idempotencyKey' => Json::uuid(), 'input' => $nested],
 	$documents[$tools['joomla_action_write_plan']['input_schema_id']]);

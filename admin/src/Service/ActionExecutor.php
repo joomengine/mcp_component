@@ -244,6 +244,11 @@ final class ActionExecutor
 			$preview['menuComponent'] = MenuItemComponents::preview($menu);
 		}
 
+		if (($ordering = ApiWriteVerification::automaticOrdering($resolved, $input)) !== null)
+		{
+			$preview['nativeOrdering'] = $ordering;
+		}
+
 		if ($handler instanceof PlanPreviewInterface)
 		{
 			$preview['details'] = $handler->preview($preflight);
@@ -1024,15 +1029,23 @@ final class ActionExecutor
 		$matched = [];
 		$different = [];
 		$unobservable = [];
+		$automaticOrdering = ApiWriteVerification::automaticOrdering($resolved, $input) !== null;
 
 		foreach ($desired as $field => $value)
 		{
+			if ($automaticOrdering && $field === 'ordering')
+			{
+				// Zero requests native assignment; it is not a literal persisted value.
+				continue;
+			}
+
 			if (!array_key_exists($field, $record))
 			{
 				$unobservable[] = $field;
 			}
-			elseif (Json::canonical($record[$field]) === Json::canonical($value)
-				|| ((is_int($value) || is_bool($value)) && is_numeric($record[$field]) && (string) (int) $value === (string) $record[$field]))
+			elseif (ApiWriteVerification::compare($resolved, $read, $field, $value, $record[$field])
+				?? (Json::canonical($record[$field]) === Json::canonical($value)
+					|| ((is_int($value) || is_bool($value)) && is_numeric($record[$field]) && (string) (int) $value === (string) $record[$field])))
 			{
 				$matched[] = $field;
 			}
@@ -1042,12 +1055,25 @@ final class ActionExecutor
 			}
 		}
 
-		return [
+		$verification = [
 			'status' => $different === [] ? ($unobservable === [] ? 'verified' : 'partial') : 'uncertain',
 			'postcondition' => 'resource-read-back', 'id' => $id, 'matchedFields' => $matched,
 			'unobservableFields' => $unobservable, 'differentFields' => $different,
 			'reason' => $different === [] ? 'Read-back confirms the listed observable fields; write-only fields cannot be compared.' : 'Joomla may have filtered or changed requested fields. Reconcile the persisted record before another write.',
 		];
+
+		if ($automaticOrdering)
+		{
+			$verification['nativeOrdering'] = ApiWriteVerification::verifyOrdering($resolved, $read, $id, $item, $record);
+
+			if ($verification['nativeOrdering']['status'] !== 'verified')
+			{
+				$verification['status'] = 'uncertain';
+				$verification['reason'] = $verification['nativeOrdering']['reason'];
+			}
+		}
+
+		return $verification;
 	}
 
 	/** @param array<string,mixed> $read Read resolution. @param array<string,mixed> $input Write arguments. @return array<string,mixed> Required read path arguments. @since 0.1.0 */
