@@ -5,10 +5,10 @@
   <author>Llewellyn van der Merwe</author>
   <authorEmail>joomla@vdm.io</authorEmail>
   <authorUrl>https://dev.vdm.io/</authorUrl>
-  <creationDate>September 2026</creationDate>
+  <creationDate>October 2026</creationDate>
   <copyright>Copyright (C) 2026 Vast Development Method. All rights reserved.</copyright>
   <license>GNU General Public License version 3 or later; see LICENSE</license>
-  <version>1.0.4</version>
+  <version>1.0.5</version>
   <description>COM_JOOMENGINE_MCP_XML_DESCRIPTION</description>
   <namespace path="src">VDM\Component\JoomEngineMcp</namespace>
   <scriptfile>Joomengine_mcpInstallerScript.php</scriptfile>
