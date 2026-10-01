@@ -148,3 +148,19 @@ The inspected [golden evidence artifact](https://github.com/joomengine/mcp_compo
 ## Client ownership
 
 The standalone PHP library, remote stdio executable, Docker Compose packaging, private per-site token configuration and Composer delivery belong to `joomengine/mcp_client`. The server retains its outbound API adapter in `admin/src/Http`, without a client-package dependency. Shared wire behaviour is recorded in [CLIENT-HANDOFF.md](CLIENT-HANDOFF.md).
+
+## Private-message planning preconditions
+
+The component-owned `joomla.message-owned-record.v1` contract separates pure
+planning snapshots from the public message GET, which still marks messages read.
+Only explicitly declared, unchanged shipped bindings and schemas under the local
+core provider use the native table reader. The actual API identity, canonical
+origin and API mount must match this installation. All states are read by exact
+message ID and recipient; both are checked after normal native table observers.
+Read/write definition revisions and strict resource-change checks remain bound to
+approval. Custom or unproven configurations retain their existing API path.
+Mutation and post-write verification remain native API operations, so the separate
+missing-message HTTP 500 still retains an uncertain execution.
+
+See [the snapshot contract and customization boundary](testing/message-planning-snapshots.md)
+for HTTP-only middleware limitations, opt-out and acceptance evidence.

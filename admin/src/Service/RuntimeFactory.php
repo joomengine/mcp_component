@@ -145,6 +145,7 @@ final class RuntimeFactory
 		$available = new ExtensionAvailability($this->database);
 		$requestBuilder = new ApiRequestBuilder();
 		$handlers = [];
+		$messageSnapshots = null;
 
 		if ($application instanceof ConsoleApplication && $principal->isLocal())
 		{
@@ -157,6 +158,10 @@ final class RuntimeFactory
 		}
 		elseif ($application instanceof ApiApplication && !$principal->isLocal())
 		{
+			if (JoomlaMessageSnapshot::sameInstallation($settings->get('api_base'), $application->getInput()->server->getArray(), JPATH_ROOT . '/api/index.php'))
+			{
+				$messageSnapshots = new MessageSnapshot(new JoomlaMessageSnapshot($application));
+			}
 			$handlers['api.request'] = new ApiHandler(
 				new CurlClient($settings->get('timeout'), $settings->get('max_result_bytes'), $settings->get('allow_loopback_http')),
 				$requestBuilder, $settings, $credential, fn (): string => $this->updateToken()
@@ -241,7 +246,7 @@ final class RuntimeFactory
 				$catalogue->requireExecution($resolved['binding'] + ['effect' => $resolved['action']['effect']]);
 			});
 		$actions = new ActionExecutor($catalogue, $schemas, $principal, $registry, $permissions, $executions, $audit, $settings, $requestBuilder,
-			$jobs, $launcher === null ? null : [$launcher, 'ready']);
+			$jobs, $launcher === null ? null : [$launcher, 'ready'], $messageSnapshots);
 		$tools = new ToolDispatcher($catalogue, $actions, $permissions, $schemas, $principal, $settings, $console, $jobs);
 		$definitions = new DatabaseRegistry($catalogue, $tools, $actions, $schemas);
 		$sessions = new SessionStore($store, $envelope, $principal, $settings->get('session_ttl'), $clock);

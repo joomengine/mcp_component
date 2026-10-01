@@ -15,6 +15,7 @@ use VDM\Component\JoomEngineMcp\Administrator\Contract\PrincipalInterface;
 use VDM\Component\JoomEngineMcp\Administrator\Contract\StoreInterface;
 use VDM\Component\JoomEngineMcp\Administrator\Database\Structure;
 use VDM\Component\JoomEngineMcp\Administrator\Domain\OperationException;
+use VDM\Component\JoomEngineMcp\Administrator\Installer\SeedUpdater;
 use VDM\Component\JoomEngineMcp\Administrator\Security\Authorizer;
 use VDM\Component\JoomEngineMcp\Administrator\Security\SchemaValidator;
 
@@ -240,6 +241,32 @@ final class Catalogue
 		}
 
 		throw new OperationException('DEFINITION_UNAVAILABLE', 'The requested MCP definition is unavailable.');
+	}
+
+	/**
+	 * Prove that an already authorized row still has its installer-owned content.
+	 *
+	 * This supplements, never replaces, normal catalogue authorization. It uses
+	 * the same raw-row ownership hash as upgrades, including unflagged edits.
+	 *
+	 * @param array $row Authorized current catalogue row.
+	 * @return bool No explicit or hash-detected customization is present.
+	 * @since 1.0.1
+	 */
+	public function unmodifiedSeed(array $row): bool
+	{
+		$entity = $row['entity'] ?? '';
+
+		if (!isset(Structure::definitions()[$entity]) || empty($row['seed_hash']) || !empty($row['customized']))
+		{
+			return false;
+		}
+
+		$current = $this->store->one($entity, ['id' => (int) $row['id']]);
+
+		return $current !== null && empty($current['customized'])
+			&& hash_equals($row['seed_hash'], $current['seed_hash'])
+			&& hash_equals($current['seed_hash'], SeedUpdater::hash($entity, $current));
 	}
 
 	/**

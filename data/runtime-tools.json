@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "description": "Component-owned runtime additions and explicit schema extensions. The imported upstream contracts remain immutable.",
+  "description": "Component-owned runtime additions and explicit schema, metadata and binding contract extensions. The imported upstream contracts remain immutable.",
   "inputSchemaOverrides": [
     {
       "name": "joomla_permission_request",
@@ -422,6 +422,39 @@
           "data"
         ],
         "additionalProperties": false
+      }
+    }
+  ],
+  "actionMetadataOverrides": [
+    {
+      "name": "messages.messages.get",
+      "reason": "Issue #30: Joomla 6.1 administrator/components/com_messages/src/Model/MessageModel.php::getItem marks the stored message read after loading it. Describe this native effect without changing the public read interface; internal write planning uses a separately declared recipient-scoped native-owned-record snapshot.",
+      "metadata": {
+        "description": "Gets one private message by numeric identifier through Joomla's native API. The native item GET marks the stored message read and may return the representation loaded before that change. Eligible local, uncustomized write planning uses a separately declared recipient-scoped native-owned-record snapshot without marking the message read.",
+        "sideEffect": true
+      }
+    }
+  ],
+  "bindingConfigurationOverrides": [
+    {
+      "name": "messages.messages.get.api",
+      "reason": "Issue #30: explicitly opt this native API binding into the recipient-scoped MessageTable snapshot contract. Internal planning requires the same contract on both the write binding and its configured get binding; this does not change the public API request or recipient authorization.",
+      "configuration": {
+        "snapshot_contract": "joomla.message-owned-record.v1"
+      }
+    },
+    {
+      "name": "messages.messages.update.api",
+      "reason": "Issue #30: explicitly opt this native API binding into the recipient-scoped MessageTable snapshot contract. Internal planning requires the same contract on both the write binding and its configured get binding; this does not change the public API request or recipient authorization.",
+      "configuration": {
+        "snapshot_contract": "joomla.message-owned-record.v1"
+      }
+    },
+    {
+      "name": "messages.messages.delete.api",
+      "reason": "Issue #30: explicitly opt this native API binding into the recipient-scoped MessageTable snapshot contract. Internal planning requires the same contract on both the write binding and its configured get binding; this does not change the public API request or recipient authorization.",
+      "configuration": {
+        "snapshot_contract": "joomla.message-owned-record.v1"
       }
     }
   ]

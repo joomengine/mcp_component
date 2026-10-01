@@ -29,7 +29,9 @@ $runtimeRevision = hash_file('sha256', $runtimeFile);
 
 if (($runtime['version'] ?? null) !== 1 || !is_array($runtime['tools'] ?? null)
 	|| !is_array($runtime['inputSchemaOverrides'] ?? [])
-	|| !is_array($runtime['bindingInputSchemaOverrides'] ?? []))
+	|| !is_array($runtime['bindingInputSchemaOverrides'] ?? [])
+	|| !is_array($runtime['actionMetadataOverrides'] ?? [])
+	|| !is_array($runtime['bindingConfigurationOverrides'] ?? []))
 {
 	throw new RuntimeException('Component runtime tools require the supported declaration schema.');
 }
@@ -348,6 +350,44 @@ $knownTools = array_fill_keys(array_column($rows['tool'], 'name'), true);
 $sourceSchemaCount = count($rows['schema']);
 $overriddenTools = [];
 
+// Metadata corrections may describe native effects without changing the public
+// action interface, authority, schemas or publication. Dispatch is never selected
+// here; executable contracts remain constrained by their registered handlers.
+$overriddenActionMetadata = [];
+$knownActions = array_fill_keys(array_column($rows['action'], 'name'), true);
+
+foreach ($runtime['actionMetadataOverrides'] ?? [] as $override)
+{
+	$name = $override['name'] ?? null;
+	$metadata = $override['metadata'] ?? null;
+
+	if (!is_array($override) || array_diff_key($override, array_flip(['name', 'reason', 'metadata'])) !== []
+		|| !is_string($name) || !isset($knownActions[$name]) || isset($overriddenActionMetadata[$name])
+		|| !is_string($override['reason'] ?? null) || trim($override['reason']) === ''
+		|| !is_array($metadata) || $metadata === []
+		|| array_diff_key($metadata, array_flip(['description', 'sideEffect'])) !== []
+		|| (array_key_exists('description', $metadata) && (!is_string($metadata['description']) || trim($metadata['description']) === ''))
+		|| (array_key_exists('sideEffect', $metadata) && !is_bool($metadata['sideEffect'])))
+	{
+		throw new RuntimeException('Action metadata extensions require a unique shipped action, bounded metadata and explicit reason.');
+	}
+
+	$overriddenActionMetadata[$name] = $override['reason'];
+
+	foreach ($rows['action'] as &$row)
+	{
+		if ($row['name'] === $name)
+		{
+			$row['definition'] = $json(array_replace((array) json_decode($row['definition'], false, 128, JSON_THROW_ON_ERROR), $metadata));
+			$row['description'] = $metadata['description'] ?? $row['description'];
+			$row['seed_revision'] = $runtimeRevision;
+			break;
+		}
+	}
+
+	unset($row);
+}
+
 // Retain original schemas for administrator-owned tools that still reference
 // them. Only untouched shipped tools move to the declared runtime extension.
 foreach ($runtime['inputSchemaOverrides'] ?? [] as $override)
@@ -396,6 +436,42 @@ foreach ($runtime['bindingInputSchemaOverrides'] ?? [] as $override)
 		if ($row['name'] === $name)
 		{
 			$row['input_schema_id'] = $addSchema($override['inputSchema']);
+			$row['seed_revision'] = $runtimeRevision;
+			break;
+		}
+	}
+
+	unset($row);
+}
+
+// Only explicit snapshot contract markers may extend binding configuration.
+// Routes, handlers, ACL, publication and write verification are not overridable
+// through this declaration. SeedUpdater preserves administrator-owned bindings.
+$overriddenBindingConfiguration = [];
+
+foreach ($runtime['bindingConfigurationOverrides'] ?? [] as $override)
+{
+	$name = $override['name'] ?? null;
+	$configuration = $override['configuration'] ?? null;
+
+	if (!is_array($override) || array_diff_key($override, array_flip(['name', 'reason', 'configuration'])) !== []
+		|| !is_string($name) || !isset($knownBindings[$name]) || isset($overriddenBindingConfiguration[$name])
+		|| !is_string($override['reason'] ?? null) || trim($override['reason']) === ''
+		|| !is_array($configuration) || $configuration === []
+		|| array_diff_key($configuration, ['snapshot_contract' => true]) !== []
+		|| !is_string($configuration['snapshot_contract'] ?? null)
+		|| preg_match('/\A[a-z][a-z0-9.-]{0,189}\z/D', $configuration['snapshot_contract']) !== 1)
+	{
+		throw new RuntimeException('Binding configuration extensions require a unique shipped binding, bounded contract marker and explicit reason.');
+	}
+
+	$overriddenBindingConfiguration[$name] = $override['reason'];
+
+	foreach ($rows['binding'] as &$row)
+	{
+		if ($row['name'] === $name)
+		{
+			$row['configuration'] = $json(array_replace((array) json_decode($row['configuration'], false, 128, JSON_THROW_ON_ERROR), $configuration));
 			$row['seed_revision'] = $runtimeRevision;
 			break;
 		}
@@ -625,5 +701,5 @@ foreach (['mysql', 'postgresql'] as $driver)
 }
 
 file_put_contents($root . '/admin/data/catalogue-seed.json', json_encode(['source' => $commit, 'runtimeSource' => $runtimeRevision, 'entities' => $rows], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . "\n");
-file_put_contents($root . '/docs/migration/parity.json', json_encode(['source' => $commit, 'runtimeSource' => $runtimeRevision, 'tools' => array_column($rows['tool'], 'name'), 'upstreamTools' => array_column($upstream['tools'], 'name'), 'runtimeTools' => array_column($runtime['tools'], 'name'), 'runtimeSchemaOverrides' => (object) $overriddenTools, 'runtimeBindingSchemaOverrides' => (object) $overriddenBindings, 'actions' => $parity, 'sourceOnlyGates' => $gates, 'counts' => array_map('count', $rows)], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n");
+file_put_contents($root . '/docs/migration/parity.json', json_encode(['source' => $commit, 'runtimeSource' => $runtimeRevision, 'tools' => array_column($rows['tool'], 'name'), 'upstreamTools' => array_column($upstream['tools'], 'name'), 'runtimeTools' => array_column($runtime['tools'], 'name'), 'runtimeSchemaOverrides' => (object) $overriddenTools, 'runtimeBindingSchemaOverrides' => (object) $overriddenBindings, 'runtimeActionMetadataOverrides' => (object) $overriddenActionMetadata, 'runtimeBindingConfigurationOverrides' => (object) $overriddenBindingConfiguration, 'actions' => $parity, 'sourceOnlyGates' => $gates, 'counts' => array_map('count', $rows)], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n");
 echo json_encode(['seedCounts' => array_map('count', $rows), 'drivers' => ['mysql', 'postgresql'], 'liveEvidence' => 'not implied by generated definitions'], JSON_PRETTY_PRINT) . PHP_EOL;
