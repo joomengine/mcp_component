@@ -33,7 +33,7 @@ jobs:
       - name: Apply the frozen reviewed change as one coherent group
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD^)" = eb3cb2e83b666242201f5d65f771bbc1a5bb6804
+          test "$(git rev-parse HEAD^)" = 0513a1c81b0b4d7b4331bbc21fc97bbaed068566
           base64 --decode .github/reviewed-normalization.patch.gz.b64 > "$RUNNER_TEMP/reviewed.patch.gz"
           echo "82b02feb6b75b0277be382564abb070536a4bcb1c2067f59863d4dd527c51a6e  $RUNNER_TEMP/reviewed.patch.gz" | sha256sum --check
           gzip --decompress --stdout "$RUNNER_TEMP/reviewed.patch.gz" > "$RUNNER_TEMP/reviewed.patch"
@@ -67,6 +67,20 @@ jobs:
         run: |
           set -euo pipefail
           test "$(git ls-remote origin refs/heads/fix/installed-api-contracts-22-34 | cut -f1)" = "$GITHUB_SHA"
+          # The Actions token publishes content only. The authorized connector
+          # applies the reviewed CI registration together with workflow cleanup.
+          git restore --source=HEAD --staged --worktree -- .github/workflows/ci.yml
+          python3 - <<'PYCONTENT'
+          import json, subprocess
+          from pathlib import Path
+          manifest = json.loads(Path('.github/reviewed-normalization.json').read_text())
+          files = [item for item in manifest['files'] if item['path'] != '.github/workflows/ci.yml']
+          actual = sorted(subprocess.check_output(['git', 'diff', '--cached', '--name-only']).decode().splitlines())
+          assert actual == sorted(item['path'] for item in files), 'Only reviewed non-workflow content may be published'
+          for item in files:
+              actual = subprocess.check_output(['git', 'rev-parse', ':' + item['path']]).decode().strip()
+              assert actual == item['gitBlobSha'], 'Reviewed staged bytes differ: ' + item['path']
+          PYCONTENT
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git commit -m 'fix: verify native category, user and module field contracts (#22, #23, #24)'
