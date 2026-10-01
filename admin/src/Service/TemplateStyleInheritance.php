@@ -9,6 +9,7 @@
 namespace VDM\Component\JoomEngineMcp\Administrator\Service;
 
 
+use stdClass;
 use VDM\Component\JoomEngineMcp\Administrator\Domain\OperationException;
 
 
@@ -161,8 +162,8 @@ final class TemplateStyleInheritance
 		$inheritable = array_key_exists('inheritable', $xml) ? $xml['inheritable'] : '0';
 
 		// Empty SimpleXML elements are encoded as empty objects by Joomla.
-		$parent = $parent === [] ? '' : $parent;
-		$inheritable = $inheritable === [] ? '0' : $inheritable;
+		$parent = $parent === [] || ($parent instanceof stdClass && (array) $parent === []) ? '' : $parent;
+		$inheritable = $inheritable === [] || ($inheritable instanceof stdClass && (array) $inheritable === []) ? '0' : $inheritable;
 
 		if (($parent !== '' && !self::templateName($parent)) || !in_array($inheritable, [0, 1, '', '0', '1'], true))
 		{

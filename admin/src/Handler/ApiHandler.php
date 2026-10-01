@@ -185,7 +185,7 @@ final class ApiHandler implements HandlerInterface
 			}
 		}
 
-		$data = $text === '' ? null : Json::decode($text, true, $maximum);
+		$data = $text === '' ? null : Json::native(Json::decode($text, false, $maximum));
 
 		if (isset($config['select_fields']))
 		{

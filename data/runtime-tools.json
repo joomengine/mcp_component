@@ -26,7 +26,11 @@
           },
           "duration": {
             "type": "string",
-            "enum": ["once", "30-minutes", "indefinite"]
+            "enum": [
+              "once",
+              "30-minutes",
+              "indefinite"
+            ]
           },
           "reason": {
             "type": "string",
@@ -34,7 +38,11 @@
             "maxLength": 500
           }
         },
-        "required": ["toolsets", "duration", "reason"],
+        "required": [
+          "toolsets",
+          "duration",
+          "reason"
+        ],
         "$schema": "http://json-schema.org/draft-07/schema#"
       }
     }
@@ -294,6 +302,126 @@
       },
       "execution": {
         "taskSupport": "forbidden"
+      }
+    }
+  ],
+  "bindingInputSchemaOverrides": [
+    {
+      "name": "modules.site.create.api",
+      "reason": "Issue #24: make the accepted module create ordering contract explicit before mutation, including native automatic assignment for zero or omitted ordering.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "minProperties": 1,
+            "maxProperties": 512,
+            "properties": {
+              "title": {
+                "description": "Reviewed Joomla site module form field."
+              },
+              "note": {
+                "description": "Reviewed Joomla site module form field."
+              },
+              "content": {
+                "description": "Reviewed Joomla site module form field."
+              },
+              "ordering": {
+                "type": "integer",
+                "description": "Use zero or omit ordering to let Joomla assign the next order for this module position. A nonzero ordering requests that exact value."
+              },
+              "position": {
+                "description": "Reviewed Joomla site module form field."
+              },
+              "published": {
+                "description": "Reviewed Joomla site module form field."
+              },
+              "module": {
+                "description": "Reviewed Joomla site module form field."
+              },
+              "access": {
+                "description": "Reviewed Joomla site module form field."
+              },
+              "showtitle": {
+                "description": "Reviewed Joomla site module form field."
+              },
+              "params": {
+                "description": "Reviewed Joomla site module form field."
+              },
+              "language": {
+                "description": "Reviewed Joomla site module form field."
+              },
+              "assigned": {
+                "description": "Reviewed Joomla site module form field."
+              }
+            },
+            "additionalProperties": false,
+            "description": "Allowlisted Joomla form JSON. Joomla validates resource-specific values and ACL."
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "modules.administrator.create.api",
+      "reason": "Issue #24: make the accepted module create ordering contract explicit before mutation, including native automatic assignment for zero or omitted ordering.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "minProperties": 1,
+            "maxProperties": 512,
+            "properties": {
+              "title": {
+                "description": "Reviewed Joomla administrator module form field."
+              },
+              "note": {
+                "description": "Reviewed Joomla administrator module form field."
+              },
+              "content": {
+                "description": "Reviewed Joomla administrator module form field."
+              },
+              "ordering": {
+                "type": "integer",
+                "description": "Use zero or omit ordering to let Joomla assign the next order for this module position. A nonzero ordering requests that exact value."
+              },
+              "position": {
+                "description": "Reviewed Joomla administrator module form field."
+              },
+              "published": {
+                "description": "Reviewed Joomla administrator module form field."
+              },
+              "module": {
+                "description": "Reviewed Joomla administrator module form field."
+              },
+              "access": {
+                "description": "Reviewed Joomla administrator module form field."
+              },
+              "showtitle": {
+                "description": "Reviewed Joomla administrator module form field."
+              },
+              "params": {
+                "description": "Reviewed Joomla administrator module form field."
+              },
+              "language": {
+                "description": "Reviewed Joomla administrator module form field."
+              },
+              "assigned": {
+                "description": "Reviewed Joomla administrator module form field."
+              }
+            },
+            "additionalProperties": false,
+            "description": "Allowlisted Joomla form JSON. Joomla validates resource-specific values and ACL."
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "additionalProperties": false
       }
     }
   ]

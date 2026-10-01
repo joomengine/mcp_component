@@ -1,6 +1,6 @@
 {
     "source": "2cff50f4f6b440da3c684f9995a77efad32e1a36",
-    "runtimeSource": "aea715af08fd23319343c704cf5726cb7d7f79bd45f169671a0d6f729801a7c6",
+    "runtimeSource": "bcf878f4afc7bf66617d78372cc7a513971dbaaacb93c0b805d09f4b938cd3dd",
     "tools": [
         "joomla_sites_list",
         "joomla_capabilities",
@@ -69,6 +69,10 @@
     ],
     "runtimeSchemaOverrides": {
         "joomla_permission_request": "Permission scopes come from enabled, authorized write actions in the installed database catalogue, including extension providers. The immutable source enum described only the original core catalogue; Permissions remains the authoritative scope and ACL check."
+    },
+    "runtimeBindingSchemaOverrides": {
+        "modules.site.create.api": "Issue #24: make the accepted module create ordering contract explicit before mutation, including native automatic assignment for zero or omitted ordering.",
+        "modules.administrator.create.api": "Issue #24: make the accepted module create ordering contract explicit before mutation, including native automatic assignment for zero or omitted ordering."
     },
     "actions": [
         {
@@ -2076,7 +2080,7 @@
     },
     "counts": {
         "provider": 1,
-        "schema": 411,
+        "schema": 413,
         "action": 285,
         "binding": 467,
         "tool": 30,

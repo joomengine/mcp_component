@@ -67,6 +67,7 @@ $check(TemplateStyleInheritance::manifest($child, 0) === ['parent' => 'cassiopei
 $check(TemplateStyleInheritance::manifest(['name' => 'TPL_CASSIOPEIA', 'inheritable' => '1']) === ['parent' => '', 'inheritable' => 1], 'Inheritable parent metadata does not guess from its name.');
 $check(TemplateStyleInheritance::manifest(['name' => 'Independent']) === ['parent' => '', 'inheritable' => 0], 'Absent optional elements have native installer defaults.');
 $check(TemplateStyleInheritance::manifest(['name' => 'Empty nodes', 'parent' => [], 'inheritable' => []]) === ['parent' => '', 'inheritable' => 0], 'Empty SimpleXML objects preserve native defaults.');
+$check(TemplateStyleInheritance::manifest(['name' => 'Empty object nodes', 'parent' => new stdClass(), 'inheritable' => new stdClass()]) === ['parent' => '', 'inheritable' => 0], 'Shape-preserving API decoding retains native empty SimpleXML element defaults.');
 foreach ([null, [], 'xml', ['name' => 'Bad', 'parent' => '../other'], ['name' => 'Bad', 'parent' => null],
 	['name' => 'Bad', 'inheritable' => 'true'], ['name' => 'Bad', 'inheritable' => 2], ['name' => 'Bad', 'parent' => ['first', 'second']],
 	['name' => 'Bad', '@attributes' => ['client' => 'administrator']]] as $invalid)

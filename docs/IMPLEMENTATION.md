@@ -1,5 +1,14 @@
 # Implementation status — 1 October 2026
 
+## Native API field verification — issues #22, #23 and #24
+
+`ApiWriteVerification` defines narrow, action/route/method/transport-bound field contracts. Empty `content.categories` params objects may match Joomla's empty Registry array representation. User groups compare exact positive group-ID membership sets, including ID-keyed API maps; missing, additional and malformed memberships remain failures. Other fields retain strict JSON distinctions. API response decoding now preserves empty and numeric-key objects instead of collapsing them into lists; native template inheritance accepts the unchanged empty XML-node representation without losing that distinction.
+
+Site and administrator module create schemas explicitly declare integer ordering. Zero or omission means Joomla assigns the next order for the position; a nonzero value requests that exact order. Plans disclose automatic assignment, and `verification.nativeOrdering` separately reports the generated value only when the native mutation and an independent item read identify the same module and order. Requested zero is never falsely listed as a literal matched field. Customized bindings and genuine mismatches do not acquire broad coercions. Explicit binding schema overrides preserve imported schemas and administrator-owned definitions during seed upgrades.
+
+`tests/write-verification.php` passes 656 checks, including negative shape/membership/order cases, binding boundaries, durable execution/lease release and replay without another mutation. `tests/integration/write-verification.php` passes 191 installed Joomla 6.1.4 / PHP 8.4.26 / MariaDB 11.8.6 checks: empty/omitted/metadata category controls; blocked single/multiple-group users; site/administrator modules with zero, omitted and explicit ordering in empty/populated positions. Independent database state, returned identity, disclosed/actual order, lease release and unchanged replay are checked. All owned content fixtures are removed through native models. All 26 pre-existing PHP contract suites also pass locally. Exact-commit cross-platform CI remains recorded in the PR.
+
+
 ## Explicit bounded catalogue page sizes — issue #26
 
 All eight definition forms use Joomla's native limitbox with `showall="false"` and explicit sizes from 5 through 500. Legacy zero requests map to 500; unsupported sizes normalize to an offered bounded value. The model persists that effective value in the native list state so the selected label, fetched rows and aligned offset agree. This completes the All-selector boundary left after #20's ordinary navigation fix.

@@ -202,6 +202,51 @@ catch (RuntimeException $error)
 }
 $check($updater->apply($nextSeed)['updated'] === 0, 'Rejected provenance altered the installed graph.');
 
+// Execution-track schema updates preserve customized bindings and original
+// imported schemas, while untouched installed bindings adopt the new contract.
+$sourceApi = array_column(array_merge($source['catalog']['api']['readActions'], $source['catalog']['api']['writeActions']), null, 'id');
+foreach ($runtime['bindingInputSchemaOverrides'] ?? [] as $override)
+{
+	$actionName = substr($override['name'], 0, -4);
+	$legacySchema = null;
+	foreach ($entities['schema'] as $schema)
+	{
+		if (Json::canonical(Json::decode($schema['document'])) === Json::canonical($sourceApi[$actionName]['inputSchema']))
+		{
+			$legacySchema = $schema;
+			break;
+		}
+	}
+	$check($legacySchema !== null, 'A binding extension removed an administrator-referenced original schema.');
+	$legacySeed = $seed;
+	foreach ($legacySeed['entities']['binding'] as &$binding)
+	{
+		if ($binding['name'] === $override['name'])
+		{
+			$binding['input_schema_id'] = $legacySchema['id'];
+			$binding['seed_revision'] = $seed['source'];
+		}
+	}
+	unset($binding);
+	foreach ([false, true] as $customized)
+	{
+		$upgradeStore = new MemoryStore();
+		$upgrade = new SeedUpdater($upgradeStore);
+		$upgrade->apply($legacySeed);
+		$before = $upgradeStore->one('binding', ['name' => $override['name']]);
+		if ($customized)
+		{
+			$upgradeStore->update('binding', ['customized' => 1], ['id' => $before['id']]);
+		}
+		$upgrade->apply($seed);
+		$after = $upgradeStore->one('binding', ['name' => $override['name']]);
+		$check($customized ? $after['input_schema_id'] === $before['input_schema_id']
+			: $after['input_schema_id'] !== $before['input_schema_id'] && $after['seed_revision'] === $seed['runtimeSource'],
+			'Binding schema upgrade did not respect administrator ownership.');
+		$check($upgrade->apply($seed)['updated'] === 0, 'Binding schema upgrade is not idempotent.');
+	}
+}
+
 $store = new MemoryStore($entities);
 $principal = new Principal();
 $settings = new Settings(['joomla_version' => '6.1.3']);

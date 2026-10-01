@@ -28,12 +28,13 @@ $runtimeObjects = json_decode(file_get_contents($runtimeFile), false, 128, JSON_
 $runtimeRevision = hash_file('sha256', $runtimeFile);
 
 if (($runtime['version'] ?? null) !== 1 || !is_array($runtime['tools'] ?? null)
-	|| !is_array($runtime['inputSchemaOverrides'] ?? []))
+	|| !is_array($runtime['inputSchemaOverrides'] ?? [])
+	|| !is_array($runtime['bindingInputSchemaOverrides'] ?? []))
 {
 	throw new RuntimeException('Component runtime tools require the supported declaration schema.');
 }
 
-foreach (['tools', 'inputSchemaOverrides'] as $collection)
+foreach (['tools', 'inputSchemaOverrides', 'bindingInputSchemaOverrides'] as $collection)
 {
 	foreach ($runtimeObjects->{$collection} ?? [] as $index => $tool)
 	{
@@ -371,6 +372,38 @@ foreach ($runtime['inputSchemaOverrides'] ?? [] as $override)
 	unset($row);
 }
 
+// Keep imported action schemas intact while refining a specific execution track.
+// Untouched shipped bindings adopt this explicit schema through SeedUpdater;
+// administrator-owned bindings retain their reviewed schema and configuration.
+$overriddenBindings = [];
+$knownBindings = array_fill_keys(array_column($rows['binding'], 'name'), true);
+
+foreach ($runtime['bindingInputSchemaOverrides'] ?? [] as $override)
+{
+	$name = $override['name'] ?? null;
+
+	if (!is_string($name) || !isset($knownBindings[$name]) || isset($overriddenBindings[$name])
+		|| !is_string($override['reason'] ?? null) || trim($override['reason']) === ''
+		|| !($override['inputSchema'] ?? null) instanceof stdClass)
+	{
+		throw new RuntimeException('Binding schema extensions require a unique shipped binding, schema and explicit reason.');
+	}
+
+	$overriddenBindings[$name] = $override['reason'];
+
+	foreach ($rows['binding'] as &$row)
+	{
+		if ($row['name'] === $name)
+		{
+			$row['input_schema_id'] = $addSchema($override['inputSchema']);
+			$row['seed_revision'] = $runtimeRevision;
+			break;
+		}
+	}
+
+	unset($row);
+}
+
 foreach ($runtime['tools'] as $tool)
 {
 	if (!is_string($tool['name'] ?? null) || isset($knownTools[$tool['name']])
@@ -592,5 +625,5 @@ foreach (['mysql', 'postgresql'] as $driver)
 }
 
 file_put_contents($root . '/admin/data/catalogue-seed.json', json_encode(['source' => $commit, 'runtimeSource' => $runtimeRevision, 'entities' => $rows], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . "\n");
-file_put_contents($root . '/docs/migration/parity.json', json_encode(['source' => $commit, 'runtimeSource' => $runtimeRevision, 'tools' => array_column($rows['tool'], 'name'), 'upstreamTools' => array_column($upstream['tools'], 'name'), 'runtimeTools' => array_column($runtime['tools'], 'name'), 'runtimeSchemaOverrides' => (object) $overriddenTools, 'actions' => $parity, 'sourceOnlyGates' => $gates, 'counts' => array_map('count', $rows)], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n");
+file_put_contents($root . '/docs/migration/parity.json', json_encode(['source' => $commit, 'runtimeSource' => $runtimeRevision, 'tools' => array_column($rows['tool'], 'name'), 'upstreamTools' => array_column($upstream['tools'], 'name'), 'runtimeTools' => array_column($runtime['tools'], 'name'), 'runtimeSchemaOverrides' => (object) $overriddenTools, 'runtimeBindingSchemaOverrides' => (object) $overriddenBindings, 'actions' => $parity, 'sourceOnlyGates' => $gates, 'counts' => array_map('count', $rows)], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n");
 echo json_encode(['seedCounts' => array_map('count', $rows), 'drivers' => ['mysql', 'postgresql'], 'liveEvidence' => 'not implied by generated definitions'], JSON_PRETTY_PRINT) . PHP_EOL;
