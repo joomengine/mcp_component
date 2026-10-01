@@ -9,6 +9,9 @@
       <item>Verify category empty params, user group-ID memberships and automatic module ordering using field-specific native contracts; preserve API response JSON object/list types, independent read-back, execution leases and idempotent replay.</item>
       <item>Replace the catalogue All page-size option with explicit bounded sizes through 500; keep rendered selections, saved page sizes and offsets consistent for legacy and out-of-range requests across all eight catalogue views.</item>
     </fix>
+    <note>
+      <item>Document the installed-audit scope: five component fixes are verified; eight native Joomla API limitations are closed as outside this repository's fix scope, while their behavior and truthful verification boundaries remain explicit.</item>
+    </note>
   </changelog>
   <changelog>
     <element>com_joomengine_mcp</element>

@@ -164,3 +164,17 @@ missing-message HTTP 500 still retains an uncertain execution.
 
 See [the snapshot contract and customization boundary](testing/message-planning-snapshots.md)
 for HTTP-only middleware limitations, opt-out and acceptance evidence.
+
+## Installed-audit scope disposition
+
+The component fixes in PR #35 address #22, #23, #24, #26 and #30. The remaining
+audit reports (#25, #27–#29 and #31–#34) are closed as not planned in this repository
+under the maintainer's clarified scope: their remaining failures reproduce in
+Joomla's native APIs. They are compatibility context, not outstanding component
+implementation work or claims of upstream repair.
+
+[Native API limitations and component obligations](testing/native-api-limitations.md)
+records the observable behavior and the component's verified responsibility for
+intended requests, honest uncertainty, identity, and idempotent replay. All
+currently callable operations remain available. No new gate, native error-to-
+success conversion, automatic retry or Joomla-specific workaround was added.

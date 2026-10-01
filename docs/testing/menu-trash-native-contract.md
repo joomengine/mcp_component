@@ -1,6 +1,8 @@
 # Native menu trash verification
 
-Issue [#25](https://github.com/joomengine/mcp_component/issues/25) remains open.
+Issue [#25](https://github.com/joomengine/mcp_component/issues/25) is classified
+outside the component fix scope. Its closure is a scope disposition, not a claim
+that Joomla exposes trashed menu records correctly.
 Trashing can persist successfully while Joomla's API cannot expose that row in
 the stored menu collection. This change tests truthful uncertainty and safe
 replay; it does **not** claim that menu trash verification is fixed.
@@ -61,7 +63,7 @@ its owned fixture through the native menu model, independently verifies absence,
 and reconciles only its own uncertain execution as inspected partial effects.
 Cleanup is not counted as successful mutation verification.
 
-## Criteria for resolving #25
+## Criteria for a future native-contract verification
 
 1. Joomla exposes the approved resulting publication state through an
    authenticated raw collection or equivalent native stored-value endpoint.
