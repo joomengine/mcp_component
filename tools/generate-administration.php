@@ -225,7 +225,7 @@ foreach (Structure::definitions() as $entity => $fields)
 	{
 		$filter .= "<option value=\"a.$field ASC\">$label</option><option value=\"a.$field DESC\">$label (descending)</option>";
 	}
-	$filter .= '</field><field name="limit" type="limitbox" label="JGLOBAL_LIST_LIMIT" default="20" onchange="this.form.submit();" /></fields></form>';
+	$filter .= '</field><field name="limit" type="limitbox" label="JGLOBAL_LIST_LIMIT" default="20" showall="false" limits="5,10,15,20,25,30,50,100,200,500" onchange="this.form.submit();" /></fields></form>';
 	$emit("admin/forms/filter_$plural.xml", $filter);
 }
 $accessActions = ['core.create' => 'JACTION_CREATE', 'core.edit' => 'JACTION_EDIT', 'core.edit.state' => 'JACTION_EDITSTATE', 'core.delete' => 'JACTION_DELETE', 'mcp.execute' => 'COM_JOOMENGINE_MCP_MCP_EXECUTE', 'mcp.write' => 'COM_JOOMENGINE_MCP_MCP_WRITE'];

@@ -19,6 +19,7 @@ use Joomla\Registry\Registry;
 use Joomla\Session\SessionInterface;
 use VDM\Component\JoomEngineMcp\Administrator\Database\JoomlaStore;
 use VDM\Component\JoomEngineMcp\Administrator\Database\Structure;
+use VDM\Component\JoomEngineMcp\Administrator\Model\DefinitionsModel;
 use VDM\Component\JoomEngineMcp\Administrator\Service\Json;
 
 // Buffer output until the native administrator session has started its headers.
@@ -85,6 +86,12 @@ $page = static function (array $actual, array $all, int $offset, int $limit, str
 	$check($actual['total'] === count($all), $label . ' native database total');
 	$check($actual['ids'] === array_slice($all, $offset, $limit), $label . ' native SQL row IDs');
 	$check($actual['paginationStart'] === $offset, $label . ' native pagination matches displayed rows');
+
+	if ($actual['model'] instanceof DefinitionsModel)
+	{
+		$check((int) $actual['model']->getFilterForm()->getValue('limit', 'list') === $limit,
+			$label . ' selected page size matches the effective row limit');
+	}
 };
 
 $marker = 'pagination.' . bin2hex(random_bytes(8));
@@ -190,7 +197,8 @@ try
 		$bounded = $request($view, ['filter' => $filters, 'list' => ['fullordering' => 'a.id ASC', 'limit' => 750], 'limitstart' => 750]);
 		$check($bounded['limit'] === 500 && $bounded['start'] === 500, $view . ' oversized page aligns to effective bound');
 		$all = $request($view, ['filter' => $filters, 'list' => ['fullordering' => 'a.id ASC', 'limit' => 0], 'limitstart' => 20]);
-		$check($all['limit'] === 1 && $all['start'] === 0, $view . ' all-items request stays bounded');
+		$page($all, $ids[$entity], 0, 500, $view . ' legacy all-items request selects the explicit maximum');
+		$page($request($view, []), $ids[$entity], 0, 500, $view . ' normalized page size survives a later request');
 
 		// Changed filters reset a stale submitted page, but identical filters do not.
 		$search = ['search' => $marker . '.group-a'] + $empty;

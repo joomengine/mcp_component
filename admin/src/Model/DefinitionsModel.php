@@ -33,6 +33,9 @@ abstract class DefinitionsModel extends ListModel
 	/** @var string Concrete definition type. @since 0.1.0 */
 	protected const ENTITY = '';
 
+	/** @var int[] Supported page sizes, matching the native filter-form limit boxes. @since 1.0.0 */
+	private const PAGE_LIMITS = [5, 10, 15, 20, 25, 30, 50, 100, 200, 500];
+
 	/**
 	 * Register native filter fields without accepting caller-supplied SQL names.
 	 *
@@ -75,7 +78,19 @@ abstract class DefinitionsModel extends ListModel
 			$this->setState('filter.' . $name, $value);
 		}
 
-		$limit = max(1, min(500, (int) $this->state->get('list.limit', $app->get('list_limit', 20))));
+		$requestedLimit = (int) $this->state->get('list.limit', $app->get('list_limit', 20));
+		$limit = self::PAGE_LIMITS[0];
+
+		foreach (self::PAGE_LIMITS as $pageLimit)
+		{
+			if ($requestedLimit !== 0 && $requestedLimit < $pageLimit)
+			{
+				break;
+			}
+
+			$limit = $pageLimit;
+		}
+
 		$start = max(0, (int) $this->state->get('list.start', 0));
 
 		if ($current !== $this->normalizeFilters(is_array($previous) ? $previous : []))
@@ -88,6 +103,9 @@ abstract class DefinitionsModel extends ListModel
 
 		$this->setState('list.limit', $limit);
 		$this->setState('list.start', intdiv($start, $limit) * $limit);
+		// SearchTools binds session list values, not just model state. Persist the
+		// effective option, including old All (0) requests now displayed as 500.
+		$app->setUserState($this->context . '.list.limit', $limit);
 	}
 
 	/**

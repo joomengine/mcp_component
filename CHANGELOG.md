@@ -1,5 +1,11 @@
 # Changelog
 
+## [[[NEXT_VERSION]]]
+
+### Fix
+
+- Replace the catalogue All page-size option with explicit bounded sizes through 500; keep rendered selections, saved page sizes and offsets consistent for legacy and out-of-range requests across all eight catalogue views.
+
 ## 1.0.4
 
 ### Fix

@@ -1,4 +1,11 @@
-# Implementation status — 30 September 2026
+# Implementation status — 1 October 2026
+
+## Explicit bounded catalogue page sizes — issue #26
+
+All eight definition forms use Joomla's native limitbox with `showall="false"` and explicit sizes from 5 through 500. Legacy zero requests map to 500; unsupported sizes normalize to an offered bounded value. The model persists that effective value in the native list state so the selected label, fetched rows and aligned offset agree. This completes the All-selector boundary left after #20's ordinary navigation fix.
+
+The installed `tests/integration/catalogue-page-limits.php` passed 5,688 assertions on Joomla 6.1.4 / PHP 8.4.26 / MariaDB 11.8.6. It submits actual administrator HTTP forms for all eight catalogues, with 521-row datasets, every visible option, zero/negative/oversized/unoffered values, search/publication/access/provider filters, empty and one-row cases, state retention and navigation. This is HTTP/DOM evidence, not JavaScript-click testing. Only owned fixtures were created and removed. Both installed CI runners include the suite; exact-commit CI is reported in the PR.
+
 
 ## Administrator catalogue pagination — issue #20
 
