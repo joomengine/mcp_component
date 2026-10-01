@@ -151,6 +151,10 @@ $fixture = static function () use ($seed): array
 			{
 				$item['component_id'] = $this->components[$query['option']];
 			}
+			elseif (in_array($item['type'] ?? '', ['url', 'alias', 'separator', 'heading', 'container'], true))
+			{
+				$item['component_id'] = 0;
+			}
 
 			if ($this->readClient !== null)
 			{
@@ -212,6 +216,46 @@ foreach (['site' => 0, 'administrator' => 1] as $client => $clientId)
 	$check($result['verification']['status'] === 'verified' && $s['http']->items[1]['component_id'] === 73, 'Partial menu update did not preserve its effective component target.');
 }
 
+// The native collection currently excludes trash and ignores published filters.
+// This documents the unresolved upstream contract, never a successful trash fix.
+foreach (['site' => 0, 'administrator' => 1] as $client => $clientId)
+{
+	foreach (['url', 'component'] as $type)
+	{
+		$s = $fixture();
+		$body = array_replace($data, ['type' => $type, 'menutype' => $client === 'site' ? 'fixture' : 'main',
+			'link' => $type === 'url' ? 'https://example.invalid/menu-trash' : $data['link']]);
+		$componentId = $type === 'component' ? 41 : 0;
+		$s['http']->items[1] = $body + ['id' => 1, 'client_id' => $clientId, 'component_id' => $componentId];
+		$action = 'menus.' . $client . '-items.update';
+		$plan = $s['executor']->plan($action, ['id' => 1, 'data' => ['title' => 'Title before trash']], Json::uuid());
+		$result = $s['executor']->apply($plan['confirmationToken']);
+		$check($result['verification']['status'] === 'verified' && $s['store']->find('lease') === [],
+			$client . ' ' . $type . ' title updates must still settle before trash.');
+		$plan = $s['executor']->plan($action, ['id' => 1, 'data' => ['published' => -2]], Json::uuid());
+		$result = $s['executor']->apply($plan['confirmationToken']);
+		$check($s['http']->items[1]['published'] === -2 && $s['http']->items[1]['client_id'] === $clientId
+			&& $s['http']->items[1]['link'] === $body['link'] && $s['http']->items[1]['menutype'] === $body['menutype']
+			&& $s['http']->items[1]['component_id'] === $componentId,
+			$client . ' ' . $type . ' trash must preserve the exact stored menu target.');
+		$check($result['verification']['status'] === 'uncertain' && $result['error']['code'] === 'MENU_VERIFICATION_UNAVAILABLE'
+			&& $result['menuComponentRepair']['id'] === 1 && $result['mutation']['data']['data']['id'] === '1',
+			$client . ' ' . $type . ' missing stored trash must not be declared verified from a derived item GET.');
+		$execution = $s['store']->one('execution', ['uuid' => $result['executionId']]);
+		$lease = $s['store']->one('lease', ['owner_uuid' => $result['executionId']]);
+		$check($execution['status'] === 'uncertain' && $lease !== null,
+			$client . ' ' . $type . ' unsupported trash verification must retain its uncertain execution and lease.');
+		$requests = $s['http']->requests;
+		$repeat = $s['executor']->apply($plan['confirmationToken']);
+		$check($repeat['idempotentReplay'] && $repeat['executionId'] === $result['executionId']
+			&& $repeat['mutation'] === $result['mutation'] && $repeat['verification'] === $result['verification']
+			&& $repeat['error'] === $result['error'] && $s['http']->requests === $requests
+			&& $s['store']->one('execution', ['uuid' => $result['executionId']]) === $execution
+			&& $s['store']->one('lease', ['owner_uuid' => $result['executionId']]) === $lease,
+			$client . ' ' . $type . ' replay must return the original uncertain trash result without another API request.');
+	}
+}
+
 foreach ([['component_id' => 41], ['link' => 'index.php?option=com_content&option=com_contact'],
 	['link' => 'index.php?option=com_content&option[]=com_contact'], ['link' => 'index.php?option%00x=com_content'],
 	['link' => 'index.php?option=com_content&%20option=com_contact'], ['link' => 'index.php?option=com_content&x=1;option=com_contact'],
@@ -271,4 +315,5 @@ $s['catalogue']->refresh();
 $reject(static fn () => $s['executor']->apply($plan['confirmationToken']), 'DEFINITION_UNAVAILABLE');
 $check($writes($s) === [], 'Revoked repair authority must prevent the initial mutation too.');
 
-echo Json::encode(['checks' => $checks, 'menuComponentContracts' => 'passed with recording API and transactional memory doubles', 'liveJoomla' => 'not run by this unit suite']) . PHP_EOL;
+echo Json::encode(['checks' => $checks, 'menuComponentContracts' => 'passed with recording API and transactional memory doubles',
+	'trashVerification' => 'upstream visibility remains unresolved; uncertain execution and replay safety tested', 'liveJoomla' => 'not run by this unit suite']) . PHP_EOL;
