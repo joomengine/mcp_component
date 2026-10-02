@@ -329,10 +329,24 @@ try
 			$rejected = $call('joomla_write_apply', ['confirmationToken' => $plan['confirmationToken']], true);
 			$check($rejected['isError'] && ($rejected['data']['error']['code'] ?? '') === 'JOOMLA_API_ERROR'
 				&& ($rejected['data']['error']['details']['httpStatus'] ?? 0) === 400, $action . ' rejects an invalid native ' . $type . ' option');
-			$check($rows($table, ['id' => $id]) === $before, 'Rejected option leaves the complete native entity row unchanged');
-			$observe($id, $second);
-			$reconcile($rejected['data']['executionId'], 'verified_no_effect',
-				'Installed negative fixture: exact owned native entity row, all custom-field value rows and both API reads were inspected and remain unchanged after native option validation rejected the request.');
+				$after = $rows($table, ['id' => $id]);
+				$check(count($before) === 1 && count($after) === 1, 'Rejected option preserves the exact owned entity');
+				// ApiController checks out an existing record before validating its
+				// form. A rejected option can therefore retain this native metadata.
+				foreach (['checked_out', 'checked_out_time'] as $column)
+				{
+					if (array_key_exists($column, $after[0]))
+					{
+						$check($column === 'checked_out' ? (int) $after[0][$column] === (int) $admin->id
+							: is_string($after[0][$column]) && strtotime($after[0][$column]) !== false,
+							'Rejected option retains only valid checkout metadata for the authenticated test user');
+						unset($before[0][$column], $after[0][$column]);
+					}
+				}
+				$check($after === $before, 'Rejected option leaves every native entity content field unchanged');
+				$observe($id, $second);
+				$reconcile($rejected['data']['executionId'], 'partial',
+					'Installed negative fixture: native checkout metadata was inspected separately; every owned entity content field, custom-field value row and both API reads remain unchanged after option validation rejected the request. The original native error is retained.');
 		}
 		$apply($action . '.update', ['id' => $id, 'data' => $clear], 'verified', static fn (array $result) => $observe($id, $clear, $result));
 	}
