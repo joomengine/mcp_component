@@ -1,58 +1,66 @@
 # JoomEngine MCP for Joomla
 
-An installable PHP MCP server for Joomla 6.1–6.x, with database-defined tools, resources, prompts and actions, a native administrator application, Joomla API authentication and a shared local console runtime. Version 0.1.1 adds installed Joomla Component Builder discovery, confirmed background jobs and retained compiler artifacts. The current verification boundary is recorded in [implementation status](docs/IMPLEMENTATION.md).
+The actively maintained PHP successor to the original [Joomla MCP TypeScript proof of concept](https://github.com/joomengine/joomla-mcp). This is the project's **fourth MCP build/iteration**, with expanded functionality, native Joomla administration, database-defined capabilities and Joomla Component Builder (JCB) integration. Its stable package is distributed alongside JCB and designed to work with it. “Fourth build” describes the project's evolution; release tags use their own version numbers.
 
-**Component:** `com_joomengine_mcp`  
-**Namespace:** `VDM\Component\JoomEngineMcp`  
-**Console plugin:** `plg_console_joomengine_mcp` in [`joomengine/mcp_plugin`](https://github.com/joomengine/mcp_plugin)  
-**External PHP client:** `joomengine/mcp-client` in [`joomengine/mcp_client`](https://github.com/joomengine/mcp_client)
+**Start with the [stable MCP package](https://github.com/joomengine/mcp_package/tags).** Install its ZIP on your Joomla site to get the component, HTTP webservices plugin and local console plugin together. Then use the independent [MCP client](https://github.com/joomengine/mcp_client) to connect an AI host or call tools directly.
 
-## Repository boundary
+## Start here
 
-This repository owns the installable component: catalogue, administrator MVC/forms, HTTP endpoint controllers, Joomla token/ACL integration, shared API/native execution, durable state and jobs. Its locked production dependencies are committed under `admin/vendor`; Composer is a maintainer tool, never an installation step. External MCP connection code, remote stdio bridging, client documentation and client releases belong exclusively to `mcp_client`.
+| Task | Guide |
+| --- | --- |
+| Install on an existing Joomla site; enable plugins; configure URL, token and permissions | [Getting started](docs/GETTING-STARTED.md) |
+| Connect Claude, ChatGPT or another compatible AI host; use Docker or the PHP client without an AI | [Client connections](docs/CLIENT-CONNECTIONS.md) |
+| Understand administrator areas and manage the catalogue | [Administrator areas](docs/GETTING-STARTED.md#use-the-administrator-areas) |
+| Read tools, plan confirmed writes and inspect jobs | [First read](docs/GETTING-STARTED.md#connect-and-make-a-first-read), [write flow](docs/GETTING-STARTED.md#plan-and-confirm-writes), [jobs](docs/GETTING-STARTED.md#enable-jcb-operations-and-background-jobs) |
+| Set up JCB capabilities or use the local Joomla console | [JCB setup](docs/GETTING-STARTED.md#enable-jcb-operations-and-background-jobs), [console use](docs/GETTING-STARTED.md#use-the-local-joomla-console-without-an-ai) |
+| Check an installation or connection problem | [Troubleshooting](docs/GETTING-STARTED.md#troubleshooting) |
 
-The component's outbound Joomla API transport is implemented in `admin/src/Http`. See [client separation and handoff](docs/CLIENT-HANDOFF.md).
+Support requires **Joomla 6.1–6.x**, **PHP 8.3 or later**, and the PHP extensions listed in [composer.json](composer.json). Production dependencies and installation data are already included; no Composer, Node.js or build step is required on the Joomla server.
 
-## Download and install
+## How the repositories fit together
 
-Download this repository using **Code → Download ZIP**, or download a release tag's source ZIP, and upload it in Joomla's extension installer. The source tree already contains its production PHP dependencies and installation data. No build, Composer run or repacking is required. The supported host is Joomla 6.1–6.x with PHP 8.3 or later and the extensions listed in `composer.json`.
+| Repository | Role |
+| --- | --- |
+| [mcp_package](https://github.com/joomengine/mcp_package) | Recommended installable bundle of the three Joomla extensions below; refreshed by release builds |
+| **mcp_component** (this repository) | `com_joomengine_mcp`: server, catalogue, administrator application, authentication/ACL, actions, durable plans/jobs and artifacts |
+| [mcp_webservices](https://github.com/joomengine/mcp_webservices) | `plg_webservices_joomengine_mcp`: registers the authenticated HTTP endpoint |
+| [mcp_plugin](https://github.com/joomengine/mcp_plugin) | `plg_console_joomengine_mcp`: direct local Joomla console commands and stdio |
+| [mcp_client](https://github.com/joomengine/mcp_client) | External PHP SDK and remote stdio bridge for AI hosts and direct tool calls |
+| [joomla-mcp](https://github.com/joomengine/joomla-mcp) | Original TypeScript proof of concept; new users should follow the package and guides above |
 
-Configure the canonical site API URL and Joomla permissions under **Components → JoomEngine MCP → Options**. The authenticated MCP endpoint is `/api/index.php/v1/joomengine-mcp`, relative to the Joomla installation. HTTP route registration comes from the separate [webservices plugin](https://github.com/joomengine/mcp_webservices); local console commands come from the [console plugin](https://github.com/joomengine/mcp_plugin). Install the [combined package](https://github.com/joomengine/mcp_package) to get all three extensions together.
+JCB is a separate installation. The MCP package contains its own component and plugins; the client runs on the workstation or bridge host. Remote HTTP clients do not require server shell access.
 
-For native JCB background jobs, provide a PHP CLI executable compatible with the installed Joomla version, with `pcntl_fork`, `posix_setsid` and `proc_open` available. Select its absolute path in the component's **PHP CLI binary** setting when it differs from the automatically detected PHP executable. The web-server account must be able to launch it and write the private artifact directory outside the served Joomla tree. Worker prerequisites are checked before a write is claimed. The golden-image Dockerfile demonstrates the required CLI extension setup; ordinary Joomla API operations remain available without that job runtime.
+Configure **Canonical Joomla API URL** under **Components → JoomEngine MCP → Options** with the site's HTTPS URL ending in `/api/index.php`. The authenticated MCP endpoint adds `/v1/joomengine-mcp`, preserving any Joomla subdirectory. Supply the site base URL and a native Joomla API token to `mcp_client`. See [getting started](docs/GETTING-STARTED.md) for the complete setup.
 
-Remote AI applications can use the independent client's [Docker Compose launcher](https://github.com/joomengine/mcp_client/blob/feature/standalone-php-client/docs/DOCKER.md). Supply the HTTPS Joomla installation URL and native API token; the client discovers capabilities from this component. The console plugin is required for direct local Joomla MCP commands, while the remote client connects to the component's authenticated HTTP endpoint.
+## Capabilities and authority
 
-The combined package is built exclusively by [OctoJPack](https://github.com/octoleo/octojpack), using the fixed `.octojpack` configuration and each extension's latest tag, and published to [mcp_package](https://github.com/joomengine/mcp_package). The component version determines the package version. Run the manual **Release** workflow to freeze the changelogs, tag the component, update its own feed and hash its tagged ZIP with OctoShoom, then publish the package. The package tag automatically starts its separate feed and OctoShoom workflow in `mcp_package`. [Release instructions](docs/RELEASE.md) list the required secrets and both workflow runs.
+Published database records define providers, schemas, actions, bindings, tools, resources, prompts and targets. Reviewed PHP handlers execute them; database definitions are not executable dispatch code. The administrator application manages these definitions and exposes execution, grant, audit, job and artifact metadata through **Operations**.
 
-## Required capabilities
+HTTP uses Joomla's authenticated API user and intersects component permissions, viewing-access levels, row assets and target-resource ACL. Remote stdio through the external client retains that identity. Direct local Joomla console execution is a separate trusted server track; remote requests cannot select it. Confirmed remote writes require explicit grants, reviewed plans, confirmation, idempotency and read-back. See [security](SECURITY.md).
 
-HTTP uses Joomla's authenticated API user and intersects component permissions, viewing-access levels, row assets and target-resource ACL. Local console execution is a separate trusted-server track; remote requests cannot opt into it. Published database records define schemas, actions, bindings, tools, resources and prompts, while reviewed injected PHP handlers execute them. Database definitions are not executable dispatch code.
-
-JCB remains a required integration alongside Joomla core. Install and enable JCB and its native command plugin, then synchronize actual installed contracts through the administrator Operations screen or local console:
+Joomla core remains usable without JCB. For JCB capabilities, install and enable JCB and its native registration plugins, then refresh definitions using **Operations → Refresh JCB definitions** or:
 
 ```bash
 php cli/joomla.php joomla:mcp:jcb-sync
 ```
 
-Synchronization inspects JCB-owned API routes and registered command input definitions, then persists schemas, actions, bindings and targets. It preserves administrator customization and refuses unsupported contracts instead of silently omitting them. An absent API distribution produces no invented endpoints. Ordinary MCP discovery reads the stored catalogue and does not modify it. Repeat synchronization after changing JCB or its route/command plugins.
+Synchronization inspects actual installed JCB API routes and registered command definitions, persists schemas/actions/bindings/targets, preserves administrator customization and refuses unsupported contracts. It creates no invented endpoints when an API distribution is absent. Ordinary discovery reads the stored catalogue; repeat refresh after changing JCB or its registration plugins. Disabling or uninstalling a required registration plugin hides the affected operations from discovery and execution.
 
-Synchronized definitions record their actual registration-plugin dependencies. Disabling or uninstalling that plugin hides its operations from discovery and direct execution without requiring a catalogue rewrite. Permission requests accept only currently authorized executable scopes, including installed provider scopes such as `jcb.execute`.
+JCB package `get`, `init`, `pull`, `push`, `reset` and compilation are effectful operations. Plans freeze inputs, options and relevant definition/configuration fingerprints. Native background execution uses isolated PHP workers and durable principal-owned jobs; compiler archives become bounded, hash-verified artifact references. Cancellation and uncertain outcomes retain recovery evidence; cancellation does not roll back side effects. [JCB setup](docs/GETTING-STARTED.md#enable-jcb-operations-and-background-jobs) covers worker prerequisites; the [JCB contract and acceptance matrix](docs/integrations/JCB.md) records tested scenarios and native limitations.
 
-Package `get`, `init`, `pull`, `push`, `reset` and compilation are effectful operations requiring grants, plans and confirmation. Command options and definition/configuration fingerprints are frozen during planning. Execution uses isolated PHP workers and durable principal-owned jobs. Cancellation and uncertain outcomes retain recovery evidence; cancellation does not roll back side effects. Compiler archives become bounded, hash-verified artifact references. See the [JCB contract and acceptance matrix](docs/integrations/JCB.md).
+## Source, maintenance and release
 
-Plans describe the selected native definitions, frozen option layers, repository identity, possible effects and revision fingerprints before approval. Credentials and server paths remain private. Native API validation failures retain bounded field and checkout diagnostics so clients can correct rejected input.
+This repository owns the installable component, namespace `VDM\Component\JoomEngineMcp`. Its locked production dependencies are committed under `admin/vendor`; Composer is a maintainer tool. External connection code, remote stdio bridging, client documentation and releases belong to `mcp_client`, package `joomengine/mcp-client`. The server's outbound Joomla API transport lives in `admin/src/Http`. See [client separation and handoff](docs/CLIENT-HANDOFF.md).
 
-Joomla core remains usable without JCB. Remote HTTP and stdio clients retain their authenticated Joomla user's authority, including inside background workers. Only the genuine local console creates server-owner authority.
+For development or independent component maintenance, a GitHub source ZIP of a reviewed branch or release tag installs directly in Joomla. Installing this component alone does not install either plugin; use the combined package for a complete server installation.
 
-## Current status
+[OctoJPack](https://github.com/octoleo/octojpack) builds the combined package using the fixed `.octojpack` configuration and each extension's latest tag, then publishes it to `mcp_package`. The component version determines the package version. The manual **Release** workflow freezes component changelogs, creates its immutable tag, updates and hashes its own feed with OctoShoom, then publishes the package. The package tag starts its separate feed/hash workflow. [Release instructions](docs/RELEASE.md) cover workflow order and secrets.
 
-Native administration, installed core tests, JCB synchronization and job/artifact runtime are implemented. [Implementation status](docs/IMPLEMENTATION.md) separates historical installed Joomla/JCB evidence from verification of the current source and release changes. Published tags identify component releases; package publication belongs to `joomengine/mcp_package`.
+Native administration, installed core tests, JCB synchronization and job/artifact runtime are implemented. [Implementation status](docs/IMPLEMENTATION.md) separates historical installed Joomla/JCB evidence from verification of current source and releases. Package availability does not enlarge those runtime-specific verification boundaries.
 
-The original migration source is pinned at `joomengine/joomla-mcp@2cff50f4f6b440da3c684f9995a77efad32e1a36`. It remains unchanged. Joomla 6 native contracts are authoritative; repository/MVC/XML placement follows JCB's extension-root layout. This is hand-authored JCB-aligned source, not an already imported JCB blueprint.
+The original migration snapshot is pinned at `joomengine/joomla-mcp@2cff50f4f6b440da3c684f9995a77efad32e1a36`. Imported native handlers retain behavioral contracts and source attribution. Joomla 6 native contracts are authoritative; repository/MVC/XML placement follows JCB's extension-root layout. This is hand-authored JCB-aligned source, not a claim of an imported JCB blueprint. Explicitly unavailable inherited operations are recorded in [migration provenance](docs/migration/README.md).
 
-Imported native handlers retain the original behavioural contracts and source attribution while following the JCB PHP style. The original implementation's deliberately unavailable operations remain explicit diagnostics; they are documented in the [migration provenance](docs/migration/README.md).
+Before changing runtime code, read [architecture](docs/ARCHITECTURE.md), [database design](docs/DATABASE.md), [migration plan](docs/MIGRATION.md), [security](SECURITY.md) and [agent instructions](AGENTS.md). User-facing resource details include [custom fields](docs/CUSTOM-FIELDS.md) and [native Joomla API limitations](docs/testing/native-api-limitations.md).
 
-Read [architecture](docs/ARCHITECTURE.md), [database design](docs/DATABASE.md), [migration plan](docs/MIGRATION.md), [security](SECURITY.md), and [agent instructions](AGENTS.md) before changing the runtime.
+Changes are recorded in [CHANGELOG.md](CHANGELOG.md) and [changelog.xml](changelog.xml). Pending entries use `[[[NEXT_VERSION]]]`; the release workflow assigns their version.
 
-See [CHANGELOG.md](CHANGELOG.md) for human-readable changes and [changelog.xml](changelog.xml) for Joomla's categorized changelog. Changes awaiting release use `[[[NEXT_VERSION]]]` in both files; the release workflow assigns their version.

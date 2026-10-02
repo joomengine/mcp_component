@@ -1,5 +1,15 @@
 # Changelog
 
+## [[[NEXT_VERSION]]]
+
+### Addition
+
+- Add package-first Joomla setup, administrator-area, token/ACL, tool, confirmed-write, JCB and recovery guidance, with linked AI and direct-client connection instructions.
+
+### Change
+
+- Lead the README with the actively maintained fourth MCP build, stable package installation, repository roles and user documentation links.
+
 ## 1.0.6
 
 ### Fix
@@ -122,3 +132,4 @@
 - External client and remote stdio ownership separated into mcp_client.
 
 Development baseline entries describe existing source, not previously published releases. Published immutable tags establish release availability.
+

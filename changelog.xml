@@ -3,6 +3,17 @@
   <changelog>
     <element>com_joomengine_mcp</element>
     <type>component</type>
+    <version>[[[NEXT_VERSION]]]</version>
+    <addition>
+      <item>Add package-first Joomla setup, administrator-area, token/ACL, tool, confirmed-write, JCB and recovery guidance, with linked AI and direct-client connection instructions.</item>
+    </addition>
+    <change>
+      <item>Lead the README with the actively maintained fourth MCP build, stable package installation, repository roles and user documentation links.</item>
+    </change>
+  </changelog>
+  <changelog>
+    <element>com_joomengine_mcp</element>
+    <type>component</type>
     <version>1.0.6</version>
     <fix>
       <item>Verify empty native Registry fields across content, banner, contact and newsfeed categories and article images, URLs and metadata, while retaining strict comparison for other fields and nonempty values.</item>
@@ -117,3 +128,4 @@
     <note><item>Development baseline; published immutable tags establish release availability.</item></note>
   </changelog>
 </changelogs>
+
