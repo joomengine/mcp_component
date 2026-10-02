@@ -2,6 +2,19 @@
 
 ## [[[NEXT_VERSION]]]
 
+### Fix
+
+- Synchronize full-size installed generated API catalogues with bounded shared form-contract transport and incremental inventory fingerprints. Release the previous catalogue snapshot before refreshing, avoid an unused catalogue preload during synchronization, and reject invalid inventories or failed refreshes before reusing definitions. Preserve every native route and validation policy, and exercise the complete supplied API-enabled JCB package through repeated installed synchronization and HTTP discovery.
+
+- Preserve effective administrator input restrictions during catalogue upgrades when only the referenced schema was customized. Keep its tool, action, prompt or binding attached to that policy, including hash-detected edits and disabled schemas; verify allowed and denied requests before and after upgrade.
+
+- Identify Joomla core components through the native core-extension catalogue during API synchronization. Preserve their existing MCP bindings while supporting enabled third-party components independently of uninstall and disable protection flags; exercise registered-route synchronization and nested-filter reads in the installed Joomla and JCB checks.
+
+- Describe generated API inputs from their installed native forms, including nested subforms, GUID relationships and validation metadata. Generate a required record GUID only when the native contract calls for one, freeze it in the approved plan, and verify writes through an independently bound item read. Preserve omitted PATCH fields and report unverifiable native responses truthfully.
+
+- Support observed GUID and alternate unique-key routes across installed generated component APIs, with scoped provider permissions, bounded multiselect filters and exact independent item-read bindings. Preserve existing Joomla route encoders and unselected provider definitions during synchronization.
+
+- Accept bounded nested JSON inputs in the generic API and companion read tools while retaining selected-action validation, existing Joomla MCP behavior and administrator-owned schema policies.
 ### Addition
 
 - Add package-first Joomla setup, administrator-area, token/ACL, tool, confirmed-write, JCB and recovery guidance, with linked AI and direct-client connection instructions.
@@ -132,4 +145,3 @@
 - External client and remote stdio ownership separated into mcp_client.
 
 Development baseline entries describe existing source, not previously published releases. Published immutable tags establish release availability.
-

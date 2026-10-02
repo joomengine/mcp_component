@@ -289,4 +289,3 @@ The SDK also exposes `listResources()`, `listResourceTemplates()`, `readResource
 | Timeout during a write/job | Read the resulting operation/job state before resubmitting |
 
 See [site setup](GETTING-STARTED.md), [write confirmations](GETTING-STARTED.md#plan-and-confirm-writes), [JCB jobs](GETTING-STARTED.md#enable-jcb-operations-and-background-jobs), [administrator operations](GETTING-STARTED.md#use-the-administrator-areas), [security](../SECURITY.md) and the [client README](https://github.com/joomengine/mcp_client).
-

@@ -45,6 +45,81 @@
         ],
         "$schema": "http://json-schema.org/draft-07/schema#"
       }
+    },
+    {
+      "name": "joomla_action_read",
+      "reason": "Generic read actions accept bounded JSON-valued arguments, including nested filters and objects declared by installed extension action schemas. The action-specific schema and shared input depth, collection, field-name and byte bounds remain authoritative; routes, handlers and authority remain server controlled.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "site": {
+            "description": "Configured site alias; omit for the default site.",
+            "type": "string",
+            "minLength": 1
+          },
+          "action": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 160
+          },
+          "input": {
+            "description": "Bounded JSON argument object validated again against the selected action schema. Nested objects and arrays retain their JSON types.",
+            "default": {},
+            "type": "object",
+            "maxProperties": 512,
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          },
+          "transport": {
+            "default": "auto",
+            "type": "string",
+            "enum": [
+              "auto",
+              "api",
+              "cli"
+            ]
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "joomla_companion_action_read",
+      "reason": "The local companion read envelope accepts the same bounded JSON-valued action arguments as generic reads. Native action schemas, trusted CLI authority and shared input limits still validate every invocation.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "site": {
+            "description": "Configured site alias; omit for the default site.",
+            "type": "string",
+            "minLength": 1
+          },
+          "action": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 160
+          },
+          "input": {
+            "description": "Bounded JSON argument object validated again against the selected native action schema. Nested objects and arrays retain their JSON types.",
+            "default": {},
+            "type": "object",
+            "maxProperties": 512,
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
     }
   ],
   "tools": [

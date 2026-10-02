@@ -1,0 +1,25 @@
+{
+	"fixture": "Compiler-rendered routing fixture for the supplied full JCB API; the historical linked webservices plugin is absent from this package.",
+	"package": "com_componentbuilder_v6_1_6__J6(1).zip",
+	"package_sha256": "a5870a1b162c9db1f8c23b87562389c46260838f471914132ef1d3d66fb8f55a",
+	"package_bytes": 14597657,
+	"package_entries": 6437,
+	"controller_digest_format": "Sorted package-relative path, NUL, SHA256 of file bytes, LF.",
+	"controller_sha256": "f2aa066598ddf22ae34cb10ef65f553b679c55b1fdbca65edea986fe24ac3926",
+	"controllers": 104,
+	"administrator_pairs": 51,
+	"guid_items": 21,
+	"readonly_lists": [
+		"compiler",
+		"extrusion"
+	],
+	"native_routes": 320,
+	"native_methods": {
+		"GET": 125,
+		"POST": 51,
+		"PATCH": 72,
+		"DELETE": 72
+	},
+	"renderer": "libraries/vendor_jcb/VDM.Joomla/src/Componentbuilder/Compiler/Architecture/Api/Plugin/Routes.php",
+	"projection": "Literal controller contentType/default_view, item getRecordId unique-key literals, and dynamic Administrator model binding. Native Resources and RecordId determine routing."
+}

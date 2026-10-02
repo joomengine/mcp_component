@@ -539,3 +539,5 @@ foreach ($native['actions'] as $row)
 }
 
 echo Json::encode(['checks' => $checks, 'sourceParity' => 'all inventoried tools/actions and native constructor contracts', 'cataloguePolicy' => 'passed', 'encryption' => 'passed', 'liveJoomla' => 'not run by this unit suite']) . PHP_EOL;
+
+require __DIR__ . '/schema-upgrade.php';

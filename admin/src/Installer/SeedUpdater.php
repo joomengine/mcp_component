@@ -114,7 +114,8 @@ final class SeedUpdater
 						$managedProviders[(int) $current['id']] = true;
 					}
 
-					if ((int) $current['customized'] !== 0 || !hash_equals($current['seed_hash'], self::hash($entity, $current)))
+					if ((int) $current['customized'] !== 0 || !hash_equals($current['seed_hash'], self::hash($entity, $current))
+						|| $this->replacesOwnedSchema($current, $record))
 					{
 						$counts['preserved']++;
 						continue;
@@ -171,6 +172,41 @@ final class SeedUpdater
 
 			return $counts;
 		});
+	}
+
+	/**
+	 * Preserve an effective administrator policy when a seed replaces its schema.
+	 *
+	 * A schema-only edit owns its dependants' existing validation relationship,
+	 * even when those tool, action, prompt or binding rows are otherwise pristine.
+	 * Keeping only the old schema row would silently bypass its restrictions.
+	 * Output policy references are retained by the same rule. Missing schemas
+	 * likewise remain unavailable rather than being bypassed.
+	 *
+	 * @param array<string,mixed> $current Installed definition.
+	 * @param array<string,mixed> $record Proposed remapped seed definition.
+	 * @return bool A proposed schema reference would discard an owned policy.
+	 * @since 1.0.6
+	 */
+	private function replacesOwnedSchema(array $current, array $record): bool
+	{
+		foreach (['input_schema_id', 'output_schema_id'] as $field)
+		{
+			if (empty($current[$field]) || (int) $current[$field] === (int) ($record[$field] ?? 0))
+			{
+				continue;
+			}
+
+			$schema = $this->store->one('schema', ['id' => (int) $current[$field]]);
+
+			if ($schema === null || (int) $schema['customized'] !== 0 || $schema['seed_revision'] === ''
+				|| !hash_equals($schema['seed_hash'], self::hash('schema', $schema)))
+			{
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	/** @param string $entity Fixed definition type. @param array<string,mixed> $record Current values. @return string Seed ownership hash, portable across database scalar types. @since 0.1.0 */

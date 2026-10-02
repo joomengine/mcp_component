@@ -77,8 +77,6 @@ final class Runtime implements ConsoleRuntimeInterface
 				return $this->write(['protocol' => 'joomla-mcp/1', 'ok' => false, 'error' => ['code' => 'INVALID_FORMAT', 'message' => 'Unsupported command framing.']]);
 			}
 
-			$this->runtime->catalogue()->refresh();
-
 			if ($operation === 'jcb-sync')
 			{
 				if ($this->synchronizeJcb === null)
@@ -88,6 +86,8 @@ final class Runtime implements ConsoleRuntimeInterface
 
 				return $this->write(['protocol' => 'joomla-mcp/1', 'ok' => true, 'catalogue' => ($this->synchronizeJcb)()]);
 			}
+
+			$this->runtime->catalogue()->refresh();
 
 			if ($operation === 'describe')
 			{

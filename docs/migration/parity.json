@@ -1,6 +1,6 @@
 {
     "source": "2cff50f4f6b440da3c684f9995a77efad32e1a36",
-    "runtimeSource": "79df3a13fa43f91c179b3ec0dd21e185c6b56002c42fd580cba91a12443e16b1",
+    "runtimeSource": "cff50874f34211ee5274c34647feea6a58d7b5fe05058a7948fb0b8f47ce1c03",
     "tools": [
         "joomla_sites_list",
         "joomla_capabilities",
@@ -68,7 +68,9 @@
         "joomla_job_artifact_read"
     ],
     "runtimeSchemaOverrides": {
-        "joomla_permission_request": "Permission scopes come from enabled, authorized write actions in the installed database catalogue, including extension providers. The immutable source enum described only the original core catalogue; Permissions remains the authoritative scope and ACL check."
+        "joomla_permission_request": "Permission scopes come from enabled, authorized write actions in the installed database catalogue, including extension providers. The immutable source enum described only the original core catalogue; Permissions remains the authoritative scope and ACL check.",
+        "joomla_action_read": "Generic read actions accept bounded JSON-valued arguments, including nested filters and objects declared by installed extension action schemas. The action-specific schema and shared input depth, collection, field-name and byte bounds remain authoritative; routes, handlers and authority remain server controlled.",
+        "joomla_companion_action_read": "The local companion read envelope accepts the same bounded JSON-valued action arguments as generic reads. Native action schemas, trusted CLI authority and shared input limits still validate every invocation."
     },
     "runtimeBindingSchemaOverrides": {
         "modules.site.create.api": "Issue #24: make the accepted module create ordering contract explicit before mutation, including native automatic assignment for zero or omitted ordering.",
@@ -2088,7 +2090,7 @@
     },
     "counts": {
         "provider": 1,
-        "schema": 413,
+        "schema": 415,
         "action": 285,
         "binding": 467,
         "tool": 30,

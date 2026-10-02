@@ -10,6 +10,7 @@ namespace VDM\Component\JoomEngineMcp\Administrator\Service;
 
 
 use Closure;
+use stdClass;
 use Throwable;
 use VDM\Component\JoomEngineMcp\Administrator\Contract\DeferredHandlerInterface;
 use VDM\Component\JoomEngineMcp\Administrator\Contract\PlannedHandlerInterface;
@@ -124,10 +125,12 @@ final class ActionExecutor
 		$document = $this->catalogue->schema((int) $resolved['binding']['input_schema_id']);
 		$schema = SchemaDocument::decode($document);
 		$context = CustomFields::context($resolved);
+		$form = $resolved['binding']['configuration']['api_form'] ?? null;
+		$native = $resolved['binding']['track'] === 'api' && is_array($form) ? ['nativeForm' => $form] : [];
 
 		if ($context === null)
 		{
-			return ['inputSchema' => $schema];
+			return ['inputSchema' => $schema] + $native;
 		}
 
 		try
@@ -137,13 +140,13 @@ final class ActionExecutor
 		catch (OperationException)
 		{
 			return ['inputSchema' => $schema, 'customFields' => $context + ['status' => 'unavailable', 'fields' => [],
-				'reason' => 'Custom field discovery requires access to the matching fields list read action.']];
+				'reason' => 'Custom field discovery requires access to the matching fields list read action.']] + $native;
 		}
 
 		$metadata = $this->customFields($context, Json::decode($document));
 		$schema['properties']['data']['properties'] = (array) ($schema['properties']['data']['properties'] ?? []);
 
-		return ['inputSchema' => CustomFields::schema($schema, $metadata, true), 'customFields' => $metadata];
+		return ['inputSchema' => CustomFields::schema($schema, $metadata, true), 'customFields' => $metadata] + $native;
 	}
 
 	/**
@@ -217,7 +220,10 @@ final class ActionExecutor
 			$input = CustomFields::normalize($input, $resolved['custom_fields']);
 		}
 
+		[$input, $generated] = $this->generatedInput($resolved, $input, $idempotencyKey);
+
 		$input = $this->validate($resolved, $input);
+		$verification = $this->verificationPolicy($resolved);
 		$before = $handler instanceof PlannedHandlerInterface ? null : $this->snapshot($resolved, $input);
 		$delete = $this->articleDeletionPolicy($resolved, $input, $before);
 		$preflight = $this->preflight($resolved, $input, $before);
@@ -249,6 +255,11 @@ final class ActionExecutor
 			$preview['customFields'] = $resolved['custom_fields'];
 		}
 
+		if ($generated !== [])
+		{
+			$preview['generatedFields'] = $generated;
+		}
+
 		if ($menu !== null)
 		{
 			$preview['menuComponent'] = MenuItemComponents::preview($menu);
@@ -275,6 +286,7 @@ final class ActionExecutor
 		return $this->executions->plan($resolved, [
 			'input' => $input, 'before' => $before,
 			'custom_fields' => $resolved['custom_fields'] ?? null,
+			'api_verification' => $verification,
 			'menu_component' => $resolved['menu_component'] ?? null,
 			'delete_verification' => $delete,
 			'prepared' => $handler instanceof PlannedHandlerInterface ? $preflight : null,
@@ -318,6 +330,11 @@ final class ActionExecutor
 		}
 
 		$this->executions->assertFresh($plan, $resolved);
+
+		if (isset($plan['payload']['api_verification']))
+		{
+			$resolved['api_verification'] = $this->verificationPolicy($resolved, $plan['payload']['api_verification']);
+		}
 
 		if (isset($plan['payload']['delete_verification']))
 		{
@@ -573,6 +590,47 @@ final class ActionExecutor
 		return $this->schemas->input($input, $document);
 	}
 
+	/**
+	 * Supply only an explicitly required client-generated primary GUID on create.
+	 *
+	 * The stable caller key determines one approved identity across repeated plans.
+	 * Apply uses the encrypted approved input and never generates another GUID.
+	 * Relationship identifiers and native server-generated values are untouched.
+	 *
+	 * @param array $resolved Authorized installed API definition.
+	 * @param array $input Original caller arguments.
+	 * @param string $key Validated stable operation key.
+	 * @return array Pair of complete arguments and disclosed generated fields.
+	 * @since 1.0.6
+	 */
+	private function generatedInput(array $resolved, array $input, string $key): array
+	{
+		$binding = $resolved['binding'];
+		$config = $binding['configuration'];
+		$policy = $config['api_form']['generation']['guid'] ?? null;
+		$data = $input['data'] ?? null;
+
+		if ($binding['track'] !== 'api' || $binding['handler'] !== 'api.request'
+			|| ($config['operation'] ?? '') !== 'create' || ($config['method'] ?? '') !== 'POST'
+			|| !is_array($policy) || ($policy['kind'] ?? '') !== 'guid'
+			|| ($policy['on'] ?? '') !== 'create' || ($policy['format'] ?? '') !== 'uuid-v4'
+			|| (!is_array($data) && !$data instanceof stdClass)
+			|| (is_array($data) && array_is_list($data)) || array_key_exists('guid', (array) $data))
+		{
+			return [$input, []];
+		}
+
+		$hash = hash('sha256', Json::canonical(['joomengine-mcp/generated-api-guid/v1',
+			$this->principal->getId(), $this->settings->get('site_alias'), $this->settings->get('api_base'),
+			$resolved['action']['name'], Json::requireUuid($key)]));
+		$guid = substr($hash, 0, 8) . '-' . substr($hash, 8, 4) . '-4' . substr($hash, 13, 3)
+			. '-' . dechex((hexdec($hash[16]) & 3) | 8) . substr($hash, 17, 3) . '-' . substr($hash, 20, 12);
+		$input['data'] = (array) $data + ['guid' => $guid];
+
+		return [$input, ['guid' => ['value' => $guid, 'kind' => 'guid', 'source' => 'installed-native-form',
+			'reason' => 'The installed create form explicitly requires a primary GUID without a default or native server generation.']]];
+	}
+
 	/** @param array $context Reviewed API context. @param array $schema Static write schema. @return array Frozen discovery metadata. @since 1.0.0 */
 	private function customFields(array $context, array $schema): array
 	{
@@ -760,6 +818,39 @@ final class ActionExecutor
 	}
 
 	/**
+	 * Freeze the independent identity read used by a generated API write.
+	 *
+	 * @param array $resolved Authorized write definition.
+	 * @param ?array $expected Read definition approved during planning.
+	 * @return ?array Bound read identity, or null for unchanged legacy bindings.
+	 * @since 1.0.6
+	 */
+	private function verificationPolicy(array $resolved, ?array $expected = null): ?array
+	{
+		$rule = $this->verification($resolved);
+
+		if ($resolved['binding']['track'] !== 'api' || !isset($rule['identity_type']) || empty($rule['read_action']))
+		{
+			return null;
+		}
+
+		if ($expected !== null)
+		{
+			$this->catalogue->refresh();
+		}
+
+		$read = $this->resolve($rule['read_action'], 'api', 'read');
+		$policy = ['action' => $read['action']['name'], 'revision' => $read['revision']];
+
+		if ($expected !== null && Json::canonical($policy) !== Json::canonical($expected))
+		{
+			throw new OperationException('PLAN_STALE', 'The approved independent API verification definition changed.');
+		}
+
+		return $policy;
+	}
+
+	/**
 	 * Freeze independent authorized native read definitions and collection visibility.
 	 *
 	 * The collection fallback is optional: an unavailable collection cannot prevent
@@ -932,13 +1023,16 @@ final class ActionExecutor
 
 		$rule = $this->verification($resolved);
 
-		if (empty($rule['read_action']) || ($rule['operation'] ?? '') === 'create' || !isset($input['id']))
+		$inputKey = $rule['input_key'] ?? 'id';
+
+		if (empty($rule['read_action']) || ($rule['operation'] ?? '') === 'create' || !isset($input[$inputKey]))
 		{
 			return null;
 		}
 
 		$read = $this->resolve($rule['read_action'], $resolved['binding']['track'], 'read');
-		$arguments = $this->readArguments($read, $input);
+		$arguments = $this->readArguments($read, isset($rule['identity_type'])
+			? array_replace($input, [($rule['read_input_key'] ?? $inputKey) => $input[$inputKey]]) : $input);
 
 		if ($this->messageSnapshots !== null || isset($expected['snapshotContract']))
 		{
@@ -994,6 +1088,13 @@ final class ActionExecutor
 		$result = $this->invoke($read, $arguments);
 		$item = $this->item($result, $read['binding']['track']);
 
+		if (isset($rule['identity_type'])
+			&& (($identity = ApiWriteVerification::identity($input[$inputKey], $rule['identity_type'])) === null
+				|| ApiWriteVerification::identity($item[$rule['primary_key'] ?? 'id'] ?? null, $rule['identity_type']) !== $identity))
+		{
+			throw new OperationException('PRECONDITION_CHANGED', 'The independent API snapshot does not identify the requested resource.');
+		}
+
 		if ($resolved['binding']['track'] === 'api'
 			&& preg_match('/\Amenus\.(site|administrator)-items\.update\z/D', $resolved['action']['name'], $menu) === 1
 			&& (MenuItemComponents::identifier($item['id'] ?? null) !== $input['id']
@@ -1018,15 +1119,38 @@ final class ActionExecutor
 		$operation = $rule['operation'] ?? '';
 		$primary = $rule['primary_key'] ?? 'id';
 		$item = $this->item($mutation, $track);
-		$id = $input['id'] ?? $mutation['id'] ?? $item[$primary] ?? null;
+		$inputKey = $rule['input_key'] ?? 'id';
+		$id = isset($rule['identity_type'])
+			? ($input[$inputKey] ?? $item[$primary] ?? $input['data'][$primary] ?? null)
+			: ($input['id'] ?? $mutation['id'] ?? $item[$primary] ?? null);
 
-		if (empty($rule['read_action']) || $id === null)
+		if (empty($rule['read_action']))
 		{
 			return ['status' => 'notPerformed', 'reason' => 'The handler acknowledged completion but declares no independent resource read-back for this operation.'];
 		}
 
+		if (isset($rule['identity_type']))
+		{
+			$id = ApiWriteVerification::identity($id, $rule['identity_type']);
+
+			if ($id === null || (array_key_exists($primary, $item)
+				&& ApiWriteVerification::identity($item[$primary], $rule['identity_type']) !== $id))
+			{
+				return ['status' => 'uncertain', 'reason' => 'The mutation did not expose a valid matching resource identity for independent API verification.'];
+			}
+		}
+		elseif ($id === null)
+		{
+			return ['status' => 'notPerformed', 'reason' => 'The handler acknowledged completion but declares no independent resource read-back for this operation.'];
+		}
+
+		if (isset($resolved['api_verification']))
+		{
+			$this->verificationPolicy($resolved, $resolved['api_verification']);
+		}
 		$read = $this->resolve($rule['read_action'], $track, 'read');
-		$arguments = $this->readArguments($read, array_replace($input, ['id' => is_numeric($id) ? (int) $id : $id]));
+		$arguments = $this->readArguments($read, array_replace($input, isset($rule['identity_type'])
+			? [($rule['read_input_key'] ?? $inputKey) => $id] : ['id' => is_numeric($id) ? (int) $id : $id]));
 
 		try
 		{
@@ -1061,6 +1185,11 @@ final class ActionExecutor
 
 			$record = $this->item($observed, $track);
 
+			if (isset($rule['identity_type']) && ApiWriteVerification::identity($record[$primary] ?? null, $rule['identity_type']) !== $id)
+			{
+				return ['status' => 'uncertain', 'reason' => 'The deletion read-back did not identify the requested resource.', 'id' => $id];
+			}
+
 			if (!isset($resolved['delete_verification']) && ($record[$rule['state_field'] ?? 'state'] ?? null) == -2)
 			{
 				return ['status' => 'verified', 'postcondition' => 'resource-trashed', 'id' => $id];
@@ -1074,6 +1203,11 @@ final class ActionExecutor
 		if ($record === [])
 		{
 			return ['status' => 'uncertain', 'reason' => 'The written resource could not be read back.', 'id' => $id];
+		}
+
+		if (isset($rule['identity_type']) && ApiWriteVerification::identity($record[$primary] ?? null, $rule['identity_type']) !== $id)
+		{
+			return ['status' => 'uncertain', 'reason' => 'The independent API read-back did not identify the written resource.', 'id' => $id];
 		}
 
 		$desired = $operation === 'state' ? [($rule['state_field'] ?? 'state') => $input['state']] : ($input['data'] ?? []);
@@ -1092,9 +1226,17 @@ final class ActionExecutor
 		$different = [];
 		$unobservable = [];
 		$automaticOrdering = ApiWriteVerification::automaticOrdering($resolved, $input) !== null;
+		$requestOnly = ApiWriteVerification::requestOnly($resolved, $read);
+		$controls = [];
 
 		foreach ($desired as $field => $value)
 		{
+			if (in_array($field, $requestOnly, true))
+			{
+				$controls[] = $field;
+				continue;
+			}
+
 			if ($automaticOrdering && $field === 'ordering')
 			{
 				// Zero requests native assignment; it is not a literal persisted value.
@@ -1124,6 +1266,12 @@ final class ActionExecutor
 			'unobservableFields' => $unobservable, 'differentFields' => $different,
 			'reason' => $different === [] ? 'Read-back confirms the listed observable fields; write-only fields cannot be compared.' : 'Joomla may have filtered or changed requested fields. Reconcile the persisted record before another write.',
 		];
+
+		if ($controls !== [])
+		{
+			$verification['requestOnlyFields'] = $controls;
+			$verification['reason'] .= ' Declared request-only controls are listed separately; their persistence is not claimed.';
+		}
 
 		if ($automaticOrdering)
 		{

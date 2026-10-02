@@ -11,6 +11,7 @@ use Joomla\Application\ApplicationEvents;
 use Joomla\Application\Event\ApplicationEvent;
 use Joomla\CMS\Application\ApiApplication;
 use Joomla\CMS\Event\Application\BeforeApiRouteEvent;
+use Joomla\CMS\Extension\ExtensionHelper;
 use Joomla\CMS\Factory;
 use Joomla\CMS\Language\LanguageFactoryInterface;
 use Joomla\CMS\Plugin\PluginHelper;
@@ -27,12 +28,16 @@ use VDM\Component\JoomEngineMcp\Administrator\Console\Bootstrap;
 use VDM\Component\JoomEngineMcp\Administrator\Console\WorkerApplication;
 use VDM\Component\JoomEngineMcp\Administrator\Domain\OperationException;
 use VDM\Component\JoomEngineMcp\Administrator\Jcb\ApiRegistry;
+use VDM\Component\JoomEngineMcp\Administrator\Jcb\CatalogueBuilder;
 use VDM\Component\JoomEngineMcp\Administrator\Jcb\CommandOutput;
+use VDM\Component\JoomEngineMcp\Administrator\Jcb\GeneratedApiInventory;
+use VDM\Component\JoomEngineMcp\Administrator\Jcb\InventoryTransport;
 use VDM\Component\JoomEngineMcp\Administrator\Jcb\RegistrationObserver;
 use VDM\Component\JoomEngineMcp\Administrator\Jcb\Worker;
 use VDM\Component\JoomEngineMcp\Administrator\Security\ConsoleIdentity;
 use VDM\Component\JoomEngineMcp\Administrator\Security\JoomlaPrincipal;
 use VDM\Component\JoomEngineMcp\Administrator\Security\LocalPrincipal;
+use VDM\Component\JoomEngineMcp\Administrator\Service\Json;
 
 if (PHP_SAPI !== 'cli')
 {
@@ -45,6 +50,7 @@ ini_set('display_errors', 'stderr');
 // MCP artifact storage applies its own explicit private directory/file modes.
 $level = ob_get_level();
 ob_start(static fn (string $output): string => '', 4096);
+$json = null;
 
 try
 {
@@ -99,7 +105,8 @@ try
 		$principal = new JoomlaPrincipal($user);
 		$app->loadIdentity($user);
 
-		if (!$principal->authorise('mcp.access', 'com_joomengine_mcp') || !$principal->authorise('core.admin', 'com_componentbuilder'))
+		$asset = $request['operation'] === 'jcb.inventory' ? 'com_joomengine_mcp' : 'com_componentbuilder';
+		if (!$principal->authorise('mcp.access', 'com_joomengine_mcp') || !$principal->authorise('core.admin', $asset))
 		{
 			throw new OperationException('JCB_ACCESS_DENIED', 'The original Joomla user no longer authorizes JCB execution.');
 		}
@@ -142,17 +149,37 @@ try
 	if ($request['operation'] === 'jcb.inventory')
 	{
 		$commands = $worker->inventory();
+		if (!$principal->isLocal() && CatalogueBuilder::hasCommandScope($commands)
+			&& !$principal->authorise('core.admin', 'com_componentbuilder'))
+		{
+			throw new OperationException('JCB_CATALOGUE_DENIED', 'Native JCB administration permission is required to synchronize registered JCB commands.');
+		}
 		$api = $container->get(ApiApplication::class);
 		$api->loadIdentity($app->getIdentity());
 		Factory::$application = $api;
 
 		try
 		{
+			$database = $container->get(DatabaseInterface::class);
+			$query = $database->createQuery()->select($database->quoteName(['type', 'element', 'enabled']))
+				->from($database->quoteName('#__extensions'))
+				->where($database->quoteName('type') . ' = ' . $database->quote('component'));
+			$coreComponents = array_map(static fn (array $extension): string => $extension[1], array_filter(
+				ExtensionHelper::getCoreExtensions(), static fn (array $extension): bool => $extension[0] === 'component'));
+			$components = GeneratedApiInventory::components($database->setQuery($query)->loadAssocList(), $coreComponents);
+			$components = array_values(array_filter($components, static fn (string $component): bool =>
+				$principal->isLocal() || $principal->authorise('core.admin', $component)));
+			if (in_array('com_componentbuilder', $components, true))
+			{
+				$commands['component'] = 'com_componentbuilder';
+			}
 			$router = new ApiRouter($api);
 			PluginHelper::importPlugin('webservices', null, true, $dispatcher);
 			$owners = $observer->dispatch($dispatcher, new BeforeApiRouteEvent('onBeforeApiRoute', ['router' => $router, 'subject' => $api]),
 				static fn (): array => $router->getRoutes());
-			$result = ['commands' => $commands, 'api' => (new ApiRegistry($router, $owners))->inventory()];
+			$inventory = (new ApiRegistry($router, $owners, $components))->inventory();
+			$result = ['commands' => $commands, 'api' => GeneratedApiInventory::enrich($inventory,
+				JPATH_ADMINISTRATOR . '/components', JPATH_ROOT . '/api/components')];
 		}
 		finally
 		{
@@ -169,9 +196,19 @@ try
 	}
 
 	$result = ['protocol' => 'joomengine-worker/1'] + $result;
+	if ($request['operation'] === 'jcb.inventory' && isset($request['inventory_format']))
+	{
+		if ($request['inventory_format'] !== InventoryTransport::FORMAT)
+		{
+			throw new OperationException('JCB_INVENTORY_INVALID', 'The requested native inventory encoding is unsupported.');
+		}
+		$result = InventoryTransport::pack($result);
+		$json = Json::encode($result, InventoryTransport::MAX_WIRE_BYTES);
+	}
 }
 catch (Throwable $error)
 {
+	$json = null;
 	$result = ['protocol' => 'joomengine-worker/1', 'error' => $error instanceof OperationException
 		? $error->toArray() : ['code' => 'JCB_WORKER_FAILED', 'message' => 'The native JCB worker could not complete this request.']];
 }
@@ -181,7 +218,7 @@ while (ob_get_level() > $level)
 	ob_end_clean();
 }
 
-$json = json_encode($result, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+$json ??= json_encode($result, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
 for ($offset = 0, $length = strlen($json); $offset < $length; $offset += $written)
 {
 	$written = fwrite(STDOUT, substr($json, $offset));

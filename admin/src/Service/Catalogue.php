@@ -112,6 +112,16 @@ final class Catalogue
 	 */
 	public function refresh(): void
 	{
+		// Release the previous parsed graph before constructing its replacement.
+		// Binding indexes also retain native form graphs. A failed load must leave
+		// no old authorized snapshot available; publish only the complete new rows.
+		$this->records = [];
+		$this->names = [];
+		$this->actionBindings = [];
+		$this->visibility = [];
+		$this->resolvedBindings = [];
+		$this->extensions = [];
+		$this->validatedSchemas = [];
 		$records = [];
 		$names = [];
 		$bindings = [];
@@ -179,10 +189,6 @@ final class Catalogue
 		$this->records = $records;
 		$this->names = $names;
 		$this->actionBindings = $bindings;
-		$this->visibility = [];
-		$this->resolvedBindings = [];
-		$this->extensions = [];
-		$this->validatedSchemas = [];
 	}
 
 	/**
