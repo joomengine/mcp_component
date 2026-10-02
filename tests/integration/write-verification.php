@@ -273,6 +273,28 @@ finally
 			}
 			$model->setCurrentUser($admin);
 			$check($model->publish($ids, -2) && $model->delete($ids), 'Remove owned ' . $table . ' through the native lifecycle');
+			if ($table === 'categories')
+			{
+				// Joomla can retain category history under the content type alias
+				// even when the owned category belongs to another extension.
+				$history = $db->setQuery('SELECT version_id, version_data FROM ' . $db->quoteName('#__history')
+					. ' WHERE item_id = ' . $db->quote('com_content.category.' . $id))->loadAssocList();
+				foreach ($history as $version)
+				{
+					$data = Json::decode($version['version_data']);
+					if ((int) ($data['id'] ?? 0) !== $id || ($data['title'] ?? null) !== $row['title']
+						|| $rows('categories', 'id', (string) $id) !== [])
+					{
+						throw new RuntimeException('Owned category history cleanup identity mismatch.');
+					}
+					$historyTable = new \Joomla\CMS\Table\ContentHistory($db);
+					$historyTable->setCurrentUser($admin);
+					if (!$historyTable->delete((int) $version['version_id']))
+					{
+						throw new RuntimeException('Owned category history cleanup failed.');
+					}
+				}
+			}
 		}
 		$check((int) $db->setQuery($db->createQuery()->select('COUNT(*)')->from($db->quoteName('#__' . $table))
 			->where($db->quoteName($field) . ' LIKE ' . $db->quote($prefix . '-%')))->loadResult() === 0, 'No owned ' . $table . ' remain');

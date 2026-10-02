@@ -410,6 +410,25 @@ finally
 						}
 					}
 					$check($rows($fixture['table'], ['id' => $id]) === [], 'Owned native row is absent after cleanup');
+					if ($fixture['table'] === 'categories')
+					{
+						// Match the exact removed fixture, including Joomla's retained
+						// content-category alias for another extension's history.
+						foreach ($rows('history', ['item_id' => 'com_content.category.' . $id]) as $version)
+						{
+							$data = Json::decode($version['version_data']);
+							if ((int) ($data['id'] ?? 0) !== $id || ($data['title'] ?? null) !== $row['title'])
+							{
+								throw new RuntimeException('Owned category history cleanup identity mismatch.');
+							}
+							$historyTable = new \Joomla\CMS\Table\ContentHistory($db);
+							$historyTable->setCurrentUser($admin);
+							if (!$historyTable->delete((int) $version['version_id']))
+							{
+								throw new RuntimeException('Owned category history cleanup failed.');
+							}
+						}
+					}
 					if ($bucket === 'fields')
 					{
 						$check($rows('fields_values', ['field_id' => $id]) === [], 'No owned custom-field value rows remain');
