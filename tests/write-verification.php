@@ -137,13 +137,25 @@ $run = static function (string $action, array $data, array $record, string $stat
 	return $f + compact('dry', 'plan', 'result');
 };
 
-// Only the native category params field equates requested {} with its empty Registry read-back.
-foreach (['create', 'update'] as $operation)
+// The four category APIs share the native empty params Registry contract.
+foreach (['content.categories', 'banners.categories', 'contacts.categories', 'newsfeeds.categories'] as $resource)
 {
-	$f = $run('content.categories.' . $operation, ['title' => 'Category', 'params' => new stdClass()], ['title' => 'Category', 'params' => []], 'verified');
-	$check(in_array('params', $f['result']['verification']['matchedFields'], true), 'An empty native category Registry must be verified as empty.');
-	$stored = $f['state']->resolve($f['plan']['confirmationToken']);
-	$check($stored['payload']['input']['data']['params'] instanceof stdClass, 'Verification must not rewrite the approved empty object into a list.');
+	foreach (['create', 'update'] as $operation)
+	{
+		foreach ([[], new stdClass()] as $empty)
+		{
+			$f = $run($resource . '.' . $operation, ['title' => 'Category', 'params' => new stdClass()], ['title' => 'Category', 'params' => $empty], 'verified');
+			$check(in_array('params', $f['result']['verification']['matchedFields'], true), 'An empty native category Registry must be verified as empty.');
+			$stored = $f['state']->resolve($f['plan']['confirmationToken']);
+			$check($stored['payload']['input']['data']['params'] instanceof stdClass, 'Verification must not rewrite the approved empty object into a list.');
+		}
+		foreach ([null, false, '', ['unexpected' => true], (object) ['0' => 'value']] as $observed)
+		{
+			$f = $run($resource . '.' . $operation, ['title' => 'Category', 'params' => new stdClass()], ['title' => 'Category', 'params' => $observed], 'uncertain');
+			$check($f['result']['verification']['differentFields'] === ['params'], 'Only an actually empty Registry may satisfy an empty object request.');
+		}
+		$run($resource . '.' . $operation, ['title' => 'Category', 'params' => new stdClass()], ['title' => 'Changed category', 'params' => []], 'uncertain');
+	}
 }
 $run('content.categories.create', ['title' => 'Category'], ['title' => 'Category', 'params' => []], 'verified');
 $f = $run('content.categories.create', ['title' => 'Category', 'metadata' => new stdClass()], ['title' => 'Category'], 'partial');
@@ -163,6 +175,35 @@ foreach ([
 }
 $run('content.categories.create', ['title' => 'Category', 'params' => new stdClass()], ['title' => 'Filtered title', 'params' => []], 'uncertain');
 $run('content.categories.create', ['title' => 'Category', 'params' => ['first', 'second']], ['title' => 'Category', 'params' => ['second', 'first']], 'uncertain');
+
+// Article bags have the same empty representation; unexposed attribs stay unobservable.
+foreach (['create', 'update'] as $operation)
+{
+	$data = ['title' => 'Article', 'images' => new stdClass(), 'urls' => new stdClass(), 'metadata' => new stdClass()];
+	$record = ['title' => 'Article', 'images' => [], 'urls' => [], 'metadata' => []];
+	$f = $run('content.articles.' . $operation, $data, $record, 'verified');
+	$check($f['result']['verification']['matchedFields'] === array_keys($data), 'Each independently visible empty article Registry is matched.');
+	$f = $run('content.articles.' . $operation, $data + ['attribs' => new stdClass()], $record, 'partial');
+	$check($f['result']['verification']['unobservableFields'] === ['attribs'], 'Unexposed article attributes must not become verified.');
+	foreach (['images', 'urls', 'metadata'] as $field)
+	{
+		foreach ([null, false, '', ['unexpected' => true], (object) ['0' => 'value']] as $observed)
+		{
+			$f = $run('content.articles.' . $operation, $data, array_replace($record, [$field => $observed]), 'uncertain');
+			$check($f['result']['verification']['differentFields'] === [$field], 'Nonempty and malformed article Registry read-backs remain different.');
+		}
+		foreach ([
+			[['enabled' => 1], ['enabled' => 0]],
+			[['nested' => new stdClass()], ['nested' => []]],
+			[(object) ['0' => 'first'], ['first']],
+			[['first', 'second'], ['second', 'first']],
+		] as [$desired, $observed])
+		{
+			$run('content.articles.' . $operation, array_replace($data, [$field => $desired]), array_replace($record, [$field => $observed]), 'uncertain');
+		}
+	}
+	$run('content.articles.' . $operation, $data, array_replace($record, ['title' => 'Changed article']), 'uncertain');
+}
 
 // Memberships are an exact set of positive IDs, not arbitrary array/object equivalence.
 foreach ([
@@ -257,6 +298,25 @@ $changed = $categoryRead;
 $changed['binding']['configuration']['route'] = '/v1/other/categories/:id';
 $check(ApiWriteVerification::compare($category, $changed, 'params', new stdClass(), []) === null, 'Customized read bindings must not gain the category exception.');
 $check(ApiWriteVerification::compare($category, $categoryRead, 'metadata', new stdClass(), []) === null, 'Empty metadata is not the category params contract.');
+foreach (['banners.categories' => 'params', 'contacts.categories' => 'params', 'newsfeeds.categories' => 'params',
+	'content.articles' => 'images'] as $resource => $field)
+{
+	$write = $f['catalogue']->action($resource . '.create');
+	$read = $f['catalogue']->action($resource . '.get');
+	foreach ([['track', 'cli'], ['handler', 'fixture.handler']] as [$key, $value])
+	{
+		$changed = $write;
+		$changed['binding'][$key] = $value;
+		$check(ApiWriteVerification::compare($changed, $read, $field, new stdClass(), []) === null, 'Empty Registry semantics require the native API handler.');
+	}
+	foreach (['route' => '/v1/other/:id', 'method' => 'POST', 'authentication' => 'other', 'select_fields' => [$field]] as $key => $value)
+	{
+		$changed = $read;
+		$changed['binding']['configuration'][$key] = $value;
+		$check(ApiWriteVerification::compare($write, $changed, $field, new stdClass(), []) === null, 'A modified read contract cannot gain empty Registry semantics.');
+	}
+	$check(ApiWriteVerification::compare($write, $read, 'attribs', new stdClass(), []) === null, 'The reviewed contract cannot verify unrelated or unexposed Registry fields.');
+}
 $check(ApiWriteVerification::compare($user, $userRead, 'params', [2], (object) ['2' => 2]) === null, 'Group membership semantics cannot apply to user params.');
 $module = $f['catalogue']->action('modules.site.create');
 $module['binding']['configuration']['body_defaults']['ordering'] = 7;
