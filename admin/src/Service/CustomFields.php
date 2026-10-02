@@ -9,6 +9,7 @@
 namespace VDM\Component\JoomEngineMcp\Administrator\Service;
 
 
+use stdClass;
 use VDM\Component\JoomEngineMcp\Administrator\Domain\OperationException;
 
 
@@ -28,6 +29,14 @@ final class CustomFields
 		'content.categories' => ['context' => 'com_content.categories', 'sourceAction' => 'fields.content-categories.list', 'nested' => true],
 		'contacts.contacts' => ['context' => 'com_contact.contact', 'sourceAction' => 'fields.contact.list', 'nested' => false],
 		'users.users' => ['context' => 'com_users.user', 'sourceAction' => 'fields.users.list', 'nested' => false],
+	];
+
+	/** @var array<string,string> Native routes whose list/checkbox API values are reviewed. @since 1.0.5 */
+	private const ROUTES = [
+		'content.articles' => '/v1/content/articles',
+		'content.categories' => '/v1/content/categories',
+		'contacts.contacts' => '/v1/contacts',
+		'users.users' => '/v1/users',
 	];
 
 	/** @var string[] Runtime, controller and identity properties cannot become custom input. @since 1.0.0 */
@@ -151,6 +160,20 @@ final class CustomFields
 				}
 
 				$fields[$name] = ['id' => (string) $id, 'name' => $name, 'type' => $type, 'context' => $context['context']];
+
+				if (in_array($type, ['list', 'checkboxes'], true))
+				{
+					$params = $attributes['fieldparams'] ?? null;
+					$options = is_array($params) || $params instanceof stdClass ? ((array) $params)['options'] ?? null : null;
+					$choices = self::choices($options);
+
+					// Missing, inherited or malformed options cannot relax strict read-back.
+					// Keep discovery usable for all other published custom field values.
+					if ($choices !== null)
+					{
+						$fields[$name]['choices'] = $choices;
+					}
+				}
 			}
 
 			$offset += count($items);
@@ -243,6 +266,160 @@ final class CustomFields
 				throw new OperationException('INVALID_INPUT', 'Clear a custom field with an empty string or array; null is not a Joomla API field value.');
 			}
 		}
+	}
+
+	/**
+	 * Compare a frozen selection against Joomla's native value-to-label API map.
+	 *
+	 * ListPlugin and Checkboxes::beforePrepareField expose option values as keys
+	 * and the unmodified names from FieldsListPlugin::getOptionsFromField as labels.
+	 * No catalogue read or option discovery is permitted during this comparison.
+	 *
+	 * @param array $resolved Authorized write definition and frozen custom fields.
+	 * @param array $read Authorized independent native item read definition.
+	 * @param string $field Requested field name.
+	 * @param mixed $desired Approved selection value or list of values.
+	 * @param mixed $observed Independently read API value-to-label map.
+	 * @return ?bool Exact native selection comparison, or null for strict fallback.
+	 * @since 1.0.5
+	 */
+	public static function compare(array $resolved, array $read, string $field, mixed $desired, mixed $observed): ?bool
+	{
+		$context = self::verificationContext($resolved, $read);
+		$metadata = $resolved['custom_fields'] ?? [];
+
+		if ($context === null || ($metadata['status'] ?? '') !== 'resolved' || ($metadata['transport'] ?? '') !== 'api'
+			|| ($metadata['context'] ?? '') !== $context['context'] || ($metadata['sourceAction'] ?? '') !== $context['sourceAction']
+			|| ($metadata['nested'] ?? null) !== $context['nested'] || !is_array($metadata['fields'] ?? null))
+		{
+			return null;
+		}
+
+		$definition = null;
+
+		foreach ($metadata['fields'] as $candidate)
+		{
+			if (!is_array($candidate) || ($candidate['name'] ?? null) !== $field)
+			{
+				continue;
+			}
+
+			if ($definition !== null)
+			{
+				return false;
+			}
+
+			$definition = $candidate;
+		}
+
+		if ($definition === null || ($definition['context'] ?? '') !== $context['context']
+			|| !is_string($definition['id'] ?? null) || preg_match('/\A[1-9][0-9]*\z/D', $definition['id']) !== 1
+			|| !in_array($definition['type'] ?? '', ['list', 'checkboxes'], true) || !array_key_exists('choices', $definition))
+		{
+			return null;
+		}
+
+		$choices = self::choices($definition['choices']);
+
+		if ($choices === null || (!is_array($observed) && !$observed instanceof stdClass))
+		{
+			return false;
+		}
+
+		$options = array_column($choices, 'name', 'value');
+		$selected = is_string($desired) || is_int($desired) || is_float($desired) ? ($desired === '' ? [] : [$desired]) : $desired;
+
+		if (!is_array($selected) || !array_is_list($selected))
+		{
+			return false;
+		}
+
+		$expected = [];
+
+		foreach ($selected as $value)
+		{
+			$value = self::choiceValue($value);
+
+			if ($value === null || !array_key_exists($value, $options) || array_key_exists($value, $expected))
+			{
+				return false;
+			}
+
+			$expected[$value] = $options[$value];
+		}
+
+		// PHP converts canonical integer option keys to integers. Native JSON can
+		// therefore be a label list for keys 0..n, or an object for other keys.
+		// Preserve those exact keys and label types; never treat labels as values.
+		$actual = $observed instanceof stdClass ? get_object_vars($observed) : $observed;
+		ksort($expected, SORT_STRING);
+		ksort($actual, SORT_STRING);
+
+		return $expected === $actual;
+	}
+
+	/** @param mixed $options Native subform option rows. @return ?array Unique option value/name pairs, or null for an unsupported definition. @since 1.0.5 */
+	private static function choices(mixed $options): ?array
+	{
+		if (!is_array($options) && !$options instanceof stdClass)
+		{
+			return null;
+		}
+
+		$choices = [];
+		$values = [];
+
+		foreach ($options as $option)
+		{
+			$option = $option instanceof stdClass ? get_object_vars($option) : $option;
+			$raw = is_array($option) ? ($option['value'] ?? null) : null;
+			$value = is_string($raw) || is_int($raw) ? self::choiceValue($raw) : null;
+
+			if ($value === null || !is_string($option['name'] ?? null) || array_key_exists($value, $values))
+			{
+				return null;
+			}
+
+			$values[$value] = true;
+			$choices[] = ['value' => $value, 'name' => $option['name']];
+		}
+
+		return $choices;
+	}
+
+	/** @param mixed $value Native selection identity. @return ?string Exact text identity, including finite safe numbers accepted by Joomla's OptionsRule. @since 1.0.5 */
+	private static function choiceValue(mixed $value): ?string
+	{
+		return is_string($value) || ((is_int($value) || (is_float($value) && is_finite($value)))
+			&& $value >= -9007199254740991 && $value <= 9007199254740991)
+			? (string) $value : null;
+	}
+
+	/** @param array $resolved Authorized write. @param array $read Authorized read. @return ?array Exact reviewed native context. @since 1.0.5 */
+	private static function verificationContext(array $resolved, array $read): ?array
+	{
+		if (!preg_match('/\A(.+)\.(create|update)\z/D', $resolved['action']['name'] ?? '', $parts)
+			|| !isset(self::ROUTES[$parts[1]]))
+		{
+			return null;
+		}
+
+		$binding = $resolved['binding'] ?? [];
+		$config = $binding['configuration'] ?? [];
+		$readBinding = $read['binding'] ?? [];
+		$readConfig = $readBinding['configuration'] ?? [];
+		$route = self::ROUTES[$parts[1]];
+
+		return ($binding['track'] ?? '') === 'api' && ($binding['handler'] ?? '') === 'api.request'
+			&& ($config['operation'] ?? '') === $parts[2] && ($config['route'] ?? '') === $route . ($parts[2] === 'update' ? '/:id' : '')
+			&& ($config['method'] ?? '') === ($parts[2] === 'create' ? 'POST' : 'PATCH')
+			&& ($config['read_action'] ?? '') === $parts[1] . '.get' && ($config['authentication'] ?? '') === 'joomla-api-token'
+			&& ($config['response_shape'] ?? '') === 'json-api'
+			&& ($read['action']['name'] ?? '') === $parts[1] . '.get' && ($readBinding['track'] ?? '') === 'api'
+			&& ($readBinding['handler'] ?? '') === 'api.request' && ($readConfig['method'] ?? '') === 'GET'
+			&& ($readConfig['operation'] ?? '') === 'get' && ($readConfig['route'] ?? '') === $route . '/:id'
+			&& ($readConfig['authentication'] ?? '') === 'joomla-api-token' && ($readConfig['response_shape'] ?? '') === 'json-api'
+			&& empty($readConfig['select_fields']) ? self::CONTEXTS[$parts[1]] : null;
 	}
 
 	/** @param array $input Normalized approved input. @param array $metadata Frozen metadata. @return array Joomla-controller-compatible input. @since 1.0.0 */

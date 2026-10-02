@@ -1,4 +1,12 @@
-# Implementation status — 1 October 2026
+# Implementation status — 2 October 2026
+
+## Native field representation verification follow-up
+
+The fresh installed API audit found three additional representation mismatches. The empty Registry contract now covers `params` for content, banners, contacts and newsfeeds categories, and `images`, `urls` and `metadata` for articles. It requires the reviewed native write and independent read bindings, and equates only an explicitly approved empty object with an actually empty native Registry representation. Article `attribs` remains explicitly unobservable when absent from native API read-back. Nonempty, nested, unrelated and malformed values retain strict comparison.
+
+Custom list and checkbox choices are frozen from the authorized field catalogue into the approved plan. Verification compares the exact selected option keys and their frozen labels with Joomla's independent API value-to-label map. It does not rediscover fields during apply or treat an arbitrary returned map as a valid selection. Unknown, additional, missing or changed choices remain uncertain; unsupported or customized contracts retain strict comparison. The existing catalogue authorization, preconditions, independent API reads, leases and replay behavior remain authoritative.
+
+See [the verification contract and tests](testing/native-field-verification.md). These changes do not repair or conceal the [documented native Joomla API limitations](testing/native-api-limitations.md).
 
 ## Native API field verification — issues #22, #23 and #24
 

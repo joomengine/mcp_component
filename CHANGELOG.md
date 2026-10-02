@@ -1,5 +1,12 @@
 # Changelog
 
+## [[[NEXT_VERSION]]]
+
+### Fix
+
+- Verify empty native Registry fields across content, banner, contact and newsfeed categories and article images, URLs and metadata, while retaining strict comparison for other fields and nonempty values.
+- Verify custom list and checkbox selections against approved option values and their native API label maps across articles, content categories, contacts and users. Preserve exact keys and labels, independent read-back, uncertainty for mismatches, execution leases and idempotent replay.
+
 ## 1.0.5
 
 ### Fix

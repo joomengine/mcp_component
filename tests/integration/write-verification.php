@@ -27,7 +27,7 @@ $checks = 0;
 $grantId = null;
 $executions = [];
 $callSequence = 1000;
-$owned = ['categories' => [], 'users' => [], 'modules' => []];
+$owned = ['categories' => [], 'content' => [], 'users' => [], 'modules' => []];
 $check = static function (bool $condition, string $label) use (&$checks): void
 {
 	if (!$condition)
@@ -77,15 +77,21 @@ $apply = static function (string $action, array $input, callable $inspect, strin
 {
 	$plan = $call('joomla_action_write_plan', ['action' => $action, 'transport' => 'api', 'idempotencyKey' => Json::uuid(), 'input' => $input]);
 	$result = $call('joomla_write_apply', ['confirmationToken' => $plan['confirmationToken']]);
-	$check(in_array($result['verification']['status'] ?? '', ['verified', 'partial'], true), $label . ' settles with truthful read-back');
+	$check(($result['verification']['status'] ?? '') === (empty($result['verification']['unobservableFields']) ? 'verified' : 'partial')
+		&& ($result['verification']['differentFields'] ?? null) === [], $label . ' settles with truthful read-back and no differences');
 	$inspect($result);
 	$id = $result['executionId'];
 	$execution = $store->one('execution', ['uuid' => $id]);
 	$check(($execution['status'] ?? '') === 'completed' && $store->one('lease', ['owner_uuid' => $id]) === null,
 		$label . ' completes its execution and releases the write lease');
+	$audit = $store->find('audit', ['execution_uuid' => $id]);
 	$replay = $call('joomla_write_apply', ['confirmationToken' => $plan['confirmationToken']]);
 	$check(($replay['idempotentReplay'] ?? false) && ($replay['executionId'] ?? null) === $id
-		&& ($replay['verification'] ?? null) === $result['verification'], $label . ' replays the original result');
+		&& ($replay['verification'] ?? null) === $result['verification']
+		&& ($replay['mutation'] ?? null) === $result['mutation'], $label . ' replays the original result');
+	$check($store->one('execution', ['uuid' => $id]) === $execution
+		&& $store->find('audit', ['execution_uuid' => $id]) === $audit
+		&& $store->one('lease', ['owner_uuid' => $id]) === null, $label . ' replay performs no new mutation or lease claim');
 	$inspect($replay);
 	return ['plan' => $plan, 'result' => $result];
 };
@@ -93,34 +99,73 @@ $apply = static function (string $action, array $input, callable $inspect, strin
 try
 {
 	$http->initialize();
-	$permission = $call('joomla_permission_request', ['toolsets' => ['structure.write', 'users.admin'], 'duration' => '30-minutes',
+	$permission = $call('joomla_permission_request', ['toolsets' => ['content.write', 'structure.write', 'users.admin'], 'duration' => '30-minutes',
 		'reason' => 'Disposable category, blocked-user and module verification contract tests']);
 	$grant = $call('joomla_permission_approve', ['requestId' => $permission['requestId'], 'acknowledgement' => $permission['acknowledgement']]);
 	$grantId = $grant['id'] ?? $grant['grantId'];
 	$rootId = (int) $db->setQuery($db->createQuery()->select($db->quoteName('id'))->from($db->quoteName('#__categories'))
 		->where($db->quoteName('parent_id') . ' = 0')->where($db->quoteName('level') . ' = 0'))->loadResult();
 	$check($rootId > 0, 'Resolve the installed category root');
-	foreach (['params', 'omitted', 'metadata'] as $mode)
+	foreach (['content' => 'com_content', 'banners' => 'com_banners', 'contacts' => 'com_contact', 'newsfeeds' => 'com_newsfeeds'] as $component => $extension)
 	{
-		$alias = $prefix . '-' . $mode;
-		$data = ['title' => $alias, 'alias' => $alias, 'parent_id' => $rootId, 'description' => '', 'published' => 0, 'access' => 1, 'language' => '*'];
-		if ($mode !== 'omitted')
+		foreach ($component === 'content' ? ['params', 'omitted', 'metadata'] : ['params'] as $mode)
 		{
-			$data[$mode] = new stdClass();
-		}
-		$apply('content.categories.create', ['data' => $data], static function (array $result) use ($rows, $alias, &$owned, $mode, $check): void
-		{
-			$found = $rows('categories', 'alias', $alias);
-			$check(count($found) === 1 && $found[0]['extension'] === 'com_content', 'Category ' . $mode . ' persists exactly one owned content category');
-			$owned['categories'][(int) $found[0]['id']] = $alias;
-			$check((int) ($result['verification']['id'] ?? 0) === (int) $found[0]['id'], 'Category ' . $mode . ' read-back identifies the persisted row');
+			$alias = $prefix . '-' . $component . '-' . $mode;
+			$data = ['title' => $alias, 'alias' => $alias, 'parent_id' => $rootId, 'description' => '', 'published' => 0, 'access' => 1, 'language' => '*'];
+			if ($mode !== 'omitted')
+			{
+				$data[$mode] = new stdClass();
+			}
+			$inspect = static function (array $result) use ($rows, $alias, $extension, &$owned, $mode, $check): void
+			{
+				$found = $rows('categories', 'alias', $alias);
+				$check(count($found) === 1 && $found[0]['extension'] === $extension, $extension . ' ' . $mode . ' preserves exactly one owned category');
+				$owned['categories'][(int) $found[0]['id']] = $alias;
+				$check((int) ($result['verification']['id'] ?? 0) === (int) $found[0]['id'], 'Category read-back identifies the persisted row');
+				if ($mode === 'params')
+				{
+					$check(in_array($mode, $result['verification']['matchedFields'] ?? [], true)
+						&& in_array($found[0][$mode], [null, '', '{}', '[]'], true), 'Empty category ' . $mode . ' matches its native empty representation');
+				}
+			};
+			$created = $apply($component . '.categories.create', ['data' => $data], $inspect, $extension . ' ' . $mode . ' create');
 			if ($mode === 'params')
 			{
-				$check(in_array('params', $result['verification']['matchedFields'] ?? [], true)
-					&& in_array($found[0]['params'], [null, '', '{}', '[]'], true), 'Empty category configuration has a narrow settled contract');
+				$apply($component . '.categories.update', ['id' => (int) $created['result']['verification']['id'], 'data' => [$mode => new stdClass()]],
+					$inspect, $extension . ' empty ' . $mode . ' update');
 			}
-		}, 'Category ' . $mode);
+		}
 	}
+
+	$categoryId = (int) $db->setQuery($db->createQuery()->select($db->quoteName('id'))->from($db->quoteName('#__categories'))
+		->where($db->quoteName('extension') . ' = ' . $db->quote('com_content'))->where($db->quoteName('published') . ' = 1')
+		->order($db->quoteName('id') . ' ASC'), 0, 1)->loadResult();
+	$check($categoryId > 1, 'Resolve an installed article category without changing it');
+	$alias = $prefix . '-article-empty';
+	$bags = ['images' => new stdClass(), 'urls' => new stdClass(), 'metadata' => new stdClass(), 'attribs' => new stdClass()];
+	$inspectArticle = static function (array $result) use ($rows, $alias, $categoryId, &$owned, $call, $check): void
+	{
+		$found = $rows('content', 'alias', $alias);
+		$check(count($found) === 1 && (int) $found[0]['catid'] === $categoryId, 'Article empty bags preserve one owned native article');
+		$id = (int) $found[0]['id'];
+		$owned['content'][$id] = $alias;
+		$check((int) ($result['verification']['id'] ?? 0) === $id && ($result['verification']['status'] ?? '') === 'partial',
+			'Article read-back remains partial for its unobservable attributes');
+		$api = $call('joomla_action_read', ['action' => 'content.articles.get', 'transport' => 'api', 'input' => ['id' => $id]])['response']['data']['data']['attributes'];
+		foreach (['images', 'urls', 'metadata'] as $field)
+		{
+			$check(in_array($found[0][$field], [null, '', '{}', '[]'], true) && array_key_exists($field, $api) && $api[$field] === []
+				&& in_array($field, $result['verification']['matchedFields'] ?? [], true), 'Empty article ' . $field . ' agrees with storage and native API read-back');
+		}
+		$check(in_array($found[0]['attribs'], [null, '', '{}', '[]'], true) && !array_key_exists('attribs', $api)
+			&& in_array('attribs', $result['verification']['unobservableFields'] ?? [], true)
+			&& !in_array('attribs', $result['verification']['matchedFields'] ?? [], true), 'Article attribs stays unobservable despite independent database inspection');
+	};
+	$created = $apply('content.articles.create', ['data' => ['title' => $alias, 'alias' => $alias, 'catid' => $categoryId,
+		'introtext' => '<p>Disposable empty-configuration fixture.</p>', 'fulltext' => '', 'metadesc' => '', 'metakey' => '',
+		'state' => 0, 'access' => 1, 'language' => '*'] + $bags],
+		$inspectArticle, 'Article empty bags create');
+	$apply('content.articles.update', ['id' => (int) $created['result']['verification']['id'], 'data' => $bags], $inspectArticle, 'Article empty bags update');
 
 	$groups = $db->setQuery($db->createQuery()->select($db->quoteName(['id', 'title']))->from($db->quoteName('#__usergroups'))
 		->where($db->quoteName('title') . ' IN (' . $db->quote('Registered') . ', ' . $db->quote('Author') . ')'))->loadAssocList();
@@ -188,9 +233,9 @@ finally
 {
 	// Locate only this run's exact markers, including a save that threw before
 	// its result was returned. Never infer fixture ownership from a numeric ID.
-	foreach (['categories' => 'alias', 'users' => 'username', 'modules' => 'title'] as $table => $field)
+	foreach (['content' => 'alias', 'categories' => 'alias', 'users' => 'username', 'modules' => 'title'] as $table => $field)
 	{
-		$found = $db->setQuery($db->createQuery()->select($db->quoteName(['id', $field]))->from($db->quoteName('#__' . $table))
+		$found = $db->setQuery($db->createQuery()->select('*')->from($db->quoteName('#__' . $table))
 			->where($db->quoteName($field) . ' LIKE ' . $db->quote($prefix . '-%')))->loadAssocList();
 		foreach ($found as $row)
 		{
@@ -211,10 +256,16 @@ finally
 				$check((int) $db->setQuery('SELECT COUNT(*) FROM ' . $db->quoteName('#__content') . ' WHERE catid = ' . $id)->loadResult() === 0
 					&& (int) $db->setQuery('SELECT COUNT(*) FROM ' . $db->quoteName('#__categories') . ' WHERE parent_id = ' . $id)->loadResult() === 0,
 					'Category cleanup has no content or child dependencies');
-				$app->getInput()->set('extension', 'com_content');
+				$extension = $row['extension'];
+				$check(in_array($extension, ['com_content', 'com_banners', 'com_contact', 'com_newsfeeds'], true), 'Owned category has an expected extension');
+				$app->getInput()->set('extension', $extension);
 				$model = $app->bootComponent('com_categories')->getMVCFactory()->createModel('Category', 'Administrator', ['ignore_request' => true]);
-				$model->setState('category.extension', 'com_content');
-				$model->setState('category.component', 'com_content');
+				$model->setState('category.extension', $extension);
+				$model->setState('category.component', $extension);
+			}
+			elseif ($table === 'content')
+			{
+				$model = $app->bootComponent('com_content')->getMVCFactory()->createModel('Article', 'Administrator', ['ignore_request' => true]);
 			}
 			else
 			{
@@ -242,4 +293,4 @@ finally
 	$http->disconnect();
 }
 echo Json::encode(['checks' => $checks, 'liveJoomla' => JVERSION, 'database' => $db->getServerType(),
-	'verification' => 'category empty configuration, group membership and native module ordering; database state, lease release and replay']) . PHP_EOL;
+	'verification' => 'four category contexts and article empty bags, group membership and module ordering; native storage, lease release and immutable replay']) . PHP_EOL;

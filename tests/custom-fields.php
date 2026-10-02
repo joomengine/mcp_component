@@ -20,6 +20,7 @@ use VDM\Component\JoomEngineMcp\Administrator\Security\Envelope;
 use VDM\Component\JoomEngineMcp\Administrator\Security\SchemaValidator;
 use VDM\Component\JoomEngineMcp\Administrator\Service\ActionExecutor;
 use VDM\Component\JoomEngineMcp\Administrator\Service\Catalogue;
+use VDM\Component\JoomEngineMcp\Administrator\Service\CustomFields;
 use VDM\Component\JoomEngineMcp\Administrator\Service\HandlerRegistry;
 use VDM\Component\JoomEngineMcp\Administrator\Service\Json;
 use VDM\Component\JoomEngineMcp\Administrator\Service\Settings;
@@ -91,6 +92,10 @@ $fixture = static function (array $fields, string $track = 'api') use ($seed): a
 		public ?string $hiddenField = null;
 		/** @var ?string Field changed by native persistence. */
 		public ?string $changedField = null;
+		/** @var array<string,array<string,string>> Native selection labels used only during independent reads. */
+		public array $choiceOptions = [];
+		/** @var array<string,mixed> Explicit independent read-back substitutions. */
+		public array $readValues = [];
 		/** @var bool Simulate a server ignoring offsets. */
 		public bool $repeatPage = false;
 		/** @var int Next fake resource identifier. */
@@ -131,6 +136,23 @@ $fixture = static function (array $fields, string $track = 'api') use ($seed): a
 				}
 
 				$item = $this->items[$path];
+
+				foreach ($this->choiceOptions as $name => $options)
+				{
+					$value = $item[$name] ?? $item['com_fields'][$name] ?? [];
+					$values = is_array($value) ? $value : ($value === '' ? [] : [$value]);
+					$item[$name] = [];
+					unset($item['com_fields'][$name]);
+
+					foreach ($values as $selection)
+					{
+						// The native fields_values text column returns scalar values as strings.
+						$selection = (string) $selection;
+						$item[$name][$selection] = $options[$selection] ?? null;
+					}
+				}
+
+				$item = array_replace($item, $this->readValues);
 
 				if ($this->hiddenField !== null)
 				{
@@ -324,5 +346,163 @@ $check($s['http']->discovery === [], 'Unpublished field discovery actions must r
 $s = $fixture($articleFields, 'cli');
 $description = $s['executor']->describe('content.articles.create');
 $check(!isset($description['customFields']) && $s['http']->discovery === [], 'API field discovery must not widen the native console model schema.');
+
+$choices = [
+	['value' => 'alpha', 'name' => 'Alpha'], ['value' => 'beta', 'name' => 'Beta'],
+	['value' => '0', 'name' => 'Zero'], ['value' => '1', 'name' => 'One'], ['value' => '01', 'name' => 'Leading zero'],
+	['value' => '1.5', 'name' => 'Fraction'], ['value' => '', 'name' => 'Empty option'],
+];
+$contexts = [
+	['content.articles', 'com_content.article', '/v1/fields/content/articles', 'content.write', ['title' => 'Choice article', 'catid' => 2]],
+	['content.categories', 'com_content.categories', '/v1/fields/content/categories', 'structure.write', ['title' => 'Choice category']],
+	['contacts.contacts', 'com_contact.contact', '/v1/fields/contacts/contact', 'content.write', ['name' => 'Choice contact']],
+	['users.users', 'com_users.user', '/v1/fields/users', 'users.admin', ['name' => 'Choice user', 'username' => 'choice-user', 'email' => 'choice@example.invalid']],
+];
+
+foreach ($contexts as [$entity, $context, $route, $scope, $core])
+{
+	foreach (['list', 'checkboxes'] as $type)
+	{
+		$s = $fixture([$route => [$field('selections', ['type' => $type, 'context' => $context, 'fieldparams' => ['options' => $choices]])]]);
+		$s['http']->choiceOptions = ['selections' => array_column($choices, 'name', 'value')];
+		$approve($s, $scope);
+		$plan = $s['executor']->plan($entity . '.create', ['data' => $core + ['selections' => ['alpha']]], Json::uuid());
+		$check($plan['operation']['customFields']['fields'][0]['choices'] === $choices, 'Choice definitions were not frozen in the approved preview for ' . $entity . '/' . $type);
+		$private = $s['state']->resolve($plan['confirmationToken']);
+		$check($private['payload']['custom_fields']['fields'][0]['choices'] === $choices, 'The encrypted plan lost frozen option labels.');
+		$result = $s['executor']->apply($plan['confirmationToken']);
+		$check($result['verification']['status'] === 'verified' && in_array('selections', $result['verification']['matchedFields'], true),
+			'Native option maps did not verify for ' . $entity . '/' . $type);
+		$written = $s['http']->writes[0]['body'];
+		$check(($written['selections'] ?? $written['com_fields']['selections'] ?? null) === ['alpha'], 'Verification changed the approved wire selection.');
+
+		foreach ([['beta', 'alpha'], 'beta', [0, 1], 1, 1.0, 1.5, ['01'], [], ''] as $desired)
+		{
+			$plan = $s['executor']->plan($entity . '.update', ['id' => 1, 'data' => ['selections' => $desired]], Json::uuid());
+			$result = $s['executor']->apply($plan['confirmationToken']);
+			$check($result['verification']['status'] === 'verified', 'A native scalar, numeric, multiple or cleared selection did not verify for '
+				. $entity . '/' . $type . ': ' . Json::encode($desired));
+		}
+
+		$plan = $s['executor']->plan($entity . '.update', ['id' => 1, 'data' => ['selections' => ['alpha']]], Json::uuid());
+		$discoveryCount = count($s['http']->discovery);
+		$s['http']->fieldResponse = new Response(503);
+		$s['http']->choiceOptions['selections']['alpha'] = 'Changed after planning';
+		$result = $s['executor']->apply($plan['confirmationToken']);
+		$check($result['verification']['status'] === 'uncertain' && $result['verification']['differentFields'] === ['selections']
+			&& count($s['http']->discovery) === $discoveryCount, 'Mutable labels replaced the frozen definition or triggered rediscovery.');
+		$writeCount = count($s['http']->writes);
+		$repeat = $s['executor']->apply($plan['confirmationToken']);
+		$check($repeat['idempotentReplay'] && count($s['http']->writes) === $writeCount, 'An uncertain custom selection was mutated again on replay.');
+	}
+}
+
+$s = $fixture(['/v1/fields/content/articles' => [$field('selections', ['type' => 'list', 'fieldparams' => ['options' => $choices]])]]);
+$resolved = $s['catalogue']->action('content.articles.create');
+$resolved['custom_fields'] = $s['executor']->describe('content.articles.create')['customFields'];
+$read = $s['catalogue']->action('content.articles.get');
+$compare = static fn (mixed $desired, mixed $observed): ?bool => CustomFields::compare($resolved, $read, 'selections', $desired, $observed);
+
+foreach ([
+	[['alpha'], ['alpha' => 'Alpha']], ['alpha', (object) ['alpha' => 'Alpha']],
+	[['beta', 'alpha'], ['alpha' => 'Alpha', 'beta' => 'Beta']],
+	[['0', '1'], ['Zero', 'One']], [[0, 1], (object) ['0' => 'Zero', '1' => 'One']],
+	[1, [1 => 'One']], [1.0, [1 => 'One']], [1.5, ['1.5' => 'Fraction']], [0, ['Zero']],
+	[['01'], ['01' => 'Leading zero']], [[''], ['' => 'Empty option']], [[], []], ['', (object) []],
+] as [$desired, $observed])
+{
+	$check($compare($desired, $observed) === true, 'The native choice comparator rejected an exact selected key/label map.');
+}
+
+foreach ([
+	[['alpha'], ['alpha' => 'Wrong label']], [['alpha'], []], [['alpha'], ['alpha' => 'Alpha', 'beta' => 'Beta']],
+	[['alpha', 'beta'], ['alpha' => 'Alpha']], [['unknown'], ['unknown' => 'Unknown']],
+	[['alpha', 'alpha'], ['alpha' => 'Alpha']], [[1, '1'], [1 => 'One']], [[1, 1.0], [1 => 'One']],
+	[['alpha'], ['Alpha']], [['alpha'], ['alpha']], [['alpha'], 'alpha'], [['alpha'], null],
+	[['alpha'], ['alpha' => ['Alpha']]], [['alpha'], ['alpha' => true]], [['alpha'], (object) ['alpha' => 1]],
+	[['01'], [1 => 'Leading zero']], [['1'], ['01' => 'One']], [['1.0'], [1 => 'One']], [0, []], [0.0, []],
+	[[], ['alpha' => 'Alpha']], ['', ['' => 'Empty option']], [[], ''],
+	[['alpha' => 'alpha'], ['alpha' => 'Alpha']], [(object) ['0' => 'alpha'], ['alpha' => 'Alpha']],
+	[[['alpha']], ['alpha' => 'Alpha']], [null, []], [false, []], [true, [1 => 'One']], [[true], [1 => 'One']],
+	[INF, []], [-INF, []], [NAN, []], [9007199254740992, []], [9007199254740992.0, []],
+] as [$desired, $observed])
+{
+	$check($compare($desired, $observed) === false, 'A missing, extra, unknown, duplicate, malformed or changed choice was accepted.');
+}
+
+foreach ([
+	['write', ['binding', 'track'], 'cli'], ['write', ['binding', 'handler'], 'custom.handler'],
+	['write', ['action', 'name'], 'custom.articles.create'],
+	['write', ['binding', 'configuration', 'route'], '/v1/custom/articles'],
+	['write', ['binding', 'configuration', 'method'], 'PUT'], ['write', ['binding', 'configuration', 'operation'], 'update'],
+	['write', ['binding', 'configuration', 'authentication'], 'none'], ['write', ['binding', 'configuration', 'response_shape'], 'custom'],
+	['write', ['binding', 'configuration', 'read_action'], 'custom.articles.get'],
+	['read', ['action', 'name'], 'custom.articles.get'], ['read', ['binding', 'track'], 'cli'],
+	['read', ['binding', 'handler'], 'custom.handler'], ['read', ['binding', 'configuration', 'route'], '/v1/content/articles'],
+	['read', ['binding', 'configuration', 'method'], 'POST'], ['read', ['binding', 'configuration', 'operation'], 'list'],
+	['read', ['binding', 'configuration', 'authentication'], 'none'], ['read', ['binding', 'configuration', 'response_shape'], 'custom'],
+	['read', ['binding', 'configuration', 'select_fields'], ['selections']],
+	['write', ['custom_fields', 'status'], 'unavailable'], ['write', ['custom_fields', 'transport'], 'cli'],
+	['write', ['custom_fields', 'context'], 'com_contact.contact'], ['write', ['custom_fields', 'nested'], true],
+	['write', ['custom_fields', 'sourceAction'], 'fields.users.list'], ['write', ['custom_fields', 'fields', 0, 'context'], 'com_contact.contact'],
+	['write', ['custom_fields', 'fields', 0, 'name'], 'other-name'], ['write', ['custom_fields', 'fields', 0, 'type'], 'custom-list'],
+	['write', ['custom_fields', 'fields', 0, 'id'], 'invalid'],
+] as [$target, $path, $value])
+{
+	$writeVariant = $resolved;
+	$readVariant = $read;
+	if ($target === 'write')
+	{
+		$changed = &$writeVariant;
+	}
+	else
+	{
+		$changed = &$readVariant;
+	}
+	foreach ($path as $key)
+	{
+		$changed = &$changed[$key];
+	}
+	$changed = $value;
+	unset($changed);
+	$check(CustomFields::compare($writeVariant, $readVariant, 'selections', ['alpha'], ['alpha' => 'Alpha']) === null,
+		'A customized binding or mismatched frozen field inherited the native exception.');
+}
+$legacy = $resolved;
+unset($legacy['custom_fields']['fields'][0]['choices']);
+$check(CustomFields::compare($legacy, $read, 'selections', ['alpha'], ['alpha' => 'Alpha']) === null,
+	'Legacy metadata without frozen options must preserve strict comparison.');
+$ambiguous = $resolved;
+$ambiguous['custom_fields']['fields'][] = $ambiguous['custom_fields']['fields'][0];
+$check(CustomFields::compare($ambiguous, $read, 'selections', ['alpha'], ['alpha' => 'Alpha']) === false,
+	'Ambiguous frozen field names were accepted.');
+$malformed = $resolved;
+$malformed['custom_fields']['fields'][0]['choices'][] = $choices[0];
+$check(CustomFields::compare($malformed, $read, 'selections', ['alpha'], ['alpha' => 'Alpha']) === false,
+	'Ambiguous frozen option values were accepted.');
+
+foreach ([null, '', 'invalid', ['options' => null], ['options' => 'invalid'], ['options' => ['alpha' => 'Alpha']],
+	['options' => [['value' => 'alpha']]], ['options' => [['name' => 'Alpha']]],
+	['options' => [['value' => 'alpha', 'name' => []]]], ['options' => [['value' => true, 'name' => 'True']]],
+	['options' => [['value' => 1.5, 'name' => 'Fraction']]],
+	['options' => [$choices[0], $choices[0]]], ['options' => [['value' => 1, 'name' => 'One'], ['value' => '1', 'name' => 'Again']]],
+	['options' => [['value' => 1.0, 'name' => 'One'], ['value' => '1', 'name' => 'Again']]],
+] as $params)
+{
+	$s = $fixture(['/v1/fields/content/articles' => [$field('selections', ['type' => 'list', 'fieldparams' => $params])]]);
+	$metadata = $s['executor']->describe('content.articles.create')['customFields'];
+	$check($metadata['status'] === 'resolved' && !isset($metadata['fields'][0]['choices']),
+		'An unsupported, inherited or ambiguous option definition relaxed verification or blocked field discovery.');
+	$variant = $resolved;
+	$variant['custom_fields'] = $metadata;
+	$check(CustomFields::compare($variant, $read, 'selections', ['alpha'], ['alpha' => 'Alpha']) === null,
+		'Unsupported discovery metadata must retain strict fallback.');
+}
+$s = $fixture(['/v1/fields/content/articles' => [$field('selections', ['type' => 'checkboxes', 'fieldparams' => (object) [
+	'options' => (object) ['options0' => (object) ['value' => 0, 'name' => 'Zero'], 'options1' => (object) ['value' => '1.5', 'name' => 'Fraction']],
+]])]]);
+$metadata = $s['executor']->describe('content.articles.create')['customFields'];
+$check($metadata['fields'][0]['choices'] === [['value' => '0', 'name' => 'Zero'], ['value' => '1.5', 'name' => 'Fraction']],
+	'Native keyed subform rows or exact numeric option identities were not frozen.');
 
 echo Json::encode(['checks' => $checks, 'customFieldContracts' => 'passed with recording API and transactional memory doubles', 'liveJoomla' => 'not run by this unit suite']) . PHP_EOL;

@@ -24,10 +24,23 @@ final class ApiWriteVerification
 {
 	/** @var array<string,string> Native resource paths with reviewed field contracts. @since 1.0.1 */
 	private const ROUTES = [
+		'banners.categories' => '/v1/banners/categories',
+		'contacts.categories' => '/v1/contacts/categories',
+		'newsfeeds.categories' => '/v1/newsfeeds/categories',
 		'content.categories' => '/v1/content/categories',
+		'content.articles' => '/v1/content/articles',
 		'users.users' => '/v1/users',
 		'modules.site' => '/v1/modules/site',
 		'modules.administrator' => '/v1/modules/administrator',
+	];
+
+	/** @var array<string,string[]> Reviewed fields exposed by Joomla as empty Registry arrays. @since 1.0.5 */
+	private const EMPTY_REGISTRIES = [
+		'banners.categories' => ['params'],
+		'contacts.categories' => ['params'],
+		'newsfeeds.categories' => ['params'],
+		'content.categories' => ['params'],
+		'content.articles' => ['images', 'urls', 'metadata'],
 	];
 
 	/**
@@ -50,9 +63,10 @@ final class ApiWriteVerification
 			return null;
 		}
 
-		if ($base === 'content.categories' && $field === 'params' && $desired instanceof stdClass && (array) $desired === [])
+		if (in_array($field, self::EMPTY_REGISTRIES[$base] ?? [], true)
+			&& $desired instanceof stdClass && (array) $desired === [])
 		{
-			// Joomla's empty category Registry is exposed as [] by the native API.
+			// Joomla's empty Registry is exposed as [] by these native API fields.
 			return $observed === [] || ($observed instanceof stdClass && (array) $observed === []);
 		}
 
