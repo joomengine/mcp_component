@@ -20,7 +20,7 @@ $user = $this->getCurrentUser();
 		<a class="btn <?php echo $kind === $name ? 'btn-primary' : 'btn-outline-secondary'; ?>" href="<?php echo Route::_('index.php?option=com_joomengine_mcp&view=operations&kind=' . $name); ?>"><?php echo Text::_('COM_JOOMENGINE_MCP_' . $label); ?></a>
 	<?php endforeach; ?>
 </nav>
-<?php if ($user->authorise('core.admin', 'com_joomengine_mcp') && $user->authorise('core.admin', 'com_componentbuilder')) : ?>
+<?php if ($user->authorise('core.admin', 'com_joomengine_mcp')) : ?>
 <form class="mb-3" action="<?php echo Route::_('index.php?option=com_joomengine_mcp&task=operations.synchronizeJcb'); ?>" method="post">
 	<?php echo HTMLHelper::_('form.token'); ?>
 	<button type="submit" class="btn btn-outline-primary"><?php echo Text::_('COM_JOOMENGINE_MCP_SYNCHRONIZE_JCB'); ?></button>

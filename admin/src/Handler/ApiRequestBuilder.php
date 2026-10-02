@@ -9,6 +9,7 @@
 namespace VDM\Component\JoomEngineMcp\Administrator\Handler;
 
 
+use stdClass;
 use VDM\Component\JoomEngineMcp\Administrator\Domain\OperationException;
 use VDM\Component\JoomEngineMcp\Administrator\Service\Json;
 use VDM\Component\JoomEngineMcp\Administrator\Service\TemplateStyleInheritance;
@@ -65,7 +66,7 @@ final class ApiRequestBuilder
 			}
 		}
 
-		if (str_contains($route, ':') || str_contains($route, '..'))
+		if (str_contains($route, ':') || preg_match('/(?:\A|\/)\.{1,2}(?:\/|\z)/D', $route) === 1)
 		{
 			throw new OperationException('INVALID_INPUT', 'The resolved Joomla API route is unsafe or incomplete.');
 		}
@@ -108,6 +109,12 @@ final class ApiRequestBuilder
 		if (!empty($configuration['native_filter']) && array_key_exists('filter', $arguments))
 		{
 			$filter = $arguments['filter'];
+
+			if ($filter instanceof stdClass)
+			{
+				$filter = get_object_vars($filter);
+			}
+
 			if (!is_array($filter) || ($filter !== [] && array_is_list($filter)) || count($filter) > 32)
 			{
 				throw new OperationException('INVALID_INPUT', 'A bounded native filter object is required.');
@@ -115,14 +122,28 @@ final class ApiRequestBuilder
 
 			foreach ($filter as $key => $value)
 			{
-				if (!is_string($key) || preg_match('/\A[A-Za-z][A-Za-z0-9_]{0,63}\z/D', $key) !== 1
-					|| !is_scalar($value) || strlen((string) $value) > 2048
-					|| (is_float($value) && !is_finite($value)))
+				if (!is_string($key) || preg_match('/\A[A-Za-z][A-Za-z0-9_]{0,63}\z/D', $key) !== 1)
 				{
-					throw new OperationException('INVALID_INPUT', 'A native filter needs bounded scalar values and literal field names.');
+					throw new OperationException('INVALID_INPUT', 'A native filter needs literal field names.');
 				}
 
-				$query['filter[' . $key . ']'] = is_bool($value) ? (int) $value : $value;
+				$multiple = is_array($value);
+
+				if ($multiple && (($configuration['native_filter_arrays'] ?? false) !== true
+					|| $value === [] || !array_is_list($value) || count($value) > 64))
+				{
+					throw new OperationException('INVALID_INPUT', 'A non-empty bounded native filter list must be declared by its binding.');
+				}
+
+				foreach ($multiple ? $value : [$value] as $index => $item)
+				{
+					if (!is_scalar($item) || strlen((string) $item) > 2048 || (is_float($item) && !is_finite($item)))
+					{
+						throw new OperationException('INVALID_INPUT', 'A native filter needs bounded scalar values.');
+					}
+
+					$query['filter[' . $key . ']' . ($multiple ? '[' . $index . ']' : '')] = is_bool($item) ? (int) $item : $item;
+				}
 			}
 		}
 
@@ -140,6 +161,11 @@ final class ApiRequestBuilder
 		if (array_key_exists('data', $arguments))
 		{
 			$body = $arguments['data'];
+
+			if ($body instanceof stdClass)
+			{
+				$body = get_object_vars($body);
+			}
 
 			if (!is_array($body) || $body === [] || array_is_list($body))
 			{
@@ -267,8 +293,21 @@ final class ApiRequestBuilder
 			return implode('/', array_map('rawurlencode', $parts));
 		}
 
+		// A registered alternate key remains one literal segment. Pre-encoded
+		// input is refused so a router cannot decode it into another path.
+		if ($kind === 'unique-key')
+		{
+			if ($value === '.' || $value === '..' || preg_match('/[\/\\\\%?#\x00-\x1f\x7f]/', $value) === 1)
+			{
+				throw new OperationException('INVALID_INPUT', 'The unique resource key contains unsafe syntax.');
+			}
+
+			return rawurlencode($value);
+		}
+
 		$pattern = match ($kind)
 		{
+			'guid' => '/\A[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}\z/D',
 			'component-name' => '/\Acom_[A-Za-z0-9_]+\z/D',
 			'language-code' => '/\A[a-z]{2,3}-[A-Z]{2}\z/D',
 			'override-constant' => '/\A[A-Z][A-Z0-9_]*\z/D',

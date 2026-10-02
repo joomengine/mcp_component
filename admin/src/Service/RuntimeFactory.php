@@ -24,6 +24,7 @@ use VDM\Component\JoomEngineMcp\Administrator\Jcb\CatalogueSynchronizer;
 use VDM\Component\JoomEngineMcp\Administrator\Jcb\CommandHandler;
 use VDM\Component\JoomEngineMcp\Administrator\Jcb\CommandInput;
 use VDM\Component\JoomEngineMcp\Administrator\Jcb\DefinitionSnapshot;
+use VDM\Component\JoomEngineMcp\Administrator\Jcb\InventoryTransport;
 use VDM\Component\JoomEngineMcp\Administrator\Job\Artifacts;
 use VDM\Component\JoomEngineMcp\Administrator\Job\Jobs;
 use VDM\Component\JoomEngineMcp\Administrator\Job\ProcessLauncher;
@@ -310,15 +311,16 @@ final class RuntimeFactory
 	 */
 	public function synchronizeJcb(CMSApplicationInterface $application, PrincipalInterface $principal): array
 	{
-		if ((!$principal->isLocal() && (!$principal->authorise('core.admin', 'com_joomengine_mcp')
-			|| !$principal->authorise('core.admin', 'com_componentbuilder')))
+		if ((!$principal->isLocal() && !$principal->authorise('core.admin', 'com_joomengine_mcp'))
 			|| ($principal->isLocal() && (!$application instanceof ConsoleApplication || PHP_SAPI !== 'cli')))
 		{
 			throw new OperationException('JCB_CATALOGUE_DENIED', 'Catalogue synchronization requires native component administration permission.');
 		}
 
 		$result = $this->workerResult($this->jcbProcess()->run(['protocol' => 'joomengine-worker/1', 'operation' => 'jcb.inventory',
-			'authority' => ['id' => $principal->getId(), 'track' => $principal->getTrack()]], 60, 8388608, static fn (): bool => false));
+			'inventory_format' => InventoryTransport::FORMAT,
+			'authority' => ['id' => $principal->getId(), 'track' => $principal->getTrack()]], 60, InventoryTransport::MAX_WIRE_BYTES, static fn (): bool => false));
+		$result = InventoryTransport::unpack($result);
 		$store = new JoomlaStore($this->database);
 
 		return (new CatalogueSynchronizer($store, [new Assets($this->database, $store), 'synchronize']))

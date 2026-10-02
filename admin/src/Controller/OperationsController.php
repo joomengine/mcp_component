@@ -78,7 +78,7 @@ final class OperationsController extends BaseController implements RuntimeAwareI
 		$user = $this->app->getIdentity();
 
 		if ($this->runtime === null || !$user->authorise('core.manage', 'com_joomengine_mcp')
-			|| !$user->authorise('core.admin', 'com_joomengine_mcp') || !$user->authorise('core.admin', 'com_componentbuilder'))
+			|| !$user->authorise('core.admin', 'com_joomengine_mcp'))
 		{
 			throw new \RuntimeException('Native administration permission is required to synchronize JCB definitions.', 403);
 		}

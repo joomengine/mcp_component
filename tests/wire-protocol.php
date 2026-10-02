@@ -229,16 +229,70 @@ finally
 	unlink($outputPath);
 }
 
-// A current action contract can accept object-valued input. Preserve it through
-// the generic tool's validation, action validation and handler invocation.
+// A current action contract can accept object-valued input. The shipped generic
+// read tool schemas must pass it to action validation without a fixture override.
 $binding = $store->one('binding', ['name' => 'system.info.cli']);
 $actionSchema = ['type' => 'object', 'properties' => ['payload' => ['type' => 'object',
-	'additionalProperties' => ['type' => 'object']]], 'required' => ['payload'], 'additionalProperties' => false];
+	'additionalProperties' => ['type' => 'object']], 'filter' => ['type' => 'object',
+	'properties' => ['search' => ['type' => 'string', 'maxLength' => 2048], 'state' => ['type' => 'integer'],
+		'active' => ['type' => 'boolean']], 'maxProperties' => 32, 'additionalProperties' => false]],
+	'anyOf' => [['required' => ['payload']], ['required' => ['filter']]], 'additionalProperties' => false];
 $store->update('schema', ['document' => Json::encode($actionSchema)], ['id' => $binding['input_schema_id']]);
-$readTool = $store->one('tool', ['name' => 'joomla_action_read']);
-$readSchema = Json::decode($catalogue->schema((int) $readTool['input_schema_id']), false);
-$readSchema->properties->input = (object) $actionSchema;
-$store->update('schema', ['document' => Json::encode($readSchema)], ['id' => $readTool['input_schema_id']]);
+$nestedMessages = [$messages[0], $messages[1]];
+$nestedIds = [];
+
+foreach (['joomla_action_read', 'joomla_companion_action_read'] as $name)
+{
+	$id = 'stdio-nested-filter-' . $name;
+	$nestedIds[] = $id;
+	$nestedMessages[] = ['jsonrpc' => '2.0', 'id' => $id, 'method' => 'tools/call', 'params' => ['name' => $name,
+		'arguments' => ['action' => 'system.info', 'input' => (object) ['filter' => (object) ['search' => 'nested & literal=value', 'state' => 0]]]]];
+}
+$nestedInput = fopen('php://temp', 'w+');
+$nestedOutputPath = tempnam(sys_get_temp_dir(), 'mcp-wire-nested-output-');
+$nestedOutput = fopen($nestedOutputPath, 'w+');
+$beforeNestedCalls = $native->calls;
+
+try
+{
+	foreach ($nestedMessages as $message)
+	{
+		fwrite($nestedInput, Json::encode($message) . "\n");
+	}
+	rewind($nestedInput);
+	$check($server->run(new StdioTransport($nestedInput, $nestedOutput, wire: $servers->wireInput())) === 0,
+		'The actual newline/stdin transport accepts nested read inputs cleanly.');
+	$nestedReplies = [];
+
+	foreach (explode("\n", trim(file_get_contents($nestedOutputPath))) as $line)
+	{
+		$message = Json::decode($line);
+		$nestedReplies[$message['id']] = $message;
+	}
+
+	foreach ($nestedIds as $id)
+	{
+		$check(($nestedReplies[$id]['result']['isError'] ?? false) === false
+			&& isset($nestedReplies[$id]['result']['structuredContent']['response']),
+			'Both shipped generic read envelopes accept nested filters over the actual newline/stdin transport.');
+	}
+	$check($native->calls === $beforeNestedCalls + 2
+		&& $native->arguments === ['filter' => ['search' => 'nested & literal=value', 'state' => 0]],
+		'Newline/stdin nested filters reach the selected native handler once per valid invocation without coercion.');
+}
+finally
+{
+	if (is_resource($nestedInput))
+	{
+		fclose($nestedInput);
+	}
+
+	if (is_resource($nestedOutput))
+	{
+		fclose($nestedOutput);
+	}
+	unlink($nestedOutputPath);
+}
 
 // The object/list distinction must also survive nested object schemas, lists,
 // additionalProperties, numeric keys and default values on both HTTP eras.
@@ -288,11 +342,32 @@ $valid = ['objectValue' => (object) ['0' => (object) [], '1' => (object) []], 'l
 
 foreach ([false, true] as $modern)
 {
-	$reply = $http(['jsonrpc' => '2.0', 'id' => 'nested-action-map', 'method' => 'tools/call', 'params' => ['name' => 'joomla_action_read',
-		'arguments' => ['action' => 'system.info', 'input' => (object) ['payload' => (object) ['0' => (object) [], '1' => (object) []]]]]], $modern);
-	$check(($reply['result']['isError'] ?? false) === false && isset($reply['result']['structuredContent']['response'])
-		&& Json::encode($native->arguments['payload'] ?? null) === '{"0":{},"1":{}}',
-		'Numeric-only object maps survive generic tool validation, action validation and native invocation in both HTTP eras.');
+	foreach (['joomla_action_read', 'joomla_companion_action_read'] as $name)
+	{
+		$reply = $http(['jsonrpc' => '2.0', 'id' => 'nested-action-map', 'method' => 'tools/call', 'params' => ['name' => $name,
+			'arguments' => ['action' => 'system.info', 'input' => (object) ['payload' => (object) ['0' => (object) [], '1' => (object) []]]]]], $modern);
+		$check(($reply['result']['isError'] ?? false) === false && isset($reply['result']['structuredContent']['response'])
+			&& Json::encode($native->arguments['payload'] ?? null) === '{"0":{},"1":{}}',
+			'Numeric-only object maps survive both shipped read envelopes, action validation and native invocation in both HTTP eras.');
+		$filter = (object) ['search' => 'literal & nested=value', 'state' => 0, 'active' => true];
+		$reply = $http(['jsonrpc' => '2.0', 'id' => 'nested-action-filter', 'method' => 'tools/call', 'params' => ['name' => $name,
+			'arguments' => ['action' => 'system.info', 'input' => (object) ['filter' => $filter]]]], $modern);
+		$check(($reply['result']['isError'] ?? false) === false && isset($reply['result']['structuredContent']['response'])
+			&& Json::canonical($native->arguments['filter'] ?? null) === Json::canonical($filter),
+			'Nested filter values survive both shipped read envelopes and retain scalar types through native invocation.');
+		$beforeCalls = $native->calls;
+
+		foreach ([(object) ['filter' => (object) ['search' => []]], (object) ['filter' => (object) ['state' => '0']],
+			(object) ['filter' => (object) ['unexpected' => 'value']], (object) ['unexpected' => (object) []]] as $invalid)
+		{
+			$reply = $http(['jsonrpc' => '2.0', 'id' => 'invalid-action-filter', 'method' => 'tools/call', 'params' => ['name' => $name,
+				'arguments' => ['action' => 'system.info', 'input' => $invalid]]], $modern);
+			$check(($reply['result']['isError'] ?? false) === true
+				&& Json::decode($reply['result']['content'][0]['text'])['error']['code'] === 'INVALID_INPUT'
+				&& $native->calls === $beforeCalls,
+				'Nested generic read acceptance cannot bypass the selected action schema or execute invalid native input.');
+		}
+	}
 
 	$reply = $http(['jsonrpc' => '2.0', 'id' => 401, 'method' => 'tools/call', 'params' => ['name' => 'joomla_sites_list', 'arguments' => $valid]], $modern);
 	$check(($reply['result']['structuredContent']['sites'][0]['id'] ?? '') === 'default', 'HTTP validates nested empty JSON objects and numeric object keys in both eras.');

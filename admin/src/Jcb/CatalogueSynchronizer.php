@@ -46,9 +46,17 @@ final class CatalogueSynchronizer
 	public function synchronize(array $commands, array $api, PrincipalInterface $principal): array
 	{
 		if (!$principal->isLocal() && (!$principal->authorise('core.admin', 'com_joomengine_mcp')
-			|| !$principal->authorise('core.admin', 'com_componentbuilder')))
+			|| (CatalogueBuilder::hasCommandScope($commands) && !$principal->authorise('core.admin', 'com_componentbuilder'))))
 		{
 			throw new OperationException('JCB_CATALOGUE_DENIED', 'Catalogue synchronization requires component and JCB administration permission.');
+		}
+
+		foreach ($api['components'] ?? ['com_componentbuilder'] as $component)
+		{
+			if (!is_string($component) || (!$principal->isLocal() && !$principal->authorise('core.admin', $component)))
+			{
+				throw new OperationException('JCB_CATALOGUE_DENIED', 'Catalogue synchronization requires native administration permission for every selected component.');
+			}
 		}
 
 		$seed = (new CatalogueBuilder())->build($commands, $api);

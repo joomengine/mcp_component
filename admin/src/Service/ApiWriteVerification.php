@@ -10,6 +10,7 @@ namespace VDM\Component\JoomEngineMcp\Administrator\Service;
 
 
 use stdClass;
+use VDM\Component\JoomEngineMcp\Administrator\Domain\OperationException;
 
 
 /**
@@ -56,6 +57,20 @@ final class ApiWriteVerification
 	 */
 	public static function compare(array $resolved, array $read, string $field, mixed $desired, mixed $observed): ?bool
 	{
+		$form = self::form($resolved, $read);
+
+		if (isset($form['fields'][$field]) && is_array($form['fields'][$field]))
+		{
+			return self::formValue($desired, $observed, $form['fields'][$field]);
+		}
+
+		if ($form !== [])
+		{
+			// Undeclared fields retain JSON equality rather than inheriting a
+			// numeric or shape coercion from an unrelated field contract.
+			return Json::canonical($desired) === Json::canonical($observed);
+		}
+
 		$base = self::resource($resolved);
 
 		if ($base === null || !self::nativeRead($read, $base))
@@ -89,6 +104,179 @@ final class ApiWriteVerification
 		}
 
 		return null;
+	}
+
+	/**
+	 * Return declared form controls without claiming they were persisted.
+	 *
+	 * @param array $resolved Authorized write definition.
+	 * @param array $read Authorized independent read definition.
+	 * @return string[] Source-backed request-only controls.
+	 * @since 1.0.6
+	 */
+	public static function requestOnly(array $resolved, array $read): array
+	{
+		$controls = self::form($resolved, $read)['request_only'] ?? [];
+
+		return is_array($controls) ? array_values(array_filter($controls, 'is_string')) : [];
+	}
+
+	/**
+	 * Compare resource identity using its declared route contract.
+	 *
+	 * @param mixed $value Native resource identity.
+	 * @param string $type Registered identity representation.
+	 * @return int|string|null Exact normalized identity, or null when invalid.
+	 * @since 1.0.6
+	 */
+	public static function identity(mixed $value, string $type): int|string|null
+	{
+		if ($type === 'integer')
+		{
+			$integer = self::integral($value);
+
+			return $integer !== null && $integer > 0 ? $integer : null;
+		}
+
+		if ($type === 'guid')
+		{
+			return is_string($value) && preg_match('/\A[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z/Di', $value) === 1
+				? strtolower($value) : null;
+		}
+
+		if ($type === 'string')
+		{
+			return is_string($value) && $value !== '' && strlen($value) <= 255 && preg_match('//u', $value) === 1
+				&& !in_array($value, ['.', '..'], true) && preg_match('/[\\\\\/%?#\x00-\x1f\x7f]/', $value) !== 1 ? $value : null;
+		}
+
+		return null;
+	}
+
+	/**
+	 * Bind installed form representation rules to their independent API item read.
+	 *
+	 * @param array $resolved Authorized write definition.
+	 * @param array $read Authorized read definition.
+	 * @return array Installed, administrator-owned form verification metadata.
+	 * @since 1.0.6
+	 */
+	private static function form(array $resolved, array $read): array
+	{
+		$write = $resolved['binding'] ?? [];
+		$item = $read['binding'] ?? [];
+		$config = $write['configuration'] ?? [];
+		$readConfig = $item['configuration'] ?? [];
+		$route = $write['definition']['nativeRoute'] ?? [];
+		$readRoute = $item['definition']['nativeRoute'] ?? [];
+
+		if (($write['track'] ?? '') !== 'api' || ($item['track'] ?? '') !== 'api'
+			|| ($write['handler'] ?? '') !== 'api.request' || ($item['handler'] ?? '') !== 'api.request'
+			|| ($readConfig['method'] ?? '') !== 'GET' || !empty($readConfig['select_fields'])
+			|| ($config['authentication'] ?? '') !== 'joomla-api-token'
+			|| ($readConfig['authentication'] ?? '') !== 'joomla-api-token'
+			|| ($config['read_action'] ?? '') !== ($read['action']['name'] ?? null)
+			|| ($route['route'] ?? null) !== ($config['route'] ?? '')
+			|| ($readRoute['route'] ?? null) !== ($readConfig['route'] ?? '')
+			|| ($route['defaults']['component'] ?? null) !== ($readRoute['defaults']['component'] ?? '')
+			|| !is_string($route['controller'] ?? null) || !is_string($readRoute['controller'] ?? null)
+			|| substr($route['controller'], 0, (int) strrpos($route['controller'], '.'))
+				!== substr($readRoute['controller'], 0, (int) strrpos($readRoute['controller'], '.'))
+			|| !is_array($config['api_form']['verification'] ?? null))
+		{
+			return [];
+		}
+
+		// This metadata is extracted during installed catalogue synchronization;
+		// neither a client input nor an API response may supply comparison rules.
+		return $config['api_form']['verification'];
+	}
+
+	/**
+	 * Apply only declared native representations, retaining shape and list order.
+	 *
+	 * @param mixed $desired Approved field value.
+	 * @param mixed $observed Independently saved field value.
+	 * @param array $contract Source-backed field and child representations.
+	 * @param int $depth Bounded child traversal.
+	 * @return bool Whether the exact declared field postcondition holds.
+	 * @since 1.0.6
+	 */
+	private static function formValue(mixed $desired, mixed $observed, array $contract, int $depth = 0): bool
+	{
+		if ($depth > 32)
+		{
+			return false;
+		}
+
+		$representation = $contract['representation'] ?? '';
+
+		if ($representation === 'integer')
+		{
+			$expected = self::integral($desired);
+			$actual = self::integral($observed);
+
+			return $expected !== null && $actual !== null && $expected === $actual;
+		}
+
+		if ($representation === 'boolean')
+		{
+			$values = [false, true, 0, 1, '0', '1'];
+
+			return in_array($desired, $values, true) && in_array($observed, $values, true)
+				&& (bool) $desired === (bool) $observed;
+		}
+
+		if ($representation === 'json')
+		{
+			try
+			{
+				$desired = is_string($desired) ? Json::native(Json::decode($desired, false)) : $desired;
+				$observed = is_string($observed) ? Json::native(Json::decode($observed, false)) : $observed;
+			}
+			catch (OperationException)
+			{
+				return false;
+			}
+		}
+
+		if (!is_array($desired) && !$desired instanceof stdClass)
+		{
+			return Json::canonical($desired) === Json::canonical($observed);
+		}
+
+		if ((!is_array($observed) && !$observed instanceof stdClass)
+			|| (is_array($desired) && array_is_list($desired)) !== (is_array($observed) && array_is_list($observed)))
+		{
+			return false;
+		}
+
+		$expected = (array) $desired;
+		$actual = (array) $observed;
+
+		if (count($expected) !== count($actual) || array_diff_key($expected, $actual) !== [])
+		{
+			return false;
+		}
+
+		if (($contract['ordered'] ?? false) === true && array_keys($expected) !== array_keys($actual))
+		{
+			return false;
+		}
+
+		$list = is_array($desired) && array_is_list($desired);
+
+		foreach ($expected as $key => $child)
+		{
+			$childContract = $list ? ($contract['items'] ?? []) : ($contract['properties'][$key] ?? $contract['additionalProperties'] ?? []);
+
+			if (!is_array($childContract) || !self::formValue($child, $actual[$key], $childContract, $depth + 1))
+			{
+				return false;
+			}
+		}
+
+		return true;
 	}
 
 	/**

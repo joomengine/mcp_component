@@ -80,7 +80,7 @@ fixture() {
 }
 fixture /tmp/mcp-component/tests/golden-image/prepare.php > "$out/prepare.log" 2>&1
 fixture /tmp/mcp-component/tests/integration/prepare-http.php >> "$out/prepare.log" 2>&1
-for suite in installation administration admin-pagination http field-defaults write-verification message-snapshot template-styles menu-components native-lists content-languages catalogue-mcp acl-mcp stdio stdio-endurance browser browser-pagination catalogue-page-limits jcb-api job-worker; do
+for suite in installation administration admin-pagination http field-defaults write-verification message-snapshot template-styles menu-components native-lists content-languages catalogue-mcp acl-mcp stdio stdio-endurance browser browser-pagination catalogue-page-limits jcb-api generated-api job-worker; do
   fixture "/tmp/mcp-component/tests/integration/$suite.php" > "$out/$suite.log" 2>&1
 done
 fixture /tmp/mcp-plugin/tests/installed.php > "$out/console-plugin.log" 2>&1
@@ -131,11 +131,32 @@ if [[ -n "${MCP_CLIENT_SOURCE:-}" ]]; then
 fi
 fixture /tmp/mcp-component/tests/golden-image/registry.php > "$out/jcb-command-registry.json" 2> "$out/registry-errors.log"
 php -r '$v=json_decode(file_get_contents($argv[1]),true,512,JSON_THROW_ON_ERROR); $c=array_filter($v["commands"]??[],static fn($c)=>str_starts_with($c["name"],"componentbuilder:")); if(count($c)<2)throw new RuntimeException("The installed JCB command registry is empty."); echo "Verified ",count($c)," native JCB command definitions\n";' "$out/jcb-command-registry.json" > "$out/registry.log"
+# The pinned source distribution above has no full JCB API. Install the exact
+# supplied package only after those compiler/package scenarios have completed.
+cat tests/fixtures/jcb/full-api-componentbuilder-6.1.6.zip.001 \
+  tests/fixtures/jcb/full-api-componentbuilder-6.1.6.zip.002 > build/full-api-componentbuilder-6.1.6.zip
+printf '%s  %s\n' 'a5870a1b162c9db1f8c23b87562389c46260838f471914132ef1d3d66fb8f55a' \
+  build/full-api-componentbuilder-6.1.6.zip | sha256sum --check > "$out/full-api-archive.log"
+compose cp build/full-api-componentbuilder-6.1.6.zip joomla:/tmp/mcp-full-api-componentbuilder.zip
+compose exec -T joomla php /var/www/html/cli/joomla.php extension:install \
+  --path=/tmp/mcp-full-api-componentbuilder.zip --no-interaction --no-ansi > "$out/full-api-install.log" 2>&1
+# The supplied component ZIP contains no linked routing plugin. This separate
+# disposable plugin uses the installed package's native JCB Routes renderer.
+fixture /tmp/mcp-component/tests/golden-image/full-api-plugin.php > "$out/full-api-routing-provenance.json" 2> "$out/full-api-routing-errors.log"
+compose exec -T joomla php /var/www/html/cli/joomla.php extension:install \
+  --path=/tmp/mcp-full-api-routing.zip --no-interaction --no-ansi > "$out/full-api-routing-install.log" 2>&1
+fixture /tmp/mcp-component/tests/golden-image/full-api-catalogue.php prepare > "$out/full-api-prepare.log" 2>&1
+compose exec -T joomla php /var/www/html/cli/joomla.php joomla:mcp:jcb-sync \
+  --no-interaction --no-ansi > "$out/full-api-sync.json" 2> "$out/full-api-sync-errors.log"
+fixture /tmp/mcp-component/tests/golden-image/full-api-catalogue.php verify > "$out/full-api-verify.log" 2>&1
+compose exec -T joomla php /var/www/html/cli/joomla.php joomla:mcp:jcb-sync \
+  --no-interaction --no-ansi > "$out/full-api-sync-rerun.json" 2> "$out/full-api-sync-rerun-errors.log"
+fixture /tmp/mcp-component/tests/golden-image/full-api-catalogue.php verify-rerun > "$out/full-api-rerun-verify.log" 2>&1
 fixture /tmp/mcp-component/tests/integration/lifecycle.php prepare > "$out/upgrade-prepare.log" 2>&1
 compose exec -T joomla php /var/www/html/cli/joomla.php extension:install --path=/tmp/mcp-component.zip --no-interaction --no-ansi > "$out/upgrade-mcp.log" 2>&1
 compose exec -T joomla php /var/www/html/cli/joomla.php extension:install --path=/tmp/mcp-webservices-plugin.zip --no-interaction --no-ansi > "$out/upgrade-webservices-plugin.log" 2>&1
 fixture /tmp/mcp-component/tests/integration/lifecycle.php verify > "$out/upgrade-verify.log" 2>&1
 fixture /tmp/mcp-component/tests/integration/installation.php > "$out/upgraded-installation.log" 2>&1
 fixture /tmp/mcp-component/tests/integration/lifecycle.php uninstall > "$out/uninstall.log" 2>&1
-printf '%s\n' 'Native golden-image installation, administrator-to-MCP, HTTP ACL, stdio CRUD, exact JCB inventory, actual package/compiler jobs, owned ZIP downloads, configured remote HTTPS bridge, upgrade and uninstall tests passed.' > "$out/summary.txt"
+printf '%s\n' 'Native golden-image installation, administrator-to-MCP, HTTP ACL, stdio CRUD, exact JCB inventory, actual package/compiler jobs, owned ZIP downloads, configured remote HTTPS bridge, full supplied JCB API inventory and repeated sync, upgrade and uninstall tests passed.' > "$out/summary.txt"
 cat "$out/summary.txt"

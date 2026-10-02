@@ -9,6 +9,7 @@
 namespace VDM\Component\JoomEngineMcp\Administrator\Service;
 
 
+use HashContext;
 use JsonException;
 use stdClass;
 use VDM\Component\JoomEngineMcp\Administrator\Domain\OperationException;
@@ -84,6 +85,77 @@ final class Json
 	public static function canonical(mixed $value): string
 	{
 		return self::encode(self::normalise($value));
+	}
+
+	/**
+	 * Hash canonical inventory JSON without materializing an aggregate response.
+	 *
+	 * Individual values and nesting remain bounded; callers must separately bound
+	 * inventory cardinality. Ordinary request and result encoding limits are unchanged.
+	 *
+	 * @param mixed $value JSON-compatible observed inventory.
+	 * @return string SHA-256 of exactly the canonical JSON bytes.
+	 * @since 1.0.6
+	 */
+	public static function canonicalHash(mixed $value): string
+	{
+		$context = hash_init('sha256');
+		$bytes = 0;
+		self::hashValue($context, $value, 0, $bytes);
+
+		return hash_final($context);
+	}
+
+	/** @param HashContext $context Incremental digest. @param mixed $value JSON value. @param int $depth Bounded nesting. @param int $bytes Canonical aggregate bytes. @return void @since 1.0.6 */
+	private static function hashValue(HashContext $context, mixed $value, int $depth, int &$bytes): void
+	{
+		if ($depth > 64)
+		{
+			throw new OperationException('RESULT_INVALID', 'The inventory exceeds the supported JSON nesting depth.');
+		}
+
+		$isObject = $value instanceof stdClass;
+		if ($isObject)
+		{
+			$value = get_object_vars($value);
+		}
+
+		if (!is_array($value))
+		{
+			self::hashChunk($context, self::encode($value), $bytes);
+			return;
+		}
+
+		$isList = !$isObject && array_is_list($value);
+		if (!$isList)
+		{
+			ksort($value, SORT_STRING);
+		}
+
+		self::hashChunk($context, $isList ? '[' : '{', $bytes);
+		$separator = '';
+		foreach ($value as $key => $child)
+		{
+			self::hashChunk($context, $separator, $bytes);
+			if (!$isList)
+			{
+				self::hashChunk($context, self::encode((string) $key) . ':', $bytes);
+			}
+			self::hashValue($context, $child, $depth + 1, $bytes);
+			$separator = ',';
+		}
+		self::hashChunk($context, $isList ? ']' : '}', $bytes);
+	}
+
+	/** @param HashContext $context Incremental digest. @param string $chunk Exact canonical bytes. @param int $bytes Aggregate byte count. @return void @since 1.0.6 */
+	private static function hashChunk(HashContext $context, string $chunk, int &$bytes): void
+	{
+		$bytes += strlen($chunk);
+		if ($bytes > 67108864)
+		{
+			throw new OperationException('RESULT_TOO_LARGE', 'The canonical inventory exceeds its bounded aggregate size.');
+		}
+		hash_update($context, $chunk);
 	}
 
 	/**
