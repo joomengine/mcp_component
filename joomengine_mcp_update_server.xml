@@ -7,10 +7,10 @@
 		<element>com_joomengine_mcp</element>
 		<type>component</type>
 		<client>administrator</client>
-		<version>1.0.6</version>
-		<infourl title="JoomEngine MCP Component">https://github.com/joomengine/mcp_component/tree/v1.0.6</infourl>
+		<version>1.0.7</version>
+		<infourl title="JoomEngine MCP Component">https://github.com/joomengine/mcp_component/tree/v1.0.7</infourl>
 		<downloads>
-			<downloadurl type="full" format="zip">https://github.com/joomengine/mcp_component/archive/refs/tags/v1.0.6.zip</downloadurl>
+			<downloadurl type="full" format="zip">https://github.com/joomengine/mcp_component/archive/refs/tags/v1.0.7.zip</downloadurl>
 		</downloads>
 		<tags>
 			<tag>stable</tag>
@@ -20,6 +20,6 @@
 		<targetplatform name="joomla" version="6\.[1-9][0-9]*"/>
 		<php_minimum>8.3.0</php_minimum>
 		<changelogurl>https://raw.githubusercontent.com/joomengine/mcp_component/main/changelog.xml</changelogurl>
-		<sha512>02b8e063f3d3d524222b1f352af75cb62c4cbea0b7a033ff44ce6697f6adaa8c78a31544f7dc1cb05d80a02470c6b9a0b94ff42afec39e0cf29a58df6012a8fc</sha512>
+		
 	</update>
 </updates>
