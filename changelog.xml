@@ -3,7 +3,7 @@
   <changelog>
     <element>com_joomengine_mcp</element>
     <type>component</type>
-    <version>[[[NEXT_VERSION]]]</version>
+    <version>1.0.7</version>
     <fix>
       <item>Synchronize full-size installed generated API catalogues with bounded shared form-contract transport and incremental inventory fingerprints. Release the previous catalogue snapshot before refreshing, avoid an unused catalogue preload during synchronization, and reject invalid inventories or failed refreshes before reusing definitions. Preserve every native route and validation policy, and exercise the complete supplied API-enabled JCB package through repeated installed synchronization and HTTP discovery.</item>
       <item>Preserve effective administrator input restrictions during catalogue upgrades when only the referenced schema was customized. Keep its tool, action, prompt or binding attached to that policy, including hash-detected edits and disabled schemas; verify allowed and denied requests before and after upgrade.</item>
