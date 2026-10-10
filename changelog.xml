@@ -3,7 +3,7 @@
   <changelog>
     <element>com_joomengine_mcp</element>
     <type>component</type>
-    <version>[[[NEXT_VERSION]]]</version>
+    <version>1.0.8</version>
     <fix>
       <item>Verify native subform custom field JSON by its decoded structure across article, content-category, contact and user API writes. Ignore formatting, slash and Unicode escape spelling and object key order while preserving list order, object/list shape and scalar types. Reject malformed, excessive or numerically unsafe values; keep independent read-back, approval-bound metadata, execution leases and idempotent replay.</item>
       <item>Complete omitted field-create descriptions and parameter groups with the native administrator form defaults across all six API and console contexts. Prevent missing non-null SQL values while preserving explicit caller data and partial updates; exercise omission in the installed field-default regression.</item>
