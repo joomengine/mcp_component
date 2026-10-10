@@ -31,7 +31,7 @@ final class CustomFields
 		'users.users' => ['context' => 'com_users.user', 'sourceAction' => 'fields.users.list', 'nested' => false],
 	];
 
-	/** @var array<string,string> Native routes whose list/checkbox API values are reviewed. @since 1.0.5 */
+	/** @var array<string,string> Native routes with reviewed custom field representations. @since 1.0.5 */
 	private const ROUTES = [
 		'content.articles' => '/v1/content/articles',
 		'content.categories' => '/v1/content/categories',
@@ -269,7 +269,7 @@ final class CustomFields
 	}
 
 	/**
-	 * Compare a frozen selection against Joomla's native value-to-label API map.
+	 * Compare frozen custom values against their reviewed native API representations.
 	 *
 	 * ListPlugin and Checkboxes::beforePrepareField expose option values as keys
 	 * and the unmodified names from FieldsListPlugin::getOptionsFromField as labels.
@@ -278,9 +278,9 @@ final class CustomFields
 	 * @param array $resolved Authorized write definition and frozen custom fields.
 	 * @param array $read Authorized independent native item read definition.
 	 * @param string $field Requested field name.
-	 * @param mixed $desired Approved selection value or list of values.
-	 * @param mixed $observed Independently read API value-to-label map.
-	 * @return ?bool Exact native selection comparison, or null for strict fallback.
+	 * @param mixed $desired Approved custom field value.
+	 * @param mixed $observed Independently read API custom field value.
+	 * @return ?bool Native representation comparison, or null for strict fallback.
 	 * @since 1.0.5
 	 */
 	public static function compare(array $resolved, array $read, string $field, mixed $desired, mixed $observed): ?bool
@@ -313,8 +313,17 @@ final class CustomFields
 		}
 
 		if ($definition === null || ($definition['context'] ?? '') !== $context['context']
-			|| !is_string($definition['id'] ?? null) || preg_match('/\A[1-9][0-9]*\z/D', $definition['id']) !== 1
-			|| !in_array($definition['type'] ?? '', ['list', 'checkboxes'], true) || !array_key_exists('choices', $definition))
+			|| !is_string($definition['id'] ?? null) || preg_match('/\A[1-9][0-9]*\z/D', $definition['id']) !== 1)
+		{
+			return null;
+		}
+
+		if (($definition['type'] ?? '') === 'subform')
+		{
+			return self::subform($desired, $observed);
+		}
+
+		if (!in_array($definition['type'] ?? '', ['list', 'checkboxes'], true) || !array_key_exists('choices', $definition))
 		{
 			return null;
 		}
@@ -356,6 +365,169 @@ final class CustomFields
 		ksort($actual, SORT_STRING);
 
 		return $expected === $actual;
+	}
+
+	/**
+	 * Decode only the outer subform serialization without coercing nested strings.
+	 *
+	 * JSON object order and escape spelling carry no value meaning. Lists, object
+	 * shape and scalar types do. Oversized and non-finite numbers are refused
+	 * because native decoding cannot reliably establish their intended value.
+	 *
+	 * @param mixed $desired Approved subform value.
+	 * @param mixed $observed Independently read subform value.
+	 * @return bool Exact bounded JSON structure comparison.
+	 * @since [[[NEXT_VERSION]]]
+	 */
+	private static function subform(mixed $desired, mixed $observed): bool
+	{
+		// The explicit empty string remains Joomla's supported clear operation.
+		if ($desired === '' || $observed === '')
+		{
+			return $desired === '' && $observed === '';
+		}
+
+		try
+		{
+			foreach ([$desired, $observed] as $value)
+			{
+				if (is_string($value) && !self::jsonNumbersSafe($value))
+				{
+					return false;
+				}
+			}
+
+			$desired = is_string($desired) ? Json::decode($desired, false, 1048576) : $desired;
+			$observed = is_string($observed) ? Json::decode($observed, false, 1048576) : $observed;
+			Json::encode($desired, 1048576);
+			Json::encode($observed, 1048576);
+		}
+		catch (OperationException)
+		{
+			return false;
+		}
+
+		return (is_array($desired) || $desired instanceof stdClass)
+			&& (is_array($observed) || $observed instanceof stdClass)
+			&& self::jsonValue($desired, $observed);
+	}
+
+	/** @param string $value Raw JSON. @return bool Numeric tokens survive native decode/encode. @since [[[NEXT_VERSION]]] */
+	private static function jsonNumbersSafe(string $value): bool
+	{
+		// Validate and bound the input before scanning numbers outside quoted text.
+		Json::decode($value, false, 1048576);
+		$length = strlen($value);
+
+		for ($offset = 0; $offset < $length; $offset++)
+		{
+			if ($value[$offset] === '"')
+			{
+				// Linear scanning avoids PCRE JIT limits on valid long text values.
+				for ($offset++; $offset < $length; $offset++)
+				{
+					if ($value[$offset] === '\\')
+					{
+						$offset++;
+					}
+					elseif ($value[$offset] === '"')
+					{
+						break;
+					}
+				}
+
+				continue;
+			}
+			if ($value[$offset] !== '-' && !ctype_digit($value[$offset]))
+			{
+				continue;
+			}
+
+			$tokenLength = strspn($value, '-0123456789.eE+', $offset);
+			$token = substr($value, $offset, $tokenLength);
+			$offset += $tokenLength - 1;
+
+			$normalized = self::jsonNumber($token);
+
+			if ($normalized === null || $normalized !== self::jsonNumber(Json::encode(Json::decode($token, false, 1048576), 1048576)))
+			{
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	/** @param string $token JSON number token. @return ?string Bounded decimal coefficient/exponent, without float arithmetic. @since [[[NEXT_VERSION]]] */
+	private static function jsonNumber(string $token): ?string
+	{
+		if (!preg_match('/^(-?)(\\d+)(?:\\.(\\d+))?(?:[eE]([+-]?\\d+))?$/', $token, $parts))
+		{
+			return null;
+		}
+
+		$exponentText = ltrim(ltrim($parts[4] ?? '0', '+-'), '0');
+
+		if (strlen($exponentText) > 6)
+		{
+			return null;
+		}
+
+		$digits = ltrim($parts[2] . ($parts[3] ?? ''), '0');
+
+		if ($digits === '')
+		{
+			return '0';
+		}
+
+		$exponent = (int) ($parts[4] ?? '0') - strlen($parts[3] ?? '');
+		$trimmed = rtrim($digits, '0');
+		$exponent += strlen($digits) - strlen($trimmed);
+
+		return $parts[1] . $trimmed . 'e' . $exponent;
+	}
+
+	/** @param mixed $desired Approved JSON value. @param mixed $observed Stored JSON value. @param int $depth Bounded nesting. @return bool Semantic JSON equality. @since [[[NEXT_VERSION]]] */
+	private static function jsonValue(mixed $desired, mixed $observed, int $depth = 0): bool
+	{
+		if ($depth >= 64)
+		{
+			return false;
+		}
+
+		if (is_int($desired) || is_float($desired) || is_int($observed) || is_float($observed))
+		{
+			return (is_int($desired) || is_float($desired)) && (is_int($observed) || is_float($observed))
+				&& is_finite((float) $desired) && is_finite((float) $observed)
+				&& abs($desired) <= 9007199254740991 && abs($observed) <= 9007199254740991
+				&& $desired == $observed;
+		}
+
+		$expectedObject = $desired instanceof stdClass || (is_array($desired) && !array_is_list($desired));
+		$actualObject = $observed instanceof stdClass || (is_array($observed) && !array_is_list($observed));
+
+		if ((!is_array($desired) && !$expectedObject) || (!is_array($observed) && !$actualObject))
+		{
+			return $desired === $observed;
+		}
+
+		$expected = (array) $desired;
+		$actual = (array) $observed;
+
+		if ($expectedObject !== $actualObject || count($expected) !== count($actual) || array_diff_key($expected, $actual) !== [])
+		{
+			return false;
+		}
+
+		foreach ($expected as $key => $value)
+		{
+			if (!self::jsonValue($value, $actual[$key], $depth + 1))
+			{
+				return false;
+			}
+		}
+
+		return true;
 	}
 
 	/** @param mixed $options Native subform option rows. @return ?array Unique option value/name pairs, or null for an unsupported definition. @since 1.0.5 */

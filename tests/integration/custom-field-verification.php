@@ -349,6 +349,76 @@ try
 					'Installed negative fixture: native checkout metadata was inspected separately; every owned entity content field, custom-field value row and both API reads remain unchanged after option validation rejected the request. The original native error is retained.');
 		}
 		$apply($action . '.update', ['id' => $id, 'data' => $clear], 'verified', static fn (array $result) => $observe($id, $clear, $result));
+		if ($slug === 'content-articles')
+		{
+			// Joomla's subform plugin names children field<ID>; FieldTable stores
+			// its selected children under option<N>. The child is never standalone.
+			$define = static function (string $type, int $hidden, array $fieldparams)
+				use ($prefix, $context, $groupId, $create, $read, $native, $fieldRoute, $equivalent, $check): array
+			{
+				$name = $prefix . '-subform-' . $type;
+				$data = ['title' => $name, 'name' => $name, 'label' => $name, 'type' => $type, 'group_id' => $groupId,
+					'state' => 1, 'required' => 0, 'language' => '*', 'access' => 1, 'default_value' => '',
+					'description' => '', 'note' => '', 'ordering' => 0, 'only_use_in_subform' => $hidden,
+					'params' => ['show_on' => ''], 'fieldparams' => $fieldparams];
+				$fieldId = $create('fields', ['table' => 'fields', 'marker' => ['name' => $name, 'context' => $context],
+					'action' => 'fields.content-articles', 'component' => 'com_fields', 'model' => 'Field', 'context' => $context], $data, 'partial',
+					static function (array $result, array $row) use ($name, $type, $hidden, $fieldparams, $read, $native, $fieldRoute, $equivalent, $check): void
+					{
+						$api = $read('fields.content-articles', (int) $row['id']);
+						$direct = $native($fieldRoute, (int) $row['id']);
+						$check($row['name'] === $name && $row['type'] === $type && (int) $row['only_use_in_subform'] === $hidden
+							&& ($api['type'] ?? null) === $type && ($direct['type'] ?? null) === $type
+							&& $equivalent($fieldparams, json_decode($row['fieldparams'], true, 64, JSON_THROW_ON_ERROR)),
+							'Subform definition identity, visibility and selected native child configuration persist');
+						$check(($result['verification']['unobservableFields'] ?? null) === ['only_use_in_subform'],
+							'Subform definition exposes only its genuinely API-omitted visibility as unobservable');
+					});
+				return ['id' => $fieldId, 'name' => $name];
+			};
+			$child = $define('text', 1, ['filter' => 'raw', 'maxlength' => 120]);
+			$parent = $define('subform', 0, ['repeat' => '1', 'max_rows' => 2,
+				'options' => ['option0' => ['customfield' => (string) $child['id'], 'render_values' => '0']]]);
+			$childKey = 'field' . $child['id'];
+			$expected = ['row0' => [$childKey => 'München / Namibia "quoted"'], 'row1' => [$childKey => 'répétition / second "row"']];
+			foreach (['formatted input', 'subsequent write'] as $case)
+			{
+				if ($case === 'subsequent write')
+				{
+					$expected['row1'][$childKey] = 'Über / subsequent "write"';
+				}
+				// Native SubformField filters this JSON into form rows; system/fields
+				// persists those rows with plain json_encode, changing all four spellings.
+				$submitted = json_encode($expected, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_QUOT | JSON_THROW_ON_ERROR);
+				$snapshot = null;
+				$inspect = static function (array $result) use ($id, $parent, $child, $expected, $submitted, $rows, $read, $native, $check, &$snapshot): void
+				{
+					$entity = $rows('content', ['id' => $id]);
+					$stored = $rows('fields_values', ['field_id' => $parent['id'], 'item_id' => $id]);
+					$api = $read('content.articles', $id);
+					$direct = $native('content/articles', $id);
+					$check(count($entity) === 1 && (int) $entity[0]['id'] === $id && (int) $entity[0]['state'] === 0
+						&& count($stored) === 1 && (int) $stored[0]['field_id'] === $parent['id'] && (int) $stored[0]['item_id'] === $id,
+						'Subform mutation and replay retain the exact owned unpublished article and native value row');
+					$check($stored[0]['value'] !== $submitted && json_decode($stored[0]['value'], true, 64, JSON_THROW_ON_ERROR) === $expected
+						&& str_contains($stored[0]['value'], '\\u') && str_contains($stored[0]['value'], '\\/') && str_contains($stored[0]['value'], '\\"'),
+						'Native Joomla reformats whitespace, Unicode, slashes and quotes while preserving exact subform rows');
+					foreach ([$api, $direct] as $attributes)
+					{
+						$check(is_string($attributes[$parent['name']] ?? null) && $attributes[$parent['name']] === $stored[0]['value']
+							&& !array_key_exists($child['name'], $attributes), 'Both independent reads expose the native parent JSON and hide its subform-only child');
+					}
+					$check($rows('fields_values', ['field_id' => $child['id'], 'item_id' => $id]) === []
+						&& in_array($parent['name'], $result['verification']['matchedFields'] ?? [], true)
+						&& !in_array($parent['name'], $result['verification']['unobservableFields'] ?? [], true),
+						'Subform values are explicitly verified on the parent without a standalone child value');
+					$observed = ['entity' => $entity, 'values' => $stored];
+					$check($snapshot === null || $snapshot === $observed, 'Confirmation replay performs no article or subform-value mutation');
+					$snapshot = $observed;
+				};
+				$apply('content.articles.update', ['id' => $id, 'data' => [$parent['name'] => $submitted]], 'verified', $inspect);
+			}
+		}
 	}
 }
 finally
@@ -463,4 +533,4 @@ finally
 	}
 }
 echo Json::encode(['checks' => $checks, 'liveJoomla' => JVERSION, 'database' => $db->getServerType(),
-	'verification' => 'four native contexts; field groups and text/list/checkboxes/integer definitions; values, option maps, aliases, clears, rejection, replay and cleanup']) . PHP_EOL;
+	'verification' => 'four native contexts; field groups and text/list/checkboxes/integer/subform definitions; values, option maps, native JSON spelling, aliases, clears, rejection, replay and cleanup']) . PHP_EOL;

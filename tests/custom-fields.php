@@ -96,6 +96,8 @@ $fixture = static function (array $fields, string $track = 'api') use ($seed): a
 		public array $choiceOptions = [];
 		/** @var array<string,mixed> Explicit independent read-back substitutions. */
 		public array $readValues = [];
+		/** @var ?ResponseInterface Simulated API error after persistence. */
+		public ?ResponseInterface $postSaveResponse = null;
 		/** @var bool Simulate a server ignoring offsets. */
 		public bool $repeatPage = false;
 		/** @var int Next fake resource identifier. */
@@ -171,6 +173,11 @@ $fixture = static function (array $fields, string $track = 'api') use ($seed): a
 			if ($this->changedField !== null)
 			{
 				$this->items[$itemPath][$this->changedField] = 'Changed by Joomla';
+			}
+
+			if ($this->postSaveResponse !== null)
+			{
+				return $this->postSaveResponse;
 			}
 
 			return new Response(200, [], Json::encode(['data' => ['id' => (string) $id, 'attributes' => $this->items[$itemPath]]]));
@@ -504,5 +511,111 @@ $s = $fixture(['/v1/fields/content/articles' => [$field('selections', ['type' =>
 $metadata = $s['executor']->describe('content.articles.create')['customFields'];
 $check($metadata['fields'][0]['choices'] === [['value' => '0', 'name' => 'Zero'], ['value' => '1.5', 'name' => 'Fraction']],
 	'Native keyed subform rows or exact numeric option identities were not frozen.');
+
+$subformMatches = [
+	['{"row0": {"field7": "équipe / 团队", "field8": {"imagefile": "images/a.png#joomlaImage://local-images/a.png?width=10&height=10", "alt_text": "a"}}}',
+		'{"row0":{"field8":{"alt_text":"a","imagefile":"images\\/a.png#joomlaImage:\\/\\/local-images\\/a.png?width=10&height=10"},"field7":"\\u00e9quipe \\/ \\u56e2\\u961f"}}'],
+	['{"row1":{"values":[1,true,null,"1"]},"row0":{}}', '{"row0":{},"row1":{"values":[1.0,true,null,"1"]}}'],
+	[['row0' => ['text' => '{"literal": "do not decode nested text"}']], '{"row0":{"text":"{\\"literal\\": \\"do not decode nested text\\"}"}}'],
+	[[], '[]'], [new stdClass(), '{}'], ['', ''],
+	['{"values":[0.1,1e3,1.0,0,-0]}', '{"values":[0.10,1000,1,-0,0]}'],
+	['{"text":"1e-400 9007199254740990.1"}', '{"text":"1e-400 9007199254740990.1"}'],
+];
+$subformDifferences = [
+	['{"row0":{"text":"approved"}}', '{"row0":{"text":"changed"}}'],
+	['{"row0":{"text":"approved"}}', '{"row0":{}}'],
+	['{"row0":{}}', '{"row0":{"extra":true}}'],
+	['{"row0":{"values":[1,2]}}', '{"row0":{"values":[2,1]}}'],
+	['{"row0":{"values":[1,2]}}', '{"row0":{"values":[1]}}'],
+	['{"row0":{"value":"1"}}', '{"row0":{"value":1}}'],
+	['{"row0":{"value":false}}', '{"row0":{"value":0}}'],
+	['{"row0":{"value":null}}', '{"row0":{"value":""}}'],
+	['{"row0":{"text":"{\\"a\\":1,\\"b\\":2}"}}', '{"row0":{"text":"{\\"b\\":2,\\"a\\":1}"}}'],
+	['{"row0":{}}', '{"row0":[]}'], ['{}', '[]'], ['{"0":"x"}', '["x"]'],
+	['{"row0":', '{"row0":'], ['{"row0":{}}', '{"row0":'],
+	['{"row0":{}}', null], ['null', 'null'], ['true', 'true'], ['1', '1'],
+	['{"value":9007199254740992}', '{"value":9007199254740993}'],
+	['{"value":9007199254740992}', '{"value":9007199254740992}'],
+	['{"value":9223372036854775808}', '{"value":9223372036854775809}'],
+	['{"value":1e400}', '{"value":1e400}'],
+	['{"value":9007199254740990.1}', '{"value":9007199254740990.2}'],
+	['{"value":1e-400}', '{"value":0}'],
+	['{"value":0.12345678901234567890}', '{"value":0.12345678901234567891}'],
+	['{"value":1.00000000000000001}', '{"value":1}'],
+	['{"value":9.0071992547409901e15}', '{"value":9007199254740990}'],
+	['{"value":1e-400}', '{"value":1e-400}'],
+];
+
+foreach ([
+	['content.articles', 'com_content.article', '/v1/fields/content/articles', '/v1/content/articles', 'content.write', ['title' => 'Subform article', 'catid' => 2]],
+	['content.categories', 'com_content.categories', '/v1/fields/content/categories', '/v1/content/categories', 'structure.write', ['title' => 'Subform category']],
+	['contacts.contacts', 'com_contact.contact', '/v1/fields/contacts/contact', '/v1/contacts', 'content.write', ['name' => 'Subform contact']],
+	['users.users', 'com_users.user', '/v1/fields/users', '/v1/users', 'users.admin', ['name' => 'Subform user', 'username' => 'subform-user', 'email' => 'subform@example.invalid']],
+] as [$entity, $context, $route, $itemRoute, $scope, $core])
+{
+	foreach (['create', 'update'] as $operation)
+	{
+		foreach (array_merge(array_map(static fn (array $pair): array => [$pair, 'verified'], $subformMatches),
+			array_map(static fn (array $pair): array => [$pair, 'uncertain'], $subformDifferences)) as [[$desired, $observed], $status])
+		{
+			$s = $fixture([$route => [$field('modals', ['type' => 'subform', 'context' => $context])]]);
+			$approve($s, $scope);
+			$s['http']->items[$itemRoute . '/1'] = $core + ['modals' => $observed];
+			$s['http']->readValues['modals'] = $observed;
+			$input = ['data' => $core + ['com_fields' => ['modals' => $desired]]] + ($operation === 'update' ? ['id' => 1] : []);
+			$plan = $s['executor']->plan($entity . '.' . $operation, $input, Json::uuid());
+			$result = $s['executor']->apply($plan['confirmationToken']);
+			$check($result['verification']['status'] === $status, 'Subform JSON verification failed for ' . $entity . '/' . $operation);
+			$check(($s['store']->find('lease') === []) === ($status === 'verified'), 'Subform verification released an uncertain lease or retained a matched lease.');
+			$check(($status === 'verified' ? $result['verification']['matchedFields'] : $result['verification']['differentFields']) === array_merge(array_keys($core), ['modals'])
+				|| ($status === 'uncertain' && $result['verification']['differentFields'] === ['modals']), 'Subform verification did not retain exact field evidence.');
+			$writes = count($s['http']->writes);
+			$replay = $s['executor']->apply($plan['confirmationToken']);
+			$check($replay['idempotentReplay'] && count($s['http']->writes) === $writes, 'Subform JSON replay repeated a write.');
+		}
+	}
+}
+
+$s = $fixture(['/v1/fields/content/articles' => [$field('modals', ['type' => 'subform'])]]);
+$resolved = $s['catalogue']->action('content.articles.create');
+$resolved['custom_fields'] = $s['executor']->describe('content.articles.create')['customFields'];
+$read = $s['catalogue']->action('content.articles.get');
+foreach ([['binding', 'configuration', 'route'], ['custom_fields', 'context'], ['custom_fields', 'fields', 0, 'type']] as $path)
+{
+	$variant = $resolved;
+	$changed = &$variant;
+	foreach ($path as $key)
+	{
+		$changed = &$changed[$key];
+	}
+	$changed = 'custom';
+	unset($changed);
+	$check(CustomFields::compare($variant, $read, 'modals', '{"row0": {}}', '{"row0":{}}') === null,
+		'A customized route, foreign context or text field inherited subform JSON comparison.');
+}
+$check(CustomFields::compare($resolved, $read, 'modals', str_repeat(' ', 1048577) . '{}', '{}') === false,
+	'Oversized JSON was compared beyond the subform limit.');
+$deep = str_repeat('[', 65) . '0' . str_repeat(']', 65);
+$check(CustomFields::compare($resolved, $read, 'modals', $deep, $deep) === false, 'Excessively nested subform JSON was accepted.');
+foreach ([str_repeat('a', 500000), str_repeat('"\\', 200000)] as $text)
+{
+	$value = Json::encode(['row0' => ['text' => $text, 'numericText' => '1e-400']], 1048576);
+	$check(CustomFields::compare($resolved, $read, 'modals', $value, $value) === true,
+		'Bounded long or escaped JSON text exhausted numeric token scanning.');
+}
+
+// Native Joomla can save successfully, fail its subsequent check-in and return 400.
+$s = $fixture(['/v1/fields/content/articles' => [$field('modals', ['type' => 'subform'])]]);
+$approve($s);
+$s['http']->postSaveResponse = new Response(400, ['Content-Type' => 'application/vnd.api+json'], '{"errors":[{"title":"Check-in failed after save"}]}');
+$plan = $s['executor']->plan('content.articles.create', ['data' => ['title' => 'Stored despite HTTP 400', 'catid' => 2, 'modals' => '{}']], Json::uuid());
+$result = $s['executor']->apply($plan['confirmationToken']);
+$check($result['verification']['status'] === 'uncertain' && $result['error']['details']['httpStatus'] === 400
+	&& $s['store']->find('lease') !== [] && isset($s['http']->items['/v1/content/articles/1']),
+	'A post-save HTTP 400 must retain uncertainty and its lease.');
+$replay = $s['executor']->apply($plan['confirmationToken']);
+$check($replay['idempotentReplay'] && count($s['http']->writes) === 1, 'An HTTP 400 replay duplicated an already persisted resource.');
+$next = $s['executor']->plan('content.articles.create', ['data' => ['title' => 'Blocked pending reconciliation', 'catid' => 2, 'modals' => '{}']], Json::uuid());
+$reject(static fn () => $s['executor']->apply($next['confirmationToken']), 'WRITE_BUSY');
 
 echo Json::encode(['checks' => $checks, 'customFieldContracts' => 'passed with recording API and transactional memory doubles', 'liveJoomla' => 'not run by this unit suite']) . PHP_EOL;
