@@ -70,7 +70,7 @@ $createFieldModel = static function () use ($app, $admin): FieldModel
 };
 $readRow = static function (string $name) use ($db): ?array
 {
-	$row = $db->setQuery($db->createQuery()->select($db->quoteName(['id', 'label', 'default_value']))->from($db->quoteName('#__fields'))
+	$row = $db->setQuery($db->createQuery()->select($db->quoteName(['id', 'label', 'default_value', 'description', 'params']))->from($db->quoteName('#__fields'))
 		->where($db->quoteName('context') . ' = ' . $db->quote('com_content.article'))
 		->where($db->quoteName('name') . ' = ' . $db->quote($name)))->loadAssoc();
 
@@ -154,6 +154,14 @@ try
 					'paramsType' => get_debug_type($filtered['params'] ?? null), 'fieldparamsType' => get_debug_type($filtered['fieldparams'] ?? null)]));
 			$data['params'] = $filtered['params'];
 			$data['fieldparams'] = $filtered['fieldparams'];
+			if ($case === 'omitted')
+			{
+				// Exercise the reported API create failure without either non-null
+				// column supplied by the client; MCP completes native form defaults.
+				unset($data['description'], $data['params']);
+				$check(!array_key_exists('description', $data) && !array_key_exists('params', $data),
+					$track . ' create leaves description and params absent at the MCP boundary');
+			}
 			$check($case !== 'omitted' || !array_key_exists('default_value', $data), $track . ' omitted-default input stays absent at the MCP boundary');
 
 			$plan = $client->tool('joomla_action_write_plan', ['action' => 'fields.content-articles.create', 'transport' => $track,
@@ -163,6 +171,17 @@ try
 			$row = $readRow($name);
 			$check($row !== null && (int) $row['id'] > 0 && $row['default_value'] === $expected,
 				$track . ' ' . $case . ' create persists the exact expected non-null default');
+			if ($case === 'omitted')
+			{
+				$storedParams = Json::decode($row['params']);
+				$check($row['description'] === '' && is_array($storedParams),
+					$track . ' omitted description and params persist valid non-null SQL values');
+				foreach (['show_on' => '', 'showlabel' => '1', 'display' => '2', 'display_readonly' => '2', 'searchindex' => '0'] as $key => $value)
+				{
+					$check(array_key_exists($key, $storedParams) && (string) $storedParams[$key] === $value,
+						$track . ' omitted params persists native form default ' . $key);
+				}
+			}
 			$check(in_array($result['verification']['status'] ?? '', ['verified', 'partial'], true),
 				$track . ' ' . $case . ' create retains normal independent read-back');
 			$check($categorySelection((int) $row['id']) === [$categoryId]
@@ -184,6 +203,8 @@ try
 			$check($updated !== null && $updated['label'] === $updatedLabel && $updated['default_value'] === $expected
 				&& ($result['verification']['status'] ?? '') === 'verified',
 				$track . ' ' . $case . ' partial update preserves an omitted existing default');
+			$check($updated['description'] === $row['description'] && $updated['params'] === $row['params'],
+				$track . ' ' . $case . ' partial update preserves existing description and params');
 			$verifyDom((int) $row['id'], $expected, $track . ' ' . $case . ' update');
 			$check($categorySelection((int) $row['id']) === [$categoryId],
 				$track . ' ' . $case . ' partial update preserves the separate category relation');

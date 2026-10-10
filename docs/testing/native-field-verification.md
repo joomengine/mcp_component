@@ -40,6 +40,64 @@ types outside this contract also retain strict comparison. Applying a plan does
 not rediscover options or acquire another permission. A changed read-back label
 or selection remains visible as a mismatch against the approved metadata.
 
+## Subform JSON values
+
+The reviewed native article, content-category, contact and user API contexts also
+support published fields of type `subform`. A normally formatted JSON string
+such as `{"row0": {"url": "https://example.org/a"}}` matches Joomla's compact
+`{"row0":{"url":"https:\/\/example.org\/a"}}` response. Only the outer JSON
+serialization is decoded; a text subfield containing JSON remains ordinary text.
+Object member ordering is ignored. Lists retain their exact order and length;
+objects remain distinct from lists; strings, booleans and null remain distinct
+from numbers. Native numeric `1` and `1.0` compare as the same decoded number.
+
+The approved field snapshot and independent read contract scope this behavior.
+No field rediscovery occurs during apply. Malformed JSON, oversized values,
+excessive nesting, non-finite numbers and numbers outside the safe integer range
+cannot establish a match. Raw numeric tokens must also retain their decimal
+value through native JSON decoding and encoding; precision loss and underflow
+are refused, while `1.0`/`1` and `1e3`/`1000` remain equivalent. Quoted numeric
+text is never parsed as a number. An explicit empty string still matches the same native
+empty-string clear operation. A changed value retains its uncertain outcome and
+write lease. Successful matches release the lease; replay returns retained
+evidence without sending another mutation.
+
+Installing this fix does not rewrite existing uncertain executions. Inspect and
+reconcile those records through the administrator Operations view. A retained
+token does not automatically rerun its mutation or clear an unresolved lease.
+
+The TypeScript server keeps its existing raw API read response and adds scoped
+`customFieldVerification` evidence for approved subform values. Its configured
+live-test runner uses the same scoped semantic comparison. This evidence covers
+subform fields only; the TypeScript server does not implement the PHP component's
+durable `WRITE_BUSY` lease or administrative reconciliation store.
+
+## HTTP errors after a save
+
+A client-error HTTP status does not prove that a write had no effects. In Joomla
+6.1.4, [ApiController::save](https://github.com/joomla/joomla-cms/blob/6.1.4/libraries/src/MVC/Controller/ApiController.php)
+saves the model before checking the new record ID and checking it back in. A
+failure at either subsequent step throws `CheckinCheckout`. Its
+[JSON:API exception handler](https://github.com/joomla/joomla-cms/blob/6.1.4/libraries/src/Error/JsonApi/CheckinCheckoutExceptionHandler.php)
+returns HTTP 400. Failed validation also uses 400, so neither the status nor a
+generic JSON:API error body establishes whether persistence occurred.
+
+Unproven HTTP 400, server errors and interrupted exchanges therefore retain
+uncertainty and require inspection. The regression deliberately persists a
+resource before returning HTTP 400 and checks that its lease remains held and
+replay cannot create a duplicate. The reported native field-create SQL error
+requires fixing its field payload or upstream save contract; matching localized
+SQL/error text is not a safe basis for unlocking writes.
+
+For the concrete missing-description/params field-create case, MCP completes
+only omitted values from the [native administrator form](https://github.com/joomla/joomla-cms/blob/6.1.4/administrator/components/com_fields/forms/field.xml):
+`description: ""` and params `show_on: ""`, `showlabel: "1"`, `display: "2"`,
+`display_readonly: "2"`, `searchindex: "0"`. The nonempty parameter group matters
+because Joomla filters an empty group away. These defaults apply only to the six
+reviewed field-create contexts, through API and console transports. Explicit
+values and PATCH data are preserved. This prevents the reported missing payload
+failure; it does not reclassify an ambiguous HTTP error as an effect-free failure.
+
 ## Regression coverage
 
 `tests/write-verification.php` covers create/update, empty/nonempty/nested JSON

@@ -11,6 +11,7 @@ namespace VDM\Component\JoomEngineMcp\Administrator\Handler;
 
 use stdClass;
 use VDM\Component\JoomEngineMcp\Administrator\Domain\OperationException;
+use VDM\Component\JoomEngineMcp\Administrator\Native\Domain\FieldCreateDefaults;
 use VDM\Component\JoomEngineMcp\Administrator\Service\Json;
 use VDM\Component\JoomEngineMcp\Administrator\Service\TemplateStyleInheritance;
 
@@ -235,14 +236,13 @@ final class ApiRequestBuilder
 
 			$body = array_replace($body, (array) ($configuration['body_defaults'] ?? []));
 
-			// Joomla's administrator form posts an empty default for a new field.
-			// Omitting it in the API otherwise leaves NULL in the field DOM pipeline.
+			// Complete only omitted native field-create form values. Explicit
+			// values and partial updates remain Joomla's validation responsibility.
 			if ($method === 'POST' && ($configuration['operation'] ?? null) === 'create'
 				&& in_array($configuration['route'], ['/v1/fields/content/articles', '/v1/fields/content/categories',
-					'/v1/fields/contacts/contact', '/v1/fields/contacts/categories', '/v1/fields/contacts/mail', '/v1/fields/users'], true)
-				&& !array_key_exists('default_value', $body))
+					'/v1/fields/contacts/contact', '/v1/fields/contacts/categories', '/v1/fields/contacts/mail', '/v1/fields/users'], true))
 			{
-				$body['default_value'] = '';
+				$body = FieldCreateDefaults::complete($body);
 			}
 
 			Json::encode((object) $body, 1048576);
