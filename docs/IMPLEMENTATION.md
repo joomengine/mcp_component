@@ -1,5 +1,13 @@
 # Implementation status — 2 October 2026
 
+## Native custom-field category assignments — Joomla MCP issue #56
+
+All six field-definition contexts now accept the reviewed assigned_cat_ids form key on API and local create/update bindings. The component-owned generator extension retains original migration contracts and schemas, adds assignment to native item read/write definitions, and lets the existing seed updater preserve administrator-owned bindings or referenced schemas. API PATCH preserves the separate category relation from its authorized item snapshot; native updates preserve it from the existing model item.
+
+Read-back compares exact category memberships, the native All/None sentinels and an explicitly approved subform-only None override. It never infers that override from returned data alone. Other routes, handlers, contexts, malformed values and genuine selection mismatches retain strict or uncertain outcomes. The stock API omits only_use_in_subform, so that flag remains explicitly unobservable when absent.
+
+The recording API/native-model suite covers all six contexts, create/update, dry runs, replay, preserved omission, explicit changes and clearing, sentinels, negative types/membership/route cases and seed customization. The field-category-assignments suite passes 653 checks. Full local and installed CI results are recorded in the linked PR; the recording suite alone is not live Joomla evidence. See [the native category contract](testing/field-category-assignments.md).
+
 ## Full installed generated-API inventory — current follow-up
 
 The supplied API-enabled JCB package exposes a larger native form inventory than the original golden-image fixture. On MCP `047c08ee`, repeating a complete form contract for each registered method can exceed the inventory worker's 8 MiB output allowance. The enriched inventory and catalogue revision also previously serialized the entire expanded inventory through an 8 MiB canonical-JSON limit. This is an MCP inventory limitation; the generated API files are not a repair target.

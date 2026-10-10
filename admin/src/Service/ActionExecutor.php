@@ -1247,7 +1247,7 @@ final class ActionExecutor
 			{
 				$unobservable[] = $field;
 			}
-			elseif (ApiWriteVerification::compare($resolved, $read, $field, $value, $record[$field])
+			elseif (ApiWriteVerification::compare($resolved, $read, $field, $value, $record[$field], $desired)
 				?? CustomFields::compare($resolved, $read, $field, $value, $record[$field])
 				?? (Json::canonical($record[$field]) === Json::canonical($value)
 					|| ((is_int($value) || is_bool($value)) && is_numeric($record[$field]) && (string) (int) $value === (string) $record[$field])))

@@ -8,9 +8,11 @@
  */
 
 use VDM\Component\JoomEngineMcp\Administrator\Database\Structure;
+use VDM\Component\JoomEngineMcp\Administrator\Service\FieldCategoryAssignments;
 
 
 require_once dirname(__DIR__) . '/admin/src/Database/Structure.php';
+require_once dirname(__DIR__) . '/admin/src/Service/FieldCategoryAssignments.php';
 $root = dirname(__DIR__);
 $sourceFile = $root . '/data/upstream-contracts.json';
 $nativeFile = $root . '/data/upstream-native.json';
@@ -28,6 +30,7 @@ $runtimeObjects = json_decode(file_get_contents($runtimeFile), false, 128, JSON_
 $runtimeRevision = hash_file('sha256', $runtimeFile);
 
 if (($runtime['version'] ?? null) !== 1 || !is_array($runtime['tools'] ?? null)
+	|| (isset($runtime['fieldCategoryAssignments']) && !is_bool($runtime['fieldCategoryAssignments']))
 	|| !is_array($runtime['inputSchemaOverrides'] ?? [])
 	|| !is_array($runtime['bindingInputSchemaOverrides'] ?? [])
 	|| !is_array($runtime['actionMetadataOverrides'] ?? [])
@@ -477,6 +480,62 @@ foreach ($runtime['bindingConfigurationOverrides'] ?? [] as $override)
 		}
 	}
 
+	unset($row);
+}
+
+// Extend reviewed field bindings without rewriting the immutable migration
+// contracts or replacing administrator-owned schemas during installation.
+if (($runtime['fieldCategoryAssignments'] ?? false) === true)
+{
+	foreach ($rows['binding'] as &$row)
+	{
+		if (preg_match('/\A(.+)\.([a-z]+)\.(api|cli)\z/D', $row['name'], $parts) !== 1
+			|| !isset(FieldCategoryAssignments::CONTEXTS[$parts[1]]))
+		{
+			continue;
+		}
+
+		$configuration = json_decode($row['configuration'], true, 128, JSON_THROW_ON_ERROR);
+		$configurationObject = json_decode($row['configuration'], false, 128, JSON_THROW_ON_ERROR);
+		$context = FieldCategoryAssignments::CONTEXTS[$parts[1]]['context'];
+		if ($parts[3] === 'cli')
+		{
+			$entity = $configuration['entity'] ?? [];
+			if ($row['handler'] !== 'native.core-entity' || ($entity['component'] ?? '') !== 'com_fields'
+				|| ($entity['itemModel'] ?? '') !== 'Field' || ($entity['defaults']['context'] ?? '') !== $context)
+			{
+				throw new RuntimeException('Field category extension requires the reviewed native field model.');
+			}
+			foreach (['readFields', 'writeFields'] as $field)
+			{
+				$configuration['entity'][$field] = array_values(array_unique([...$entity[$field], 'assigned_cat_ids']));
+				$configurationObject->entity->{$field} = $configuration['entity'][$field];
+			}
+		}
+		elseif ($parts[2] === 'update')
+		{
+			$configuration['preserve_fields'] = ['assigned_cat_ids'];
+			$configurationObject->preserve_fields = ['assigned_cat_ids'];
+		}
+		else
+		{
+			// API item responses already expose assignment; other read/delete
+			// bindings have no schema or mutation contract to extend.
+			if (!in_array($parts[2], ['create', 'update'], true))
+			{
+				continue;
+			}
+		}
+
+		if (in_array($parts[2], ['create', 'update'], true))
+		{
+			$document = json_decode($rows['schema'][$row['input_schema_id'] - 1]['document'], false, 128, JSON_THROW_ON_ERROR);
+			$document->properties->data->properties->assigned_cat_ids = (object) FieldCategoryAssignments::schema();
+			$row['input_schema_id'] = $addSchema($document);
+		}
+		$row['configuration'] = $json($configurationObject);
+		$row['seed_revision'] = $runtimeRevision;
+	}
 	unset($row);
 }
 

@@ -1,5 +1,11 @@
 # Changelog
 
+## [[[NEXT_VERSION]]]
+
+### Fix
+
+- Accept category assignments on create and update for all six native custom-field contexts. Preserve omitted assignments during API and local updates, verify native All, None and explicitly approved subform-only selections, and preserve administrator-owned schemas during seed upgrades.
+
 ## 1.0.7
 
 ### Fix

@@ -52,11 +52,21 @@ final class ApiWriteVerification
 	 * @param string $field Requested field name.
 	 * @param mixed $desired Approved field value.
 	 * @param mixed $observed Independently read field value.
+	 * @param array $approved Full approved data for explicit native selection controls.
 	 * @return ?bool Contract comparison, or null when no exception applies.
 	 * @since 1.0.1
 	 */
-	public static function compare(array $resolved, array $read, string $field, mixed $desired, mixed $observed): ?bool
+	public static function compare(array $resolved, array $read, string $field, mixed $desired, mixed $observed, array $approved = []): ?bool
 	{
+		if ($field === 'assigned_cat_ids')
+		{
+			$categories = FieldCategoryAssignments::compare($resolved, $read, $desired, $observed, $approved);
+			if ($categories !== null)
+			{
+				return $categories;
+			}
+		}
+
 		$form = self::form($resolved, $read);
 
 		if (isset($form['fields'][$field]) && is_array($form['fields'][$field]))

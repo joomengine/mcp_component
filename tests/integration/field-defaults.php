@@ -36,6 +36,17 @@ $check = static function (bool $condition, string $message) use (&$checks): void
 	echo 'PASS ' . $message . PHP_EOL;
 };
 $prefix = 'mcp-default-' . bin2hex(random_bytes(6)) . '-';
+$categoryId = (int) $db->setQuery($db->createQuery()->select($db->quoteName('id'))->from($db->quoteName('#__categories'))
+	->where($db->quoteName('extension') . ' = ' . $db->quote('com_content'))
+	->where($db->quoteName('id') . ' > 1')->order($db->quoteName('id') . ' ASC'), 0, 1)->loadResult();
+$check($categoryId > 1, 'Installed fixture has an article category for real field-assignment validation');
+$categorySelection = static function (int $id) use ($db): array
+{
+	$ids = array_map('intval', $db->setQuery($db->createQuery()->select($db->quoteName('category_id'))->from($db->quoteName('#__fields_categories'))
+		->where($db->quoteName('field_id') . ' = ' . $id))->loadColumn());
+	sort($ids, SORT_NUMERIC);
+	return $ids === [] ? [0] : $ids;
+};
 $createFieldModel = static function () use ($app, $admin): FieldModel
 {
 	$input = $app->getInput();
@@ -115,12 +126,12 @@ try
 		foreach (['omitted' => '', 'explicit-zero' => '0'] as $case => $expected)
 		{
 			$name = $prefix . $track . '-' . $case;
-			// Supply all editable non-null native fields. Omit context/id/audit and
-			// category assignment because those are outside the public write schema.
+			// Supply editable native fields; context and identity/audit metadata
+			// remain outside the public write schema.
 			$data = ['title' => $name, 'name' => $name, 'label' => $name, 'type' => 'text',
 				'group_id' => 0, 'state' => 1, 'access' => 1, 'language' => '*', 'required' => 0,
 				'only_use_in_subform' => 0, 'description' => '', 'note' => '', 'ordering' => 0,
-				'params' => ['show_on' => ''], 'fieldparams' => ['filter' => 'raw']];
+				'params' => ['show_on' => ''], 'fieldparams' => ['filter' => 'raw'], 'assigned_cat_ids' => [$categoryId]];
 
 			if ($case === 'explicit-zero')
 			{
@@ -154,6 +165,9 @@ try
 				$track . ' ' . $case . ' create persists the exact expected non-null default');
 			$check(in_array($result['verification']['status'] ?? '', ['verified', 'partial'], true),
 				$track . ' ' . $case . ' create retains normal independent read-back');
+			$check($categorySelection((int) $row['id']) === [$categoryId]
+				&& in_array('assigned_cat_ids', $result['verification']['matchedFields'] ?? [], true),
+				$track . ' ' . $case . ' create stores and independently verifies the real category assignment');
 			$verifyDom((int) $row['id'], $expected, $track . ' ' . $case . ' create');
 			$check($client->tool('joomla_write_apply', ['confirmationToken' => $plan['confirmationToken']])['idempotentReplay'] === true,
 				$track . ' ' . $case . ' confirmation replay uses the existing outcome');
@@ -171,6 +185,21 @@ try
 				&& ($result['verification']['status'] ?? '') === 'verified',
 				$track . ' ' . $case . ' partial update preserves an omitted existing default');
 			$verifyDom((int) $row['id'], $expected, $track . ' ' . $case . ' update');
+			$check($categorySelection((int) $row['id']) === [$categoryId],
+				$track . ' ' . $case . ' partial update preserves the separate category relation');
+
+			foreach (['category' => [[$categoryId], 0, [$categoryId]], 'all-zero' => [[0], 0, [0]],
+				'all-empty' => [[], 0, [0]], 'none' => [[-1], 0, [-1]], 'subform' => [[$categoryId], 1, [-1]]] as $selectionCase => [$selection, $subform, $stored])
+			{
+				$plan = $client->tool('joomla_action_write_plan', ['action' => 'fields.content-articles.update', 'transport' => $track,
+					'idempotencyKey' => Json::uuid(), 'input' => ['id' => (int) $row['id'],
+						'data' => ['assigned_cat_ids' => $selection, 'only_use_in_subform' => $subform]]]);
+				$result = $client->tool('joomla_write_apply', ['confirmationToken' => $plan['confirmationToken']]);
+				$check($categorySelection((int) $row['id']) === $stored
+					&& in_array('assigned_cat_ids', $result['verification']['matchedFields'] ?? [], true)
+					&& in_array($result['verification']['status'] ?? '', ['verified', 'partial'], true),
+					$track . ' ' . $case . ' ' . $selectionCase . ' saves and verifies native assignment semantics');
+			}
 		}
 	}
 }

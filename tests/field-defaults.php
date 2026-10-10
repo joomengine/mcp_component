@@ -86,7 +86,8 @@ $http = new class implements ClientInterface
 		{
 			$id = count($this->items) + 1;
 		}
-		$this->items[$id] = array_replace($this->items[$id] ?? [], $data);
+		// The native field item API always exposes its separate category relation.
+		$this->items[$id] = array_replace($this->items[$id] ?? ['assigned_cat_ids' => [0]], $data);
 		return new Response(200, [], Json::encode(['data' => ['id' => (string) $id, 'attributes' => $this->items[$id]]]));
 	}
 };

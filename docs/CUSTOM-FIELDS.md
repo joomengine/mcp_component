@@ -1,5 +1,7 @@
 # Custom field values through the API
 
+For assigning field definitions to categories, all six fields.* create/update contexts accept assigned_cat_ids through API and local console bindings. Use positive integer category IDs, [0] or [] for All, and [-1] for None; only_use_in_subform: 1 makes Joomla save None. Omitted assignments survive partial updates. See [the native field category contract](testing/field-category-assignments.md) for source-backed semantics, context limits, verification and upgrade behavior.
+
 This implements PHP parity for [joomla-mcp issue #38](https://github.com/joomengine/joomla-mcp/issues/38). It applies to `content.articles`, `content.categories`, `contacts.contacts` and `users.users` create/update actions on the authenticated API track. Typed article plan tools use the same implementation. The trusted native console track retains its existing fixed schemas.
 
 The caller needs access to the entity write action and to the corresponding `fields.*.list` read action (`structure.read` for articles/categories/contacts, `users.read` for users). Existing writes containing only reviewed core fields do not perform field discovery. Describe remains available without field-discovery access and reports why custom field metadata is unavailable.

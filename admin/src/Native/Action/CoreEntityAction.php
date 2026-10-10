@@ -23,6 +23,7 @@ use VDM\Component\JoomEngineMcp\Administrator\Native\Domain\CoreEntityDefinition
 use VDM\Component\JoomEngineMcp\Administrator\Native\Domain\Input;
 use VDM\Component\JoomEngineMcp\Administrator\Native\Joomla\ModelListPage;
 use VDM\Component\JoomEngineMcp\Administrator\Native\Joomla\TemplateStyleInheritance;
+use VDM\Component\JoomEngineMcp\Administrator\Service\FieldCategoryAssignments;
 
 
 /**
@@ -503,6 +504,15 @@ final class CoreEntityAction implements ActionInterface
 
 		foreach ($data as $field => $value)
 		{
+			if ($field === 'assigned_cat_ids' && $this->entity->component === 'com_fields'
+				&& $this->entity->itemModel === 'Field'
+				&& (!is_array($value) || !array_is_list($value) || count($value) > 1000
+					|| array_filter($value, static fn (mixed $id): bool => (!is_int($id)
+						&& !(is_float($id) && is_finite($id) && floor($id) === $id)) || $id < -1 || $id > 2147483647) !== []))
+			{
+				throw new ActionException('INVALID_INPUT', 'Category assignments must be a bounded list of integer category IDs, including 0 (All) and -1 (None).');
+			}
+
 			if (in_array($field, $this->entity->sensitiveFields, true)
 				&& (!is_string($value) || $value === '' || strlen($value) > 4_096 || str_contains($value, "\0")))
 			{
@@ -1174,6 +1184,11 @@ final class CoreEntityAction implements ActionInterface
 					'type' => ['string', 'integer', 'number', 'boolean', 'array', 'object', 'null'],
 					'writeOnly' => in_array($field, $this->entity->sensitiveFields, true),
 				];
+				if ($field === 'assigned_cat_ids' && $this->entity->component === 'com_fields'
+					&& $this->entity->itemModel === 'Field')
+				{
+					$fieldSchemas[$field] = FieldCategoryAssignments::schema();
+				}
 			}
 
 			$properties['data'] = [
