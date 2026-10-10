@@ -122,6 +122,10 @@ foreach ($actions as $action)
 	$config = $catalogue->action($name)['binding']['configuration'];
 	$built = $builder->build($input, $config);
 	$check($built['body']['default_value'] === '' && !array_key_exists('default_value', $input['data']), $name . ' failed to default the effective request without mutating input.');
+	$check($built['body']['description'] === '' && $built['body']['params'] === [
+		'show_on' => '', 'showlabel' => '1', 'display' => '2', 'display_readonly' => '2', 'searchindex' => '0',
+	] && !array_key_exists('description', $input['data']) && !array_key_exists('params', $input['data']),
+		$name . ' failed to complete absent native SQL/form values without mutating caller input.');
 	$writes = $http->writes;
 	$dry = $executor->plan($name, $input, Json::uuid(), true);
 	$check($dry['dryRun'] && $http->writes === $writes, $name . ' dry-run persisted a field.');
@@ -130,6 +134,7 @@ foreach ($actions as $action)
 	$result = $executor->apply($plan['confirmationToken']);
 	$id = count($http->items);
 	$check($http->body['default_value'] === '' && $http->items[$id]['default_value'] === '', $name . ' saved a missing or null default.');
+	$check($http->body['description'] === '' && $http->body['params'] === $built['body']['params'], $name . ' lost its approved create form completion.');
 	$check($result['verification']['status'] === 'verified' && in_array('title', $result['verification']['matchedFields'], true), $name . ' lost its independent field read-back.');
 	$check($executor->apply($plan['confirmationToken'])['idempotentReplay'] && $http->writes === $writes + 1, $name . ' replay persisted a duplicate field.');
 
@@ -147,12 +152,20 @@ foreach ($actions as $action)
 		$plan = $executor->plan($update, ['id' => $id, 'data' => ['title' => 'Renamed field']], Json::uuid());
 		$executor->apply($plan['confirmationToken']);
 		$check(!array_key_exists('default_value', $http->body) && $http->items[$id]['default_value'] === $existing, $update . ' changed an omitted default.');
+		$check(!array_key_exists('description', $http->body) && !array_key_exists('params', $http->body), $update . ' acquired create-only form values.');
 	}
 	$plan = $executor->plan($update, ['id' => $id, 'data' => ['default_value' => '']], Json::uuid());
 	$executor->apply($plan['confirmationToken']);
 	$check($http->items[$id]['default_value'] === '', $update . ' did not retain explicit clearing.');
 	$reject(static fn () => $executor->plan($name, ['data' => []], Json::uuid()), 'INVALID_INPUT');
 	$reject(static fn () => $executor->plan($name, ['data' => $input['data'] + ['unreviewed' => 'value']], Json::uuid()), 'INVALID_INPUT');
+	foreach ([['description' => 'Explicit description', 'params' => ['display' => '0']],
+		['description' => '', 'params' => new stdClass()], ['description' => null, 'params' => null]] as $explicit)
+	{
+		$request = $builder->build(['data' => $input['data'] + $explicit], $config);
+		$check($request['body']['description'] === $explicit['description'] && $request['body']['params'] === $explicit['params'],
+			$name . ' replaced caller-supplied form values.');
+	}
 }
 
 foreach (['field-groups.content-articles.create', 'content.articles.create'] as $name)

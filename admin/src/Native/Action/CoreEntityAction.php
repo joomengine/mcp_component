@@ -20,6 +20,7 @@ use VDM\Component\JoomEngineMcp\Administrator\Native\Contract\ModelProviderInter
 use VDM\Component\JoomEngineMcp\Administrator\Native\Domain\ActionDescriptor;
 use VDM\Component\JoomEngineMcp\Administrator\Native\Domain\ActionException;
 use VDM\Component\JoomEngineMcp\Administrator\Native\Domain\CoreEntityDefinition;
+use VDM\Component\JoomEngineMcp\Administrator\Native\Domain\FieldCreateDefaults;
 use VDM\Component\JoomEngineMcp\Administrator\Native\Domain\Input;
 use VDM\Component\JoomEngineMcp\Administrator\Native\Joomla\ModelListPage;
 use VDM\Component\JoomEngineMcp\Administrator\Native\Joomla\TemplateStyleInheritance;
@@ -302,9 +303,10 @@ final class CoreEntityAction implements ActionInterface
 
 		// Match the administrator form without changing explicit defaults or updates.
 		if ($this->entity->component === 'com_fields' && $this->entity->itemModel === 'Field'
-			&& !array_key_exists('default_value', $data))
+			&& in_array($this->entity->defaults['context'] ?? null, ['com_content.article', 'com_content.categories',
+				'com_contact.contact', 'com_contact.categories', 'com_contact.mail', 'com_users.user'], true))
 		{
-			$data['default_value'] = '';
+			$data = FieldCreateDefaults::complete($data);
 		}
 
 		$inheritance = in_array($this->entity->id, ['templates.site-styles', 'templates.administrator-styles'], true)
