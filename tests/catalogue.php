@@ -373,6 +373,7 @@ $check($messageMetadata['sideEffect'] === true && $actionRows['messages.messages
 // cannot broaden execution contracts or overwrite the working installation seed.
 $generatorRoot = sys_get_temp_dir() . '/mcp-catalogue-' . bin2hex(random_bytes(8));
 $generatorFiles = ['tools/generate-catalogue.php', 'admin/src/Database/Structure.php',
+	'admin/src/Service/FieldCategoryAssignments.php',
 	'data/upstream-contracts.json', 'data/upstream-native.json'];
 $invalidDeclarations = [
 	['actionMetadataOverrides', [['name' => 'missing.action']], 'Action metadata extensions'],
@@ -424,7 +425,7 @@ finally
 			unlink($generatorRoot . '/' . $file);
 		}
 	}
-	foreach (['tools', 'admin/src/Database', 'admin/src', 'admin', 'data', ''] as $directory)
+	foreach (['tools', 'admin/src/Database', 'admin/src/Service', 'admin/src', 'admin', 'data', ''] as $directory)
 	{
 		if (is_dir($generatorRoot . '/' . $directory))
 		{

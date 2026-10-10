@@ -172,6 +172,13 @@ final class ApiRequestBuilder
 				throw new OperationException('INVALID_INPUT', 'A non-empty Joomla form object is required.');
 			}
 
+			if (($configuration['method'] ?? '') === 'PATCH'
+				&& in_array('assigned_cat_ids', $configuration['preserve_fields'] ?? [], true)
+				&& !array_key_exists('assigned_cat_ids', $body) && !array_key_exists('assigned_cat_ids', $current))
+			{
+				throw new OperationException('PREFLIGHT_FAILED', 'The native field item read omitted category assignments; a partial update cannot safely preserve them.');
+			}
+
 			foreach ($configuration['preserve_fields'] ?? [] as $field)
 			{
 				if (!array_key_exists($field, $body) && array_key_exists($field, $current))
