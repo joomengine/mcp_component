@@ -29,6 +29,7 @@ use VDM\Component\JoomEngineMcp\Administrator\Native\Contract\ActionInterface;
 use VDM\Component\JoomEngineMcp\Administrator\Native\Contract\ModelProviderInterface;
 use VDM\Component\JoomEngineMcp\Administrator\Native\Contract\NativeOperationsInterface;
 use VDM\Component\JoomEngineMcp\Administrator\Native\Domain\CoreEntityDefinition;
+use VDM\Component\JoomEngineMcp\Administrator\Service\NativeMenuAssociations;
 
 
 /**
@@ -86,7 +87,8 @@ final class NativeFactory
 		{
 			return match ($key)
 			{
-				'native.core-entity' => new CoreEntityAction(new CoreEntityDefinition(...$config['entity']), $config['operation'], $this->models),
+				'native.core-entity' => new CoreEntityAction(new CoreEntityDefinition(...$config['entity']), $config['operation'], $this->models,
+					static fn (object $model, int $id): array => NativeMenuAssociations::read($model, $id)),
 				'native.clean-cache' => new CleanCacheAction($this->models),
 				'native.purge-expired-cache' => new PurgeExpiredCacheAction($this->models),
 				'native.fixed-model-list' => new FixedModelListAction($config['name'], $config['description'], $config['component'], $config['modelName'], $config['fields'], $this->models, $config['getter'] ?? 'getItems'),

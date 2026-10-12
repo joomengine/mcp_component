@@ -412,7 +412,7 @@ final class ActionExecutor
 
 			$verification = $handler instanceof PlannedHandlerInterface
 				? $handler->verify($plan['payload']['prepared'], $mutation, $resolved['binding'], $this->principal)
-				: $this->verify($resolved, $input, $mutation);
+				: $this->verify($resolved, $input, $mutation, $before);
 
 			if ($menuRepair !== null)
 			{
@@ -1087,6 +1087,7 @@ final class ActionExecutor
 
 		$result = $this->invoke($read, $arguments);
 		$item = $this->item($result, $read['binding']['track']);
+		$item = LanguageAssociations::observe($resolved, $read, $result, $item);
 
 		if (isset($rule['identity_type'])
 			&& (($identity = ApiWriteVerification::identity($input[$inputKey], $rule['identity_type'])) === null
@@ -1106,8 +1107,8 @@ final class ActionExecutor
 		return ['item' => $item, 'etag' => $result['headers']['etag'] ?? null];
 	}
 
-	/** @param array<string,mixed> $resolved Write. @param array<string,mixed> $input Applied arguments. @param array<string,mixed> $mutation Mutation result. @return array<string,mixed> Honest verification coverage. @since 0.1.0 */
-	private function verify(array $resolved, array $input, array $mutation): array
+	/** @param array<string,mixed> $resolved Write. @param array<string,mixed> $input Applied arguments. @param array<string,mixed> $mutation Mutation result. @param ?array $before Approved update snapshot. @return array<string,mixed> Honest verification coverage. @since 0.1.0 */
+	private function verify(array $resolved, array $input, array $mutation, ?array $before = null): array
 	{
 		if (isset($resolved['delete_verification']))
 		{
@@ -1211,6 +1212,17 @@ final class ActionExecutor
 		}
 
 		$desired = $operation === 'state' ? [($rule['state_field'] ?? 'state') => $input['state']] : ($input['data'] ?? []);
+		$record = LanguageAssociations::observe($resolved, $read, $observed, $record);
+		$preservedAssociations = $operation === 'update' && ($resolved['action']['name'] ?? '') === 'menus.site-items.update'
+			&& LanguageAssociations::supports($resolved, $read) && !array_key_exists('associations', $desired)
+			&& (($resolved['binding']['track'] ?? '') === 'cli'
+				|| in_array('associations', $resolved['binding']['configuration']['preserve_fields'] ?? [], true))
+			&& array_key_exists('associations', $before['item'] ?? [])
+			&& LanguageAssociations::map($before['item']['associations']) !== null;
+		if ($preservedAssociations)
+		{
+			$desired['associations'] = $before['item']['associations'];
+		}
 
 		foreach ($resolved['custom_fields']['fields'] ?? [] as $field)
 		{
@@ -1266,6 +1278,15 @@ final class ActionExecutor
 			'unobservableFields' => $unobservable, 'differentFields' => $different,
 			'reason' => $different === [] ? 'Read-back confirms the listed observable fields; write-only fields cannot be compared.' : 'Joomla may have filtered or changed requested fields. Reconcile the persisted record before another write.',
 		];
+		if ($preservedAssociations)
+		{
+			$verification['preservedFields'] = ['associations'];
+			if (in_array('associations', $unobservable, true))
+			{
+				$verification['status'] = 'uncertain';
+				$verification['reason'] = 'The preserved language associations could not be read back. Reconcile the saved menu before another write.';
+			}
+		}
 
 		if ($controls !== [])
 		{

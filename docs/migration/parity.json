@@ -1,6 +1,6 @@
 {
     "source": "2cff50f4f6b440da3c684f9995a77efad32e1a36",
-    "runtimeSource": "b18d30fa407951bb6f68d86867a0b2a0d653449a1bd688e4a280ee2c689783e8",
+    "runtimeSource": "f249e46511f212fa047394eed413d06fdbb684cbbb1f2b57bd776688d97a74be",
     "tools": [
         "joomla_sites_list",
         "joomla_capabilities",
@@ -2090,7 +2090,7 @@
     },
     "counts": {
         "provider": 1,
-        "schema": 429,
+        "schema": 435,
         "action": 285,
         "binding": 467,
         "tool": 30,

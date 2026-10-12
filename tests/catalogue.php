@@ -374,6 +374,7 @@ $check($messageMetadata['sideEffect'] === true && $actionRows['messages.messages
 $generatorRoot = sys_get_temp_dir() . '/mcp-catalogue-' . bin2hex(random_bytes(8));
 $generatorFiles = ['tools/generate-catalogue.php', 'admin/src/Database/Structure.php',
 	'admin/src/Service/FieldCategoryAssignments.php',
+	'admin/src/Service/LanguageAssociations.php',
 	'data/upstream-contracts.json', 'data/upstream-native.json'];
 $invalidDeclarations = [
 	['actionMetadataOverrides', [['name' => 'missing.action']], 'Action metadata extensions'],

@@ -1,6 +1,7 @@
 {
   "version": 1,
   "fieldCategoryAssignments": true,
+  "languageAssociations": true,
   "description": "Component-owned runtime additions and explicit schema, metadata and binding contract extensions. The imported upstream contracts remain immutable.",
   "inputSchemaOverrides": [
     {
