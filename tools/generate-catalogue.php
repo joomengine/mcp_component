@@ -549,7 +549,8 @@ if (($runtime['languageAssociations'] ?? false) === true)
 	foreach ($rows['binding'] as &$row)
 	{
 		if (preg_match('/\A(menus\.site-items|content\.articles)\.([a-z]+)\.(api|cli)\z/D', $row['name'], $parts) !== 1
-			|| ($parts[1] === 'content.articles' && $parts[3] !== 'api'))
+			|| ($parts[1] === 'content.articles' && $parts[3] !== 'api')
+			|| !in_array($parts[2], ['get', 'create', 'update'], true))
 		{
 			continue;
 		}

@@ -346,6 +346,14 @@ foreach ($native['actions'] as $action)
 {
 	$originalNative[$action['descriptor']['name']] = $action;
 }
+$bindingRows = array_column($seed['binding'], null, 'name');
+foreach (['list', 'delete', 'state'] as $operation)
+{
+	$name = 'menus.site-items.' . $operation;
+	$check(Json::canonical(Json::decode($bindingRows[$name . '.cli']['configuration']))
+		=== Json::canonical($originalNative[$name]['configuration']),
+		'Association CRUD support must retain the existing native ' . $operation . ' response contract.');
+}
 $changed = [];
 foreach ($legacy['entities']['binding'] as &$binding)
 {

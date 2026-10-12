@@ -7,6 +7,7 @@
  * @license    GNU General Public License version 3 or later; see LICENSE
  */
 
+use Joomla\CMS\Factory;
 use Joomla\CMS\User\UserFactoryInterface;
 use Joomla\Database\DatabaseInterface;
 use VDM\Component\JoomEngineMcp\Administrator\Administration\Operations;
@@ -47,6 +48,7 @@ $pluginState = static function (int $enabled, string $params) use ($db, $plugin)
 	$db->setQuery($db->createQuery()->update($db->quoteName('#__extensions'))
 		->set($db->quoteName('enabled') . ' = ' . $enabled)->set($db->quoteName('params') . ' = ' . $db->quote($params))
 		->where($db->quoteName('extension_id') . ' = ' . (int) $plugin['extension_id']))->execute();
+	Factory::getCache('com_plugins')->clean();
 };
 $itemId = static function (string $table, string $title) use ($db): int
 {
