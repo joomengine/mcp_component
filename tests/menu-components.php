@@ -14,6 +14,7 @@ use Psr\Http\Message\ResponseInterface;
 use VDM\Component\JoomEngineMcp\Administrator\Domain\OperationException;
 use VDM\Component\JoomEngineMcp\Administrator\Handler\ApiHandler;
 use VDM\Component\JoomEngineMcp\Administrator\Handler\ApiRequestBuilder;
+use VDM\Component\JoomEngineMcp\Administrator\Installer\SeedUpdater;
 use VDM\Component\JoomEngineMcp\Administrator\Security\Authorizer;
 use VDM\Component\JoomEngineMcp\Administrator\Security\Envelope;
 use VDM\Component\JoomEngineMcp\Administrator\Security\SchemaValidator;
@@ -135,7 +136,10 @@ $fixture = static function () use ($seed): array
 				unset($data['component_id']);
 			}
 
-			$this->items[$id] = array_replace($this->items[$id] ?? [], $data, ['id' => $id, 'client_id' => $client]);
+			// The native menu model rebuilds its association group on every save.
+			// A recording double that merely merges the body conceals data loss.
+			$this->items[$id] = array_replace($this->items[$id] ?? [], $data,
+				['id' => $id, 'client_id' => $client, 'associations' => $data['associations'] ?? []]);
 			$this->revision++;
 
 			return $this->initialFailure && $request->getMethod() === 'POST' ? new Response(500) : $this->itemResponse($id);
@@ -190,6 +194,11 @@ foreach (['site' => 0, 'administrator' => 1] as $client => $clientId)
 	$s = $fixture();
 	$body = $data;
 	$body['menutype'] = $client === 'site' ? 'fixture' : 'main';
+	if ($client === 'site')
+	{
+		$body['language'] = 'nl-NL';
+		$body['associations'] = (object) ['en-GB' => 1248];
+	}
 	$dry = $s['executor']->plan('menus.' . $client . '-items.create', ['data' => $body], Json::uuid(), true);
 	$check($writes($s) === [] && $s['store']->find('plan') === [] && isset($dry['operation']['menuComponent']['followUp']), 'Dry-run must disclose its repair without mutating or persisting a confirmation.');
 	$key = Json::uuid();
@@ -214,6 +223,16 @@ foreach (['site' => 0, 'administrator' => 1] as $client => $clientId)
 	$plan = $s['executor']->plan('menus.' . $client . '-items.update', ['id' => 1, 'data' => ['title' => 'Title-only update']], Json::uuid());
 	$result = $s['executor']->apply($plan['confirmationToken']);
 	$check($result['verification']['status'] === 'verified' && $s['http']->items[1]['component_id'] === 73, 'Partial menu update did not preserve its effective component target.');
+	if ($client === 'site')
+	{
+		foreach ($writes($s) as $request)
+		{
+			$check(($request['body']['associations']['en-GB'] ?? null) === 1248,
+				'Site-menu create, component-ID repair and partial updates must carry the association map.');
+		}
+		$check(($s['http']->items[1]['associations']['en-GB'] ?? null) === 1248,
+			'Title-only menu update erased the association group.');
+	}
 }
 
 // The native collection currently excludes trash and ignores published filters.
@@ -314,6 +333,80 @@ $s['store']->update('action', ['published' => 0], ['id' => $repairAction['id']])
 $s['catalogue']->refresh();
 $reject(static fn () => $s['executor']->apply($plan['confirmationToken']), 'DEFINITION_UNAVAILABLE');
 $check($writes($s) === [], 'Revoked repair authority must prevent the initial mutation too.');
+
+// Rebuild the old binding graph from retained source schemas. Untouched sites
+// adopt the fix; administrator-owned bindings and schemas keep their policy.
+$newSeed = Json::decode(file_get_contents(dirname(__DIR__) . '/admin/data/catalogue-seed.json'));
+$legacy = $newSeed;
+$upstream = Json::decode(file_get_contents(dirname(__DIR__) . '/data/upstream-contracts.json'));
+$native = Json::decode(file_get_contents(dirname(__DIR__) . '/data/upstream-native.json'));
+$originalApi = array_column($upstream['catalog']['api']['writeActions'], null, 'id');
+$originalNative = [];
+foreach ($native['actions'] as $action)
+{
+	$originalNative[$action['descriptor']['name']] = $action;
+}
+$changed = [];
+foreach ($legacy['entities']['binding'] as &$binding)
+{
+	if (preg_match('/\A(menus\.site-items|content\.articles)\.(create|update)\.(api|cli)\z/D', $binding['name'], $parts) !== 1
+		|| ($parts[1] === 'content.articles' && $parts[3] === 'cli'))
+	{
+		continue;
+	}
+	$name = $parts[1] . '.' . $parts[2];
+	$document = $parts[3] === 'api' ? $originalApi[$name]['inputSchema'] : $originalNative[$name]['descriptor']['inputSchema'];
+	$originalId = null;
+	foreach ($seed['schema'] as $schema)
+	{
+		if (Json::canonical(Json::decode($schema['document'])) === Json::canonical($document))
+		{
+			$originalId = $schema['id'];
+			break;
+		}
+	}
+	$check($originalId !== null, 'Association extension must retain the original schema for administrator-owned references.');
+	$binding['input_schema_id'] = $originalId;
+	$config = Json::decode($binding['configuration']);
+	if ($parts[3] === 'cli')
+	{
+		$config = $originalNative[$name]['configuration'];
+	}
+	else
+	{
+		$config['preserve_fields'] = array_values(array_diff($config['preserve_fields'], ['associations']));
+	}
+	$binding['configuration'] = Json::encode($config);
+	$changed[] = $binding['name'];
+}
+unset($binding);
+foreach (['managed', 'customized-binding', 'customized-schema'] as $case)
+{
+	$installed = new MemoryStore();
+	$updater = new SeedUpdater($installed);
+	$updater->apply($legacy);
+	foreach ($changed as $name)
+	{
+		$old = $installed->one('binding', ['name' => $name]);
+		if ($case === 'customized-binding')
+		{
+			$installed->update('binding', ['customized' => 1], ['id' => $old['id']]);
+		}
+		elseif ($case === 'customized-schema')
+		{
+			$installed->update('schema', ['customized' => 1], ['id' => $old['input_schema_id']]);
+		}
+	}
+	$updater->apply($newSeed);
+	foreach ($changed as $name)
+	{
+		$current = $installed->one('binding', ['name' => $name]);
+		$document = Json::decode($installed->one('schema', ['id' => $current['input_schema_id']])['document']);
+		$check(isset($document['properties']['data']['properties']['associations']) === ($case === 'managed'),
+			'Association seed upgrade lost ' . $case . ' ownership on ' . $name . '.');
+	}
+	$check($updater->apply($newSeed)['updated'] === 0, 'Association seed upgrade must be idempotent.');
+}
 
 echo Json::encode(['checks' => $checks, 'menuComponentContracts' => 'passed with recording API and transactional memory doubles',
 	'trashVerification' => 'upstream visibility remains unresolved; uncertain execution and replay safety tested', 'liveJoomla' => 'not run by this unit suite']) . PHP_EOL;

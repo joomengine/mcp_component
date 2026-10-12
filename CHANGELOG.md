@@ -1,5 +1,15 @@
 # Changelog
 
+## [[[NEXT_VERSION]]]
+
+### Fix
+
+- Preserve language associations during partial site-menu updates, including the component-ID repair. Accept explicit association maps on site-menu API and console create/update and article API create/update. Verify independent menu maps and article language relationships, detect lost preserved links, and avoid stale menu association reads in persistent console processes. Preserve administrator-owned catalogue schemas during upgrades.
+
+### Note
+
+- Joomla's article model does not clear existing associations when given an empty object. Read-back reports the unchanged links as uncertain; menu association clearing is supported. Article console associations and other multilingual entity families are not added by this change.
+
 ## 1.0.8
 
 ### Fix

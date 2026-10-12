@@ -11,6 +11,7 @@
 namespace VDM\Component\JoomEngineMcp\Administrator\Native\Action;
 
 
+use Closure;
 use JsonSerializable;
 use Joomla\CMS\Factory;
 use Throwable;
@@ -25,6 +26,7 @@ use VDM\Component\JoomEngineMcp\Administrator\Native\Domain\Input;
 use VDM\Component\JoomEngineMcp\Administrator\Native\Joomla\ModelListPage;
 use VDM\Component\JoomEngineMcp\Administrator\Native\Joomla\TemplateStyleInheritance;
 use VDM\Component\JoomEngineMcp\Administrator\Service\FieldCategoryAssignments;
+use VDM\Component\JoomEngineMcp\Administrator\Service\LanguageAssociations;
 
 
 /**
@@ -79,12 +81,16 @@ final class CoreEntityAction implements ActionInterface
 	 */
 	private ModelProviderInterface $models;
 
+	/** @var ?Closure Fixed uncached site-menu association reader supplied by the runtime. */
+	private ?Closure $menuAssociations;
+
 	/**
 	 * Initialize the reviewed dependencies and configuration.
 	 *
 	 * @param   CoreEntityDefinition    $entity     The reviewed native entity mapping.
 	 * @param   string                  $operation  The fixed operation selected by the registered binding.
 	 * @param   ModelProviderInterface  $models     The provider of native administrator models.
+	 * @param   ?Closure                $menuAssociations  Fixed reader for uncached native menu associations.
 	 *
 	 * @since  0.1.0
 	 */
@@ -92,11 +98,13 @@ final class CoreEntityAction implements ActionInterface
 		CoreEntityDefinition $entity,
 		string $operation,
 		ModelProviderInterface $models,
+		?Closure $menuAssociations = null,
 	)
 	{
 		$this->entity = $entity;
 		$this->operation = $operation;
 		$this->models = $models;
+		$this->menuAssociations = $menuAssociations;
 
 		if (!in_array($operation, self::OPERATIONS, true))
 		{
@@ -506,6 +514,26 @@ final class CoreEntityAction implements ActionInterface
 
 		foreach ($data as $field => $value)
 		{
+			if ($field === 'associations' && $this->entity->id === 'menus.site-items')
+			{
+				$members = $value instanceof stdClass ? get_object_vars($value) : $value;
+
+				if (!is_array($members) || ($members !== [] && array_is_list($members)) || count($members) > 100)
+				{
+					throw new ActionException('INVALID_INPUT', 'Associations must be a bounded language-code to positive item-ID object.');
+				}
+
+				foreach ($members as $language => $member)
+				{
+					if (!is_string($language) || strlen($language) > 50 || preg_match('/\A[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*\z/D', $language) !== 1
+						|| (!is_int($member) && !(is_float($member) && is_finite($member) && floor($member) === $member))
+						|| $member < 1 || $member > 2147483647)
+					{
+						throw new ActionException('INVALID_INPUT', 'Each association must select a language code and a positive integer item ID.');
+					}
+				}
+			}
+
 			if ($field === 'assigned_cat_ids' && $this->entity->component === 'com_fields'
 				&& $this->entity->itemModel === 'Field'
 				&& (!is_array($value) || !array_is_list($value) || count($value) > 1000
@@ -631,6 +659,7 @@ final class CoreEntityAction implements ActionInterface
 	private function normalise(object|array $item, ?object $model = null, ?int $id = null): array
 	{
 		$source = is_object($item) ? get_object_vars($item) : $item;
+		$source = $this->freshMenuAssociations($source, $model, $id);
 		$source = $this->storedJsonFields($source, $model, $id);
 		$result = [];
 
@@ -899,6 +928,7 @@ final class CoreEntityAction implements ActionInterface
 		}
 
 		$source = is_object($item) ? get_object_vars($item) : $item;
+		$source = $this->freshMenuAssociations($source, $model, $id);
 		$existing = [];
 
 		foreach ($this->entity->writeFields as $field)
@@ -912,6 +942,35 @@ final class CoreEntityAction implements ActionInterface
 		}
 
 		return $existing;
+	}
+
+	/**
+	 * Replace Joomla's process-static association snapshot with current persisted membership.
+	 * Only a model-confirmed site-menu item can use the fixed injected reader.
+	 *
+	 * @param array $source Native model representation.
+	 * @param ?object $model Item model, absent for list projections.
+	 * @param ?int $id Requested item identity.
+	 * @return array Current native item representation.
+	 */
+	private function freshMenuAssociations(array $source, ?object $model, ?int $id): array
+	{
+		if ($this->menuAssociations === null || $model === null || $id === null
+			|| $this->entity->id !== 'menus.site-items' || $this->entity->component !== 'com_menus'
+			|| $this->entity->itemModel !== 'Item' || ($this->entity->defaults['client_id'] ?? null) !== 0
+			|| !in_array('associations', $this->entity->readFields, true) || !array_key_exists('associations', $source))
+		{
+			return $source;
+		}
+
+		if ($id < 1 || (string) ($source['id'] ?? '') !== (string) $id || (string) ($source['client_id'] ?? '') !== '0')
+		{
+			throw new ActionException('ASSOCIATION_READ_FAILED', 'The native menu model did not return the requested site item.');
+		}
+
+		$source['associations'] = ($this->menuAssociations)($model, $id);
+
+		return $source;
 	}
 
 	/**
@@ -1190,6 +1249,10 @@ final class CoreEntityAction implements ActionInterface
 					&& $this->entity->itemModel === 'Field')
 				{
 					$fieldSchemas[$field] = FieldCategoryAssignments::schema();
+				}
+				if ($field === 'associations' && $this->entity->id === 'menus.site-items')
+				{
+					$fieldSchemas[$field] = LanguageAssociations::schema();
 				}
 			}
 

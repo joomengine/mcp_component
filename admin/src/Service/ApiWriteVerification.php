@@ -58,6 +58,15 @@ final class ApiWriteVerification
 	 */
 	public static function compare(array $resolved, array $read, string $field, mixed $desired, mixed $observed, array $approved = []): ?bool
 	{
+		if ($field === 'associations')
+		{
+			$associations = LanguageAssociations::compare($resolved, $read, $desired, $observed);
+			if ($associations !== null)
+			{
+				return $associations;
+			}
+		}
+
 		if ($field === 'assigned_cat_ids')
 		{
 			$categories = FieldCategoryAssignments::compare($resolved, $read, $desired, $observed, $approved);

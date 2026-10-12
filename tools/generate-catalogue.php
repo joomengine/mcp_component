@@ -9,10 +9,12 @@
 
 use VDM\Component\JoomEngineMcp\Administrator\Database\Structure;
 use VDM\Component\JoomEngineMcp\Administrator\Service\FieldCategoryAssignments;
+use VDM\Component\JoomEngineMcp\Administrator\Service\LanguageAssociations;
 
 
 require_once dirname(__DIR__) . '/admin/src/Database/Structure.php';
 require_once dirname(__DIR__) . '/admin/src/Service/FieldCategoryAssignments.php';
+require_once dirname(__DIR__) . '/admin/src/Service/LanguageAssociations.php';
 $root = dirname(__DIR__);
 $sourceFile = $root . '/data/upstream-contracts.json';
 $nativeFile = $root . '/data/upstream-native.json';
@@ -31,6 +33,7 @@ $runtimeRevision = hash_file('sha256', $runtimeFile);
 
 if (($runtime['version'] ?? null) !== 1 || !is_array($runtime['tools'] ?? null)
 	|| (isset($runtime['fieldCategoryAssignments']) && !is_bool($runtime['fieldCategoryAssignments']))
+	|| (isset($runtime['languageAssociations']) && !is_bool($runtime['languageAssociations']))
 	|| !is_array($runtime['inputSchemaOverrides'] ?? [])
 	|| !is_array($runtime['bindingInputSchemaOverrides'] ?? [])
 	|| !is_array($runtime['actionMetadataOverrides'] ?? [])
@@ -534,6 +537,53 @@ if (($runtime['fieldCategoryAssignments'] ?? false) === true)
 			$row['input_schema_id'] = $addSchema($document);
 		}
 		$row['configuration'] = $json($configurationObject);
+		$row['seed_revision'] = $runtimeRevision;
+	}
+	unset($row);
+}
+
+// Extend the reviewed multilingual contracts without changing imported schemas.
+// Native site-menu reads expose the map used to preserve and verify CLI writes.
+if (($runtime['languageAssociations'] ?? false) === true)
+{
+	foreach ($rows['binding'] as &$row)
+	{
+		if (preg_match('/\A(menus\.site-items|content\.articles)\.([a-z]+)\.(api|cli)\z/D', $row['name'], $parts) !== 1
+			|| ($parts[1] === 'content.articles' && $parts[3] !== 'api'))
+		{
+			continue;
+		}
+
+		$configuration = json_decode($row['configuration'], false, 128, JSON_THROW_ON_ERROR);
+		$write = in_array($parts[2], ['create', 'update'], true);
+
+		if ($parts[3] === 'cli')
+		{
+			$entity = $configuration->entity;
+			if ($row['handler'] !== 'native.core-entity' || ($entity->component ?? '') !== 'com_menus'
+				|| ($entity->itemModel ?? '') !== 'Item' || ($entity->defaults->client_id ?? null) !== 0)
+			{
+				throw new RuntimeException('Language associations require the reviewed native site-menu model.');
+			}
+			$entity->readFields = array_values(array_unique([...$entity->readFields, 'associations']));
+			$entity->writeFields = array_values(array_unique([...$entity->writeFields, 'associations']));
+		}
+		elseif ($parts[1] === 'menus.site-items' && $parts[2] === 'update')
+		{
+			$configuration->preserve_fields[] = 'associations';
+		}
+		elseif (!$write)
+		{
+			continue;
+		}
+
+		if ($write)
+		{
+			$document = json_decode($rows['schema'][$row['input_schema_id'] - 1]['document'], false, 128, JSON_THROW_ON_ERROR);
+			$document->properties->data->properties->associations = (object) LanguageAssociations::schema();
+			$row['input_schema_id'] = $addSchema($document);
+		}
+		$row['configuration'] = $json($configuration);
 		$row['seed_revision'] = $runtimeRevision;
 	}
 	unset($row);
