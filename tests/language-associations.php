@@ -91,6 +91,28 @@ $document = ['data' => ['id' => '87', 'type' => 'articles', 'attributes' => ['id
 		'links' => ['self' => 'https://joomla.example/api/index.php/v1/content/articles/1248']]]];
 $f = $fixture($document);
 
+$menuConfig = $f['catalogue']->action('menus.site-items.update')['binding']['configuration'];
+$builder = new ApiRequestBuilder();
+foreach ([null, [], ['en-GB' => '1248']] as $current)
+{
+	$request = $builder->build(['id' => 87, 'data' => ['title' => 'Menu']], $menuConfig, ['associations' => $current]);
+	$check($request['body']['associations'] === $current, 'Disabled, empty and valid native menu maps retain their original request representation.');
+}
+foreach ([false, '', [1248], ['en-GB' => -1], ['*' => 1248]] as $current)
+{
+	try
+	{
+		$builder->build(['id' => 87, 'data' => ['title' => 'Menu']], $menuConfig, ['associations' => $current]);
+		throw new RuntimeException('Malformed preserved association data must fail before a write.');
+	}
+	catch (OperationException $error)
+	{
+		$check($error->getIdentifier() === 'PREFLIGHT_FAILED', 'Malformed native associations must fail safe preflight.');
+	}
+}
+$request = $builder->build(['id' => 87, 'data' => ['associations' => new stdClass()]], $menuConfig, ['associations' => ['bad' => false]]);
+$check($request['body']['associations'] instanceof stdClass, 'An explicit approved clear must replace the existing association data.');
+
 foreach (['menus.site-items', 'content.articles'] as $base)
 {
 	foreach (['create', 'update'] as $operation)

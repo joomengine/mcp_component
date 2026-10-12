@@ -13,6 +13,7 @@ use stdClass;
 use VDM\Component\JoomEngineMcp\Administrator\Domain\OperationException;
 use VDM\Component\JoomEngineMcp\Administrator\Native\Domain\FieldCreateDefaults;
 use VDM\Component\JoomEngineMcp\Administrator\Service\Json;
+use VDM\Component\JoomEngineMcp\Administrator\Service\LanguageAssociations;
 use VDM\Component\JoomEngineMcp\Administrator\Service\TemplateStyleInheritance;
 
 
@@ -184,6 +185,12 @@ final class ApiRequestBuilder
 			{
 				if (!array_key_exists($field, $body) && array_key_exists($field, $current))
 				{
+					if ($field === 'associations' && $method === 'PATCH'
+						&& $current[$field] !== null && LanguageAssociations::map($current[$field]) === null)
+					{
+						throw new OperationException('PREFLIGHT_FAILED', 'The native association map is malformed; a partial update cannot safely preserve it.');
+					}
+
 					$body[$field] = $current[$field];
 				}
 			}
