@@ -150,7 +150,8 @@ final class RuntimeFactory
 
 		if ($application instanceof ConsoleApplication && $principal->isLocal())
 		{
-			$native = new NativeHandler(new NativeFactory(new JoomlaModelProvider($application), new JoomlaNativeOperations($application), $application));
+			$native = new NativeHandler(new NativeFactory(new JoomlaModelProvider($application), new JoomlaNativeOperations($application), $application,
+				new NativeMenuAssociations($this->database)));
 
 			foreach (NativeFactory::keys() as $key)
 			{

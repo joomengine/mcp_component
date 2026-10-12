@@ -8,11 +8,15 @@
  */
 
 use VDM\Component\JoomEngineMcp\Administrator\Native\Action\CoreEntityAction;
+use VDM\Component\JoomEngineMcp\Administrator\Handler\NativeFactory;
 use VDM\Component\JoomEngineMcp\Administrator\Native\Contract\ModelProviderInterface;
 use VDM\Component\JoomEngineMcp\Administrator\Native\Domain\ActionException;
 use VDM\Component\JoomEngineMcp\Administrator\Native\Domain\CoreEntityDefinition;
 use VDM\Component\JoomEngineMcp\Administrator\Service\LanguageAssociations;
+use VDM\Component\JoomEngineMcp\Administrator\Service\NativeMenuAssociations;
+use VDM\Component\JoomEngineMcp\Administrator\Native\Joomla\JoomlaNativeOperations;
 
+require __DIR__ . '/fixtures/native-menu-database.php';
 require dirname(__DIR__) . '/admin/autoload.php';
 $checks = 0;
 $check = static function (bool $condition, string $message) use (&$checks): void
@@ -38,6 +42,11 @@ $model = new class
 	public int $writes = 0;
 	/** @var bool Whether native multilingual association support is enabled. */
 	public bool $enabled = true;
+	/** @return object Joomla's DatabaseAwareTrait intentionally exposes only a protected accessor. */
+	protected function getDatabase(): object
+	{
+		throw new RuntimeException('A handler must not access the native model protected database method.');
+	}
 	/** @inheritDoc */
 	public function setState(string $name, mixed $value): void
 	{
@@ -149,4 +158,98 @@ $model->enabled = false;
 $readsBeforeDisabled = $reads;
 $action->execute(['id' => 71, 'data' => ['title' => 'Single-language edit'], 'dryRun' => false, '_edgeConfirmed' => true]);
 $check($reads === $readsBeforeDisabled && $model->stored['title'] === 'Single-language edit', 'Disabled native association support does not block unrelated menu edits.');
+
+$database = new class implements \Joomla\Database\DatabaseInterface
+{
+	/** @var array Controlled native association rows. */
+	public array $rows = [['language' => 'de-DE', 'id' => '73'], ['language' => 'fr-FR', 'id' => 72]];
+	/** @var ?object Recorded fixed query. */
+	public ?object $query = null;
+	/** @var array Recorded query bounds. */
+	public array $bounds = [];
+	/** @var bool Simulated driver failure. */
+	public bool $fail = false;
+	/** @inheritDoc */
+	public function createQuery(): object
+	{
+		return new class
+		{
+			/** @var array Recorded fixed query construction. */
+			public array $parts = [];
+			/** @return self Record only fluent query-building calls. */
+			public function __call(string $method, array $arguments): self
+			{
+				$this->parts[$method][] = $arguments;
+				return $this;
+			}
+		};
+	}
+	/** @inheritDoc */
+	public function quoteName(array|string $name, ?string $alias = null): array|string
+	{
+		if (is_array($name))
+		{
+			return array_map(fn (string $value): string => $this->quoteName($value), $name);
+		}
+		return '`' . str_replace('.', '`.`', $name) . '`' . ($alias === null ? '' : ' AS `' . $alias . '`');
+	}
+	/** @inheritDoc */
+	public function quote(string $value): string
+	{
+		return "'" . str_replace("'", "''", $value) . "'";
+	}
+	/** @inheritDoc */
+	public function setQuery(object $query, int $offset = 0, int $limit = 0): \Joomla\Database\DatabaseInterface
+	{
+		$this->query = $query;
+		$this->bounds = [$offset, $limit];
+		return $this;
+	}
+	/** @inheritDoc */
+	public function loadAssocList(): array
+	{
+		if ($this->fail)
+		{
+			throw new RuntimeException('private-driver-diagnostic');
+		}
+		return $this->rows;
+	}
+};
+$model->enabled = true;
+$databaseReader = new NativeMenuAssociations($database);
+$factory = new NativeFactory($provider, new JoomlaNativeOperations(new stdClass()), new stdClass(), $databaseReader);
+$configuration['operation'] = 'get';
+$nativeGet = $factory->create(['handler' => 'native.core-entity', 'configuration' => $configuration]);
+$record = $nativeGet->execute(['id' => 71])['item'];
+$check($record['associations'] === ['de-DE' => 73, 'fr-FR' => 72], 'Composed native factory reads the injected database without accessing a protected model method.');
+$check($database->bounds === [0, 101], 'Native storage inspection uses an explicit bounded query.');
+$clauses = array_column($database->query->parts['where'], 0);
+$check(in_array("`a`.`context` = 'com_menus.item'", $clauses, true) && in_array('`a`.`id` = 71', $clauses, true)
+	&& in_array('`m`.`id` <> 71', $clauses, true) && in_array('`m`.`client_id` = 0', $clauses, true), 'Fixed query retains association context, source identity, self exclusion and site-only scope.');
+$database->rows = [];
+$check($nativeGet->execute(['id' => 71])['item']['associations'] === [], 'Composed native reads observe an explicit clear despite a stale native helper snapshot.');
+foreach ([[['language' => '*', 'id' => 72]], [['language' => 'fr-FR', 'id' => 0]],
+	[['language' => 'fr-FR', 'id' => 72], ['language' => 'fr-FR', 'id' => 73]], array_fill(0, 101, ['language' => 'fr-FR', 'id' => 72])] as $invalidRows)
+{
+	$database->rows = $invalidRows;
+	try
+	{
+		$databaseReader->read(71);
+		throw new RuntimeException('Malformed native rows were accepted.');
+	}
+	catch (ActionException $error)
+	{
+		$check($error->errorCode === 'ASSOCIATION_READ_FAILED', 'Malformed or excessive native association rows fail closed.');
+	}
+}
+$database->fail = true;
+try
+{
+	$databaseReader->read(71);
+	throw new RuntimeException('Unavailable native storage was accepted.');
+}
+catch (ActionException $error)
+{
+	$check($error->errorCode === 'ASSOCIATION_READ_FAILED' && !str_contains($error->getMessage(), 'private-driver-diagnostic'), 'Database failures expose only the stable association error without driver diagnostics.');
+}
 echo json_encode(['passed' => $checks, 'suite' => 'native-language-associations'], JSON_THROW_ON_ERROR) . PHP_EOL;

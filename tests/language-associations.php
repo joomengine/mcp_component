@@ -112,6 +112,10 @@ foreach ([false, '', [1248], ['en-GB' => -1], ['*' => 1248]] as $current)
 }
 $request = $builder->build(['id' => 87, 'data' => ['associations' => new stdClass()]], $menuConfig, ['associations' => ['bad' => false]]);
 $check($request['body']['associations'] instanceof stdClass, 'An explicit approved clear must replace the existing association data.');
+$customConfig = $menuConfig;
+$customConfig['route'] = '/v1/custom/items/:id';
+$request = $builder->build(['id' => 87, 'data' => ['title' => 'Custom']], $customConfig, ['associations' => 'custom representation']);
+$check($request['body']['associations'] === 'custom representation', 'A custom route retains its own preserved-field representation contract.');
 
 foreach (['menus.site-items', 'content.articles'] as $base)
 {

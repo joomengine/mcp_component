@@ -186,6 +186,8 @@ final class ApiRequestBuilder
 				if (!array_key_exists($field, $body) && array_key_exists($field, $current))
 				{
 					if ($field === 'associations' && $method === 'PATCH'
+						&& ($configuration['route'] ?? '') === '/v1/menus/site/items/:id'
+						&& ($configuration['body_defaults']['client_id'] ?? null) === 0
 						&& $current[$field] !== null && LanguageAssociations::map($current[$field]) === null)
 					{
 						throw new OperationException('PREFLIGHT_FAILED', 'The native association map is malformed; a partial update cannot safely preserve it.');
