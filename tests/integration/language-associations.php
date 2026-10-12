@@ -143,14 +143,23 @@ try
 	$menuData = static fn (string $title, string $language): array => ['title' => $title, 'alias' => 'mcp-assoc-' . bin2hex(random_bytes(6)),
 		'menutype' => $menutype, 'type' => 'url', 'link' => 'https://example.test/' . $language, 'published' => 0,
 		'parent_id' => 1, 'browserNav' => 0, 'access' => 1, 'template_style_id' => 0, 'home' => 0, 'language' => $language];
-	$apply = static function (object $client, string $track, string $action, array $input, bool $allowError = false) use ($invoke, $check): array
+	$apply = static function (object $client, string $track, string $action, array $input, bool $allowError = false, array $unobservable = []) use ($invoke, $check): array
 	{
 		$plan = $invoke($client, 'joomla_action_write_plan', ['action' => $action, 'transport' => $track,
 			'idempotencyKey' => Json::uuid(), 'input' => $input]);
 		$result = $invoke($client, 'joomla_write_apply', ['confirmationToken' => $plan['confirmationToken']], $allowError);
 		if (!$allowError)
 		{
-			$check(($result['verification']['status'] ?? '') === 'verified', $track . ' ' . $action . ' independently verifies the complete approved data');
+			$actualUnobservable = $result['verification']['unobservableFields'] ?? [];
+			sort($actualUnobservable, SORT_STRING);
+			sort($unobservable, SORT_STRING);
+			$check(($result['verification']['status'] ?? '') === ($unobservable === [] ? 'verified' : 'partial')
+				&& $actualUnobservable === $unobservable && ($result['verification']['differentFields'] ?? []) === [],
+				$track . ' ' . $action . ' verifies every field exposed by the native API representation');
+			if (array_key_exists('associations', $input['data']))
+			{
+				$check(in_array('associations', $result['verification']['matchedFields'] ?? [], true), 'Approved associations are independently matched, never left unobservable');
+			}
 		}
 		$replay = $invoke($client, 'joomla_write_apply', ['confirmationToken' => $plan['confirmationToken']], $allowError);
 		$check(($replay['idempotentReplay'] ?? false) && ($replay['executionId'] ?? null) === ($result['executionId'] ?? null)
@@ -198,10 +207,14 @@ try
 	$articleTarget = $itemId('content', $articleTargetTitle);
 	$articleTitle = $prefix . ' article English';
 	$apply($http, 'api', 'content.articles.create', ['data' => ['title' => $articleTitle, 'catid' => $category,
-		'language' => 'en-GB', 'articletext' => '<p>Association source.</p>', 'associations' => (object) ['fr-FR' => $articleTarget]]]);
+		'language' => 'en-GB', 'articletext' => '<p>Association source.</p>', 'associations' => (object) ['fr-FR' => $articleTarget]]], false, ['articletext', 'catid']);
 	$articleId = $itemId('content', $articleTitle);
 	$check($articleId > 0 && $membership('com_content.item', 'content', $articleId) === ['fr-FR' => $articleTarget],
 		'Article association API creation matches native persisted multilingual membership');
+	$articleRow = $db->setQuery($db->createQuery()->select($db->quoteName(['catid', 'introtext']))->from($db->quoteName('#__content'))
+		->where($db->quoteName('id') . ' = ' . $articleId))->loadAssoc();
+	$check((int) ($articleRow['catid'] ?? 0) === $category && ($articleRow['introtext'] ?? '') === '<p>Association source.</p>',
+		'Article category and body are verified directly where the native API represents them under different field names');
 	$apply($http, 'api', 'content.articles.update', ['id' => $articleId, 'data' => ['associations' => (object) ['fr-FR' => $articleTarget]]]);
 	$check($membership('com_content.item', 'content', $articleId) === ['fr-FR' => $articleTarget], 'Explicit article API association update matches independent native storage');
 	$apply($http, 'api', 'content.articles.update', ['id' => $articleId, 'data' => ['title' => $articleTitle . ' renamed']]);

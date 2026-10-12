@@ -9,6 +9,7 @@
 namespace VDM\Component\JoomEngineMcp\Administrator\Service;
 
 
+use Joomla\Database\DatabaseInterface;
 use Throwable;
 use VDM\Component\JoomEngineMcp\Administrator\Native\Domain\ActionException;
 
@@ -16,25 +17,33 @@ use VDM\Component\JoomEngineMcp\Administrator\Native\Domain\ActionException;
 /** Fresh site-menu membership reads for persistent CLI runtimes. */
 final class NativeMenuAssociations
 {
+	/** @var DatabaseInterface Joomla's composed database connection. */
+	private DatabaseInterface $database;
+
+	/** @param DatabaseInterface $database Actual installation database, supplied by runtime composition. */
+	public function __construct(DatabaseInterface $database)
+	{
+		$this->database = $database;
+	}
+
 	/**
 	 * Read current membership without Joomla's process-static association helper cache.
 	 * The caller has already loaded and accepted this exact site-menu item through its model.
 	 * No table, context, field or query fragment is supplied by the caller.
 	 *
-	 * @param object $model Accepted native menu model.
 	 * @param int $id Model-confirmed site-menu identity.
 	 * @return array<string,int> Current associated site-item IDs, excluding the source item.
 	 */
-	public static function read(object $model, int $id): array
+	public function read(int $id): array
 	{
 		try
 		{
-			if ($id < 1 || !method_exists($model, 'getDatabase'))
+			if ($id < 1)
 			{
-				throw new \RuntimeException('The native model database is unavailable.');
+				throw new \RuntimeException('The native menu identity is invalid.');
 			}
 
-			$db = $model->getDatabase();
+			$db = $this->database;
 			$query = $db->createQuery()
 				->select($db->quoteName(['m.language', 'm.id']))
 				->from($db->quoteName('#__associations', 'a'))

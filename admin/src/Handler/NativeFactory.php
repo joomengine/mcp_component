@@ -29,6 +29,7 @@ use VDM\Component\JoomEngineMcp\Administrator\Native\Contract\ActionInterface;
 use VDM\Component\JoomEngineMcp\Administrator\Native\Contract\ModelProviderInterface;
 use VDM\Component\JoomEngineMcp\Administrator\Native\Contract\NativeOperationsInterface;
 use VDM\Component\JoomEngineMcp\Administrator\Native\Domain\CoreEntityDefinition;
+use VDM\Component\JoomEngineMcp\Administrator\Native\Domain\ActionException;
 use VDM\Component\JoomEngineMcp\Administrator\Service\NativeMenuAssociations;
 
 
@@ -51,12 +52,16 @@ final class NativeFactory
 	/** @var object Actual application, also used by the safe configuration primitive. @since 0.1.0 */
 	private object $application;
 
-	/** @param ModelProviderInterface $models Native models. @param NativeOperationsInterface $operations Native commands. @param object $application Joomla application. @since 0.1.0 */
-	public function __construct(ModelProviderInterface $models, NativeOperationsInterface $operations, object $application)
+	/** @var ?NativeMenuAssociations Composed uncached site-menu association reader. */
+	private ?NativeMenuAssociations $menuAssociations;
+
+	/** @param ModelProviderInterface $models Native models. @param NativeOperationsInterface $operations Native commands. @param object $application Joomla application. @param ?NativeMenuAssociations $menuAssociations Composed native association reader. @since 0.1.0 */
+	public function __construct(ModelProviderInterface $models, NativeOperationsInterface $operations, object $application, ?NativeMenuAssociations $menuAssociations = null)
 	{
 		$this->models = $models;
 		$this->operations = $operations;
 		$this->application = $application;
+		$this->menuAssociations = $menuAssociations;
 	}
 
 	/** @return string[] Reviewed reusable native handler identifiers. @since 0.1.0 */
@@ -88,7 +93,8 @@ final class NativeFactory
 			return match ($key)
 			{
 				'native.core-entity' => new CoreEntityAction(new CoreEntityDefinition(...$config['entity']), $config['operation'], $this->models,
-					static fn (object $model, int $id): array => NativeMenuAssociations::read($model, $id)),
+					fn (object $model, int $id): array => $this->menuAssociations?->read($id)
+						?? throw new ActionException('ASSOCIATION_READ_FAILED', 'The native association reader is unavailable.')),
 				'native.clean-cache' => new CleanCacheAction($this->models),
 				'native.purge-expired-cache' => new PurgeExpiredCacheAction($this->models),
 				'native.fixed-model-list' => new FixedModelListAction($config['name'], $config['description'], $config['component'], $config['modelName'], $config['fields'], $this->models, $config['getter'] ?? 'getItems'),
