@@ -1,5 +1,22 @@
 # Implementation status — 2 October 2026
 
+## Language associations — issue #42 (implementation in progress)
+
+Investigation on the current catalogue confirms that menu API partial updates omit
+`associations` from preserved fields. Joomla's menu model rebuilds the association
+group on save, so an unrelated title change can remove both language links.
+Site-menu and article create/update schemas also omit this native form input.
+Article API reads expose the association through JSON:API relationships, which
+the current verification projection discards.
+
+The targeted change will preserve omitted site-menu associations, expose explicit
+language-to-item maps on API and native console bindings, and compare independent
+native read-back without weakening verification for unrelated fields or routes.
+Regression acceptance includes create, update, omission, clearing, replay and
+administrator-owned catalogue upgrades. Empty-object behavior will be tested
+against Joomla's actual menu and article models rather than assumed equivalent.
+Implementation and installed workflow evidence are pending.
+
 ## Subform JSON read-back — issues #39 and TypeScript #57
 
 Published native subform custom fields now compare their decoded outer JSON serialization. The approved snapshot supplies the exact field identity, type and context, and both write and independent read retain their reviewed native routes, methods, authentication and handlers. Ordinary text fields and customized bindings retain their existing comparisons. Whitespace, escaped slashes, Unicode escapes and object member order do not make a correctly stored subform uncertain. List order, empty object/list distinctions, nested text, scalar types and actual changes remain significant. Values are bounded to 1 MiB and 64 nesting levels; numeric comparison rejects raw tokens that lose decimal value on native JSON round-trip, non-finite numbers and values outside the safe integer range.
