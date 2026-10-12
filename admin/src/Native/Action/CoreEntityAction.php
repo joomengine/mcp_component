@@ -378,6 +378,14 @@ final class CoreEntityAction implements ActionInterface
 			array_merge($this->existingWriteData($model, $id), $data, $this->entity->defaults),
 		);
 		$payload[$this->entity->primaryKey] = $id;
+
+		if ($this->entity->id === 'menus.site-items' && $this->entity->component === 'com_menus'
+			&& $this->entity->itemModel === 'Item' && ($this->entity->defaults['client_id'] ?? null) === 0)
+		{
+			// ItemModel expects the administrator form's self-position sentinel on every update.
+			$payload['menuordering'] ??= $id;
+		}
+
 		$this->save($model, $payload);
 
 		return $this->applied('update', $id, $this->readSaved($model, $id));
