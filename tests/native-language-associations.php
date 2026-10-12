@@ -40,6 +40,8 @@ $model = new class
 	public array $cached = ['fr-FR' => 72];
 	/** @var int Actual save count. */
 	public int $writes = 0;
+	/** @var array Exact most recent native save payload. */
+	public array $lastSaved = [];
 	/** @var bool Whether native multilingual association support is enabled. */
 	public bool $enabled = true;
 	/** @return object Joomla's DatabaseAwareTrait intentionally exposes only a protected accessor. */
@@ -69,6 +71,7 @@ $model = new class
 	public function save(array $data): bool
 	{
 		$this->writes++;
+		$this->lastSaved = $data;
 		$this->stored = array_replace($this->stored, $data);
 		if ($this->enabled)
 		{
@@ -120,13 +123,20 @@ foreach ([
 	$result = $action->execute(['id' => 71, 'data' => $data, 'dryRun' => false, '_edgeConfirmed' => true]);
 	$expected = array_key_exists('associations', $data) ? (array) $data['associations'] : $before;
 	$check($model->stored['associations'] === $expected, 'Native update preserves omission and exactly applies replacements or explicit clears.');
+	$check(($model->lastSaved['menuordering'] ?? null) === 71, 'Native menu update preserves its position using Joomla form self-position semantics.');
 	$check($result['item']['associations'] === $expected, 'Native saved representation replaces stale Joomla helper membership.');
 	$get = (new CoreEntityAction($entity, 'get', $provider, $reader))->execute(['id' => 71]);
 	$check($get['item']['associations'] === $expected, 'Independent native item read remains fresh in the same persistent process.');
 }
+$custom = $configuration['entity'];
+$custom['writeFields'][] = 'menuordering';
+$customAction = new CoreEntityAction(new CoreEntityDefinition(...$custom), 'update', $provider, $reader);
+$customAction->execute(['id' => 71, 'data' => ['menuordering' => 73], 'dryRun' => false, '_edgeConfirmed' => true]);
+$check($model->lastSaved['menuordering'] === 73, 'An administrator-customized menu ordering field retains its approved value.');
 $create = new CoreEntityAction($entity, 'create', $provider, $reader);
 $created = $create->execute(['data' => ['title' => 'Associated create', 'associations' => (object) ['fr-FR' => 72]], 'dryRun' => false, '_edgeConfirmed' => true]);
 $check($created['item']['associations'] === ['fr-FR' => 72], 'Native create passes the language map to the model and freshly reads it back.');
+$check(!array_key_exists('menuordering', $model->lastSaved), 'Menu creation does not derive a position from an existing item.');
 $writes = $model->writes;
 foreach ([null, true, [72], (object) ['*' => 72], (object) ['fr-FR' => 0], (object) ['fr-FR' => '72'], (object) ['fr-FR' => 1.5]] as $invalid)
 {

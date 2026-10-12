@@ -16,6 +16,7 @@ use VDM\Component\JoomEngineMcp\Administrator\Database\JoomlaStore;
 use VDM\Component\JoomEngineMcp\Administrator\Native\Joomla\JoomlaModelProvider;
 use VDM\Component\JoomEngineMcp\Administrator\Security\Envelope;
 use VDM\Component\JoomEngineMcp\Administrator\Service\Json;
+use VDM\Component\JoomEngineMcp\Administrator\Service\LanguageAssociations;
 
 require __DIR__ . '/bootstrap.php';
 require __DIR__ . '/HttpFixture.php';
@@ -77,7 +78,7 @@ $membership = static function (string $context, string $table, int $id) use ($db
 	ksort($result, SORT_STRING);
 	return $result;
 };
-$invoke = static function (object $client, string $tool, array $arguments, bool $allowError = false) use (&$executions): array
+$invoke = static function (object $client, string $tool, array $arguments, bool $allowError = false, ?Closure $onError = null) use (&$executions): array
 {
 	if ($client instanceof HttpFixture)
 	{
@@ -100,7 +101,8 @@ $invoke = static function (object $client, string $tool, array $arguments, bool 
 	if (!$allowError && ($result['isError'] ?? false))
 	{
 		throw new RuntimeException('Association fixture ' . $tool . ' failed: ' . Json::encode([
-			'code' => $data['error']['code'] ?? null, 'verification' => $data['verification'] ?? null]));
+			'code' => $data['error']['code'] ?? null, 'verification' => $data['verification'] ?? null,
+			'associations' => $onError === null ? null : $onError($data)]));
 	}
 	return $data;
 };
@@ -143,11 +145,32 @@ try
 	$menuData = static fn (string $title, string $language): array => ['title' => $title, 'alias' => 'mcp-assoc-' . bin2hex(random_bytes(6)),
 		'menutype' => $menutype, 'type' => 'url', 'link' => 'https://example.test/' . $language, 'published' => 0,
 		'parent_id' => 1, 'browserNav' => 0, 'access' => 1, 'template_style_id' => 0, 'home' => 0, 'language' => $language];
-	$apply = static function (object $client, string $track, string $action, array $input, bool $allowError = false, array $unobservable = []) use ($invoke, $check): array
+	$apply = static function (object $client, string $track, string $action, array $input, bool $allowError = false, array $unobservable = []) use ($invoke, $check, $membership, $store): array
 	{
 		$plan = $invoke($client, 'joomla_action_write_plan', ['action' => $action, 'transport' => $track,
 			'idempotencyKey' => Json::uuid(), 'input' => $input]);
-		$result = $invoke($client, 'joomla_write_apply', ['confirmationToken' => $plan['confirmationToken']], $allowError);
+		$diagnose = static function (array $result) use ($client, $track, $action, $input, $invoke, $membership, $store): array
+		{
+			$id = (int) ($result['verification']['id'] ?? $input['id'] ?? 0);
+			$base = substr($action, 0, strrpos($action, '.'));
+			$menu = $base === 'menus.site-items';
+			$definitions = [];
+			foreach ([$action, $base . '.get'] as $name)
+			{
+				$definition = $store->one('action', ['name' => $name]);
+				$binding = $store->one('binding', ['action_id' => $definition['id'], 'track' => $track]);
+				$binding['configuration'] = Json::decode($binding['configuration']);
+				$definitions[] = ['action' => $definition, 'binding' => $binding];
+			}
+			$read = $id > 0 ? $invoke($client, 'joomla_action_read', ['action' => $base . '.get', 'transport' => $track,
+				'input' => ['id' => $id]], true) : [];
+			return ['expected' => $input['data']['associations'] ?? null,
+				'stored' => $id > 0 ? $membership($menu ? 'com_menus.item' : 'com_content.item', $menu ? 'menu' : 'content', $id) : null,
+				'observed' => $track === 'cli' ? ($read['response']['data']['item']['associations'] ?? null)
+					: ($read['response']['data']['data']['attributes']['associations'] ?? null),
+				'supportedBinding' => LanguageAssociations::supports($definitions[0], $definitions[1])];
+		};
+		$result = $invoke($client, 'joomla_write_apply', ['confirmationToken' => $plan['confirmationToken']], $allowError, $diagnose);
 		if (!$allowError)
 		{
 			$actualUnobservable = $result['verification']['unobservableFields'] ?? [];
@@ -219,11 +242,6 @@ try
 	$check($membership('com_content.item', 'content', $articleId) === ['fr-FR' => $articleTarget], 'Explicit article API association update matches independent native storage');
 	$apply($http, 'api', 'content.articles.update', ['id' => $articleId, 'data' => ['title' => $articleTitle . ' renamed']]);
 	$check($membership('com_content.item', 'content', $articleId) === ['fr-FR' => $articleTarget], 'An unrelated API article edit preserves the stored language group');
-	$clear = $apply($http, 'api', 'content.articles.update', ['id' => $articleId, 'data' => ['associations' => (object) []]], true);
-	$actual = $membership('com_content.item', 'content', $articleId);
-	$check(($actual === [] && ($clear['verification']['status'] ?? '') === 'verified')
-		|| ($actual === ['fr-FR' => $articleTarget] && ($clear['verification']['status'] ?? '') !== 'verified'),
-		'Article empty-map outcome truthfully reflects whether the installed core actually cleared its association group');
 	$pluginState(0, $plugin['params']);
 	$singleTitle = $prefix . ' disabled menu';
 	$apply($http, 'api', 'menus.site-items.create', ['data' => $menuData($singleTitle, '*')]);
@@ -231,6 +249,13 @@ try
 	$check($singleId > 0, 'Single-language API menu creation remains available with associations disabled');
 	$apply($http, 'api', 'menus.site-items.update', ['id' => $singleId, 'data' => ['title' => $singleTitle . ' renamed']]);
 	$check($itemId('menu', $singleTitle . ' renamed') === $singleId, 'An ordinary API menu edit remains available with association support disabled');
+	$pluginState(1, Json::encode($params));
+	// A truthful mismatch retains the write lease, so perform this no-op probe last.
+	$clear = $apply($http, 'api', 'content.articles.update', ['id' => $articleId, 'data' => ['associations' => (object) []]], true);
+	$actual = $membership('com_content.item', 'content', $articleId);
+	$check(($actual === [] && ($clear['verification']['status'] ?? '') === 'verified')
+		|| ($actual === ['fr-FR' => $articleTarget] && ($clear['verification']['status'] ?? '') !== 'verified'),
+		'Article empty-map outcome truthfully reflects whether the installed core actually cleared its association group');
 }
 finally
 {
