@@ -216,6 +216,19 @@ try
 			$read = $invoke($client, 'joomla_action_read', ['action' => 'menus.site-items.get', 'transport' => $track, 'input' => ['id' => $id]]);
 			$observed = $track === 'cli' ? ($read['response']['data']['item']['associations'] ?? null)
 				: ($read['response']['data']['data']['attributes']['associations'] ?? null);
+			if ($track === 'api' && is_array($observed) && array_key_exists('en-GB', $observed))
+			{
+				// PostgreSQL's bound parameter conversion makes Joomla's helper include self.
+				// Accept only the independently identified source, never another language target.
+				$resource = $read['response']['data']['data'];
+				$check((string) ($resource['id'] ?? '') === (string) $id
+					&& (string) ($resource['attributes']['id'] ?? '') === (string) $id
+					&& ($resource['attributes']['language'] ?? '') === 'en-GB'
+					&& (is_int($observed['en-GB']) || is_string($observed['en-GB']))
+					&& (string) $observed['en-GB'] === (string) $id && !array_key_exists('en-GB', $expected),
+					'Raw menu API self membership matches only the source record and language');
+				unset($observed['en-GB']);
+			}
 			$check(is_array($observed) && array_map('intval', $observed) === $expected, 'Separate menu read returns current associations through ' . $track);
 		}
 		$check($membership('com_menus.item', 'menu', $targets['fr-FR']) === []

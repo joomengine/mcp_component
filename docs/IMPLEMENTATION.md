@@ -7,13 +7,20 @@ component-ID correction. The API and native console create/update bindings accep
 bounded language-to-item maps; console reads expose current membership without
 Joomla's process-static association cache. Independent read-back compares explicit
 and preserved maps, so a successful title change cannot conceal lost links.
+On PostgreSQL, Joomla's API can include the source menu item in its own association
+map. Verification excludes only that proven self-reference when the independent
+resource ID, item ID and language agree; all foreign associations remain exact.
+Native console updates retain the current menu position unless a customized
+binding explicitly supplies another position.
 Malformed non-null maps fail preservation preflight; disabled association support
 retains ordinary menu edits. Seed upgrades retain administrator-owned definitions
 and referenced schemas.
 
 Article API create/update bindings also accept association maps. Verification joins
 `languageAssociations` linkage to the matching included article IDs and languages,
-without following response URLs. Association snapshots invalidate an approved plan
+without following response URLs. PostgreSQL self-linkage is resolved against the
+same independently identified primary article, which JSON:API omits from its
+included resources. Association snapshots invalidate an approved plan
 after a concurrent relationship change. Missing, malformed or contradictory
 evidence never establishes successful persistence. Joomla's article model ignores
 an empty association object on an already-linked article; unchanged links produce

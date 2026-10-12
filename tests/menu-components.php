@@ -84,6 +84,8 @@ $fixture = static function () use ($seed): array
 		public bool $listDenied = false;
 		/** @var ?int Simulate an incorrect item read's client. */
 		public ?int $readClient = null;
+		/** @var bool PostgreSQL native helper includes the source menu in its own map. */
+		public bool $includeAssociationSelf = false;
 		/** @var int Request-local revision used for ETag contracts. */
 		private int $revision = 1;
 
@@ -164,8 +166,13 @@ $fixture = static function () use ($seed): array
 			{
 				$item['client_id'] = $this->readClient;
 			}
+			if ($this->includeAssociationSelf && !empty($item['associations']))
+			{
+				$item['associations'] = (array) $item['associations'];
+				$item['associations'][$item['language']] = (string) $id;
+			}
 
-			return new Response(200, ['ETag' => '"menu-' . $this->revision . '"'], Json::encode(['data' => ['id' => (string) $id, 'attributes' => $item]]));
+			return new Response(200, ['ETag' => '"menu-' . $this->revision . '"'], Json::encode(['data' => ['id' => (string) $id, 'type' => 'items', 'attributes' => $item]]));
 		}
 	};
 	$store = new MemoryStore($seed);
@@ -192,6 +199,7 @@ $writes = static fn (array $s): array => array_values(array_filter($s['http']->r
 foreach (['site' => 0, 'administrator' => 1] as $client => $clientId)
 {
 	$s = $fixture();
+	$s['http']->includeAssociationSelf = $client === 'site';
 	$body = $data;
 	$body['menutype'] = $client === 'site' ? 'fixture' : 'main';
 	if ($client === 'site')
@@ -229,6 +237,8 @@ foreach (['site' => 0, 'administrator' => 1] as $client => $clientId)
 		{
 			$check(($request['body']['associations']['en-GB'] ?? null) === 1248,
 				'Site-menu create, component-ID repair and partial updates must carry the association map.');
+			$check(!array_key_exists('nl-NL', (array) $request['body']['associations']),
+				'A proved native source self-link must never be added to the preserved write or component repair.');
 		}
 		$check(($s['http']->items[1]['associations']['en-GB'] ?? null) === 1248,
 			'Title-only menu update erased the association group.');
