@@ -3,7 +3,7 @@
   <changelog>
     <element>com_joomengine_mcp</element>
     <type>component</type>
-    <version>[[[NEXT_VERSION]]]</version>
+    <version>1.0.10</version>
     <fix>
       <item>Allow manually selected releases without pending changelog changes by creating matching maintenance notes in both changelogs. Preserve published history and reject inconsistent pending sections before changing metadata.</item>
     </fix>
