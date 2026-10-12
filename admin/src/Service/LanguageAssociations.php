@@ -74,7 +74,7 @@ final class LanguageAssociations
 	}
 
 	/**
-	 * Join only a reviewed article relationship to its included native resources.
+	 * Resolve only reviewed native representations of association membership.
 	 * Missing evidence stays unobservable; malformed or contradictory evidence is
 	 * retained as null so that an approved association cannot be falsely verified.
 	 *
@@ -86,14 +86,39 @@ final class LanguageAssociations
 	 */
 	public static function observe(array $write, array $read, array $response, array $record): array
 	{
-		if (!self::supports($write, $read) || ($read['action']['name'] ?? '') !== 'content.articles.get'
-			|| ($read['binding']['track'] ?? '') !== 'api')
+		if (!self::supports($write, $read) || ($read['binding']['track'] ?? '') !== 'api')
 		{
 			return $record;
 		}
 
 		$document = $response['data'] ?? [];
 		$resource = is_array($document) ? ($document['data'] ?? []) : [];
+		if (($read['action']['name'] ?? '') === 'menus.site-items.get')
+		{
+			$id = ApiWriteVerification::identity($record['id'] ?? null, 'integer');
+			$language = $record['language'] ?? null;
+			$associations = $record['associations'] ?? null;
+			$map = is_array($associations) || $associations instanceof stdClass ? (array) $associations : null;
+			if (is_array($resource) && ($resource['type'] ?? null) === 'items'
+				&& $id !== null && ApiWriteVerification::identity($resource['id'] ?? null, 'integer') === $id
+				&& is_array($resource['attributes'] ?? null)
+				&& ApiWriteVerification::identity($resource['attributes']['id'] ?? null, 'integer') === $id
+				&& in_array($record['client_id'] ?? null, [0, '0'], true) && is_string($language)
+				&& $map !== null && count($map) <= 101 && self::map([$language => $map[$language] ?? null]) === [$language => $id])
+			{
+				// PostgreSQL's bound ID becomes a string, so Joomla's strict self-ID
+				// exclusion can return the source item in its own association map.
+				// Only its independently identified language and ID may be removed.
+				unset($map[$language]);
+				$map = self::map($map);
+				if ($map !== null)
+				{
+					$record['associations'] = $map;
+				}
+			}
+
+			return $record;
+		}
 		$relationships = is_array($resource) ? ($resource['relationships'] ?? []) : [];
 		if (!is_array($relationships) || !array_key_exists('languageAssociations', $relationships))
 		{
@@ -105,7 +130,8 @@ final class LanguageAssociations
 		$type = $resource['type'] ?? null;
 		$map = [];
 		$seen = [];
-		if (!is_array($links) || !array_is_list($links) || count($links) > 100 || $type !== 'articles')
+		$sourceLanguage = null;
+		if (!is_array($links) || !array_is_list($links) || count($links) > 101 || $type !== 'articles')
 		{
 			$record['associations'] = null;
 			return $record;
@@ -129,10 +155,32 @@ final class LanguageAssociations
 					$matches[] = $included;
 				}
 			}
+			if (ApiWriteVerification::identity($resource['id'] ?? null, 'integer') === $id)
+			{
+				$language = $record['language'] ?? null;
+				if (ApiWriteVerification::identity($record['id'] ?? null, 'integer') !== $id
+					|| !is_array($resource['attributes'] ?? null)
+					|| ApiWriteVerification::identity($resource['attributes']['id'] ?? null, 'integer') !== $id
+					|| !is_string($language) || self::map([$language => $id]) === null
+					|| ($resource['attributes']['language'] ?? null) !== $language || isset($map[$language]) || count($matches) > 1
+					|| ($matches !== [] && (!is_array($matches[0]['attributes'] ?? null)
+						|| ApiWriteVerification::identity($matches[0]['attributes']['id'] ?? null, 'integer') !== $id
+						|| ($matches[0]['attributes']['language'] ?? null) !== $language)))
+				{
+					$record['associations'] = null;
+					return $record;
+				}
+
+				// The JSON:API document omits its own primary resource from included.
+				// Its validated identity and language prove only this self linkage.
+				$sourceLanguage = $language;
+				continue;
+			}
 			if (count($matches) !== 1 || !is_array($matches[0]['attributes'] ?? null)
 				|| !is_string($matches[0]['attributes']['language'] ?? null)
 				|| (array_key_exists('id', $matches[0]['attributes'])
 					&& ApiWriteVerification::identity($matches[0]['attributes']['id'], 'integer') !== $id)
+				|| $sourceLanguage === $matches[0]['attributes']['language']
 				|| isset($map[$matches[0]['attributes']['language']]))
 			{
 				$record['associations'] = null;
