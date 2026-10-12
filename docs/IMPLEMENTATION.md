@@ -1,21 +1,34 @@
 # Implementation status — 2 October 2026
 
-## Language associations — issue #42 (implementation in progress)
+## Language associations — issue #42
 
-Investigation on the current catalogue confirms that menu API partial updates omit
-`associations` from preserved fields. Joomla's menu model rebuilds the association
-group on save, so an unrelated title change can remove both language links.
-Site-menu and article create/update schemas also omit this native form input.
-Article API reads expose the association through JSON:API relationships, which
-the current verification projection discards.
+Site-menu API partial updates preserve `associations`, including the follow-up
+component-ID correction. The API and native console create/update bindings accept
+bounded language-to-item maps; console reads expose current membership without
+Joomla's process-static association cache. Independent read-back compares explicit
+and preserved maps, so a successful title change cannot conceal lost links.
+Malformed non-null maps fail preservation preflight; disabled association support
+retains ordinary menu edits. Seed upgrades retain administrator-owned definitions
+and referenced schemas.
 
-The targeted change will preserve omitted site-menu associations, expose explicit
-language-to-item maps on API and native console bindings, and compare independent
-native read-back without weakening verification for unrelated fields or routes.
-Regression acceptance includes create, update, omission, clearing, replay and
-administrator-owned catalogue upgrades. Empty-object behavior will be tested
-against Joomla's actual menu and article models rather than assumed equivalent.
-Implementation and installed workflow evidence are pending.
+Article API create/update bindings also accept association maps. Verification joins
+`languageAssociations` linkage to the matching included article IDs and languages,
+without following response URLs. Association snapshots invalidate an approved plan
+after a concurrent relationship change. Missing, malformed or contradictory
+evidence never establishes successful persistence. Joomla's article model ignores
+an empty association object on an already-linked article; unchanged links produce
+an uncertain result and retain the execution lease. Menu clearing is supported.
+Article console association writes and other multilingual families remain outside
+this focused change.
+
+The recording suites cover map representations, strict route ownership, malformed
+relationships, preservation, the corrective PATCH, native cache refresh, replay,
+concurrent changes and catalogue customization. The installed multilingual suite
+uses actual HTTP and persistent console transports, checks reciprocal database
+membership, and cleans up its records and plugin/language configuration. It runs
+in the PHP 8.3/8.4 × MySQL/PostgreSQL matrix. Current workflow results and acceptance
+evidence are tracked in [PR #43](https://github.com/joomengine/mcp_component/pull/43);
+recording tests alone are not live Joomla acceptance.
 
 ## Subform JSON read-back — issues #39 and TypeScript #57
 
