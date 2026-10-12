@@ -10,6 +10,7 @@
 use Joomla\CMS\Factory;
 use Joomla\CMS\User\UserFactoryInterface;
 use Joomla\Database\DatabaseInterface;
+use Joomla\Registry\Registry;
 use VDM\Component\JoomEngineMcp\Administrator\Administration\Operations;
 use VDM\Component\JoomEngineMcp\Administrator\Database\JoomlaStore;
 use VDM\Component\JoomEngineMcp\Administrator\Native\Joomla\JoomlaModelProvider;
@@ -106,7 +107,7 @@ $invoke = static function (object $client, string $tool, array $arguments, bool 
 try
 {
 	// Enable before a native save imports plugins into Joomla's process-static registry.
-	$params = json_decode($plugin['params'], true, 64, JSON_THROW_ON_ERROR);
+	$params = (new Registry($plugin['params']))->toArray();
 	$params['item_associations'] = 1;
 	$pluginState(1, Json::encode($params));
 	foreach (['fr-FR' => ['French', 'Français', 'fr_fr'], 'de-DE' => ['German', 'Deutsch', 'de_de']] as $code => [$title, $native, $image])
