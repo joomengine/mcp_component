@@ -42,15 +42,40 @@ function mcpRelease(array $arguments, string $root): void
 
 		if (version_compare($version, (string) $manifest->version, '<')
 			|| count($changelog->xpath('changelog[version="' . $version . '"]')) !== 0
-			|| count($pending) !== 1 || substr_count($markdown, '[[[NEXT_VERSION]]]') !== 1)
+			|| preg_match('/^## ' . preg_quote($version, '/') . '(?:\s|$)/m', $markdown) === 1)
 		{
-			throw new RuntimeException('Choose an unreleased version at least as new as the manifest, with one pending section in both changelogs.');
+			throw new RuntimeException('Choose an unreleased version at least as new as the manifest.');
+		}
+
+		$xmlContents = file_get_contents($root . '/changelog.xml');
+		$xmlMarkers = substr_count($xmlContents, '[[[NEXT_VERSION]]]');
+		$markdownMarkers = substr_count($markdown, '[[[NEXT_VERSION]]]');
+
+		if ($xmlMarkers === 0 && $markdownMarkers === 0)
+		{
+			$note = 'Maintenance release with no additional changelog entries.';
+			$xmlContents = preg_replace('/(<changelogs\b[^>]*>)/', '$1' . "\n  <changelog>\n"
+				. "    <element>com_joomengine_mcp</element>\n    <type>component</type>\n"
+				. '    <version>' . $version . "</version>\n    <note><item>" . $note
+				. "</item></note>\n  </changelog>", $xmlContents, 1);
+			$markdown = preg_replace('/\A(# Changelog[^\r\n]*\r?\n)/', '$1' . "\n## " . $version
+				. "\n\n### Note\n\n- " . $note . "\n", $markdown, 1, $insertions);
+
+			if ($changelog->getName() !== 'changelogs' || $insertions !== 1)
+			{
+				throw new RuntimeException('Expected the native XML changelogs root and Markdown Changelog heading.');
+			}
+		}
+		elseif (count($pending) !== 1 || $xmlMarkers !== 1 || $markdownMarkers !== 1
+			|| preg_match('/^## \[\[\[NEXT_VERSION\]\]\]\s*$/m', $markdown) !== 1)
+		{
+			throw new RuntimeException('Pending changes require one version section in both changelogs.');
 		}
 
 		$manifest->version = $version;
 		$manifest->creationDate = gmdate('F Y');
 		$writes['joomengine_mcp.xml'] = $manifest->asXML();
-		$writes['changelog.xml'] = str_replace('[[[NEXT_VERSION]]]', $version, file_get_contents($root . '/changelog.xml'));
+		$writes['changelog.xml'] = str_replace('[[[NEXT_VERSION]]]', $version, $xmlContents);
 		$writes['CHANGELOG.md'] = str_replace('[[[NEXT_VERSION]]]', $version, $markdown);
 	}
 	else

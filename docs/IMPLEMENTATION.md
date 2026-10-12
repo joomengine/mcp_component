@@ -1,5 +1,9 @@
 # Implementation status — 2 October 2026
 
+## Manual releases without pending changes — 12 October 2026
+
+The release metadata helper now permits an unused selected version when neither changelog has pending changes. It inserts matching maintenance notes while retaining historical entries verbatim. Existing pending entries still freeze normally; duplicate, malformed and one-sided markers fail before metadata writes. Regression coverage extends `tests/release.php`. Validation and publication results are tracked in the release-fix PR; metadata checks alone do not establish package publication.
+
 ## Language associations — issue #42
 
 Site-menu API partial updates preserve `associations`, including the follow-up

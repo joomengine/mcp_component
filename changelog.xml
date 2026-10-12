@@ -3,6 +3,14 @@
   <changelog>
     <element>com_joomengine_mcp</element>
     <type>component</type>
+    <version>[[[NEXT_VERSION]]]</version>
+    <fix>
+      <item>Allow manually selected releases without pending changelog changes by creating matching maintenance notes in both changelogs. Preserve published history and reject inconsistent pending sections before changing metadata.</item>
+    </fix>
+  </changelog>
+  <changelog>
+    <element>com_joomengine_mcp</element>
+    <type>component</type>
     <version>1.0.9</version>
     <fix>
       <item>Preserve language associations during partial site-menu updates, including the component-ID repair. Accept explicit association maps on site-menu API and console create/update and article API create/update. Verify independent menu maps and article language relationships, detect lost preserved links, and avoid stale menu association reads in persistent console processes. Exclude proven API self-references on PostgreSQL and retain native console menu ordering. Preserve administrator-owned catalogue schemas during upgrades.</item>

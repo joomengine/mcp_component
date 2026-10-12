@@ -1,5 +1,11 @@
 # Changelog
 
+## [[[NEXT_VERSION]]]
+
+### Fix
+
+- Allow manually selected releases without pending changelog changes by creating matching maintenance notes in both changelogs. Preserve published history and reject inconsistent pending sections before changing metadata.
+
 ## 1.0.9
 
 ### Fix
