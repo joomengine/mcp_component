@@ -92,6 +92,49 @@ try
 	$check((string) $feed->update->downloads->downloadurl === 'https://github.com/joomengine/mcp_component/archive/refs/tags/v1.2.0.zip', 'The next download stays in the component repository.');
 	$check((string) mcpReleaseXml($root . '/changelog.xml')->changelog[1]->version === '1.1.0', 'Next release retains the previous changelog.');
 
+	$xmlHistory = file_get_contents($root . '/changelog.xml');
+	$markdownHistory = file_get_contents($root . '/CHANGELOG.md');
+	mcpRelease(['prepare', '1.3.0'], $root);
+	$check((string) mcpReleaseXml($root . '/joomengine_mcp.xml')->version === '1.3.0', 'A release without pending changes updates the manifest.');
+	$check((string) mcpReleaseXml($root . '/changelog.xml')->changelog->version === '1.3.0'
+		&& str_contains(file_get_contents($root . '/CHANGELOG.md'), '## 1.3.0'), 'Maintenance releases receive matching versioned notes.');
+	$check(str_contains(file_get_contents($root . '/changelog.xml'), substr($xmlHistory, strpos($xmlHistory, '<changelog>')))
+		&& str_contains(file_get_contents($root . '/CHANGELOG.md'), substr($markdownHistory, strpos($markdownHistory, '## '))), 'Maintenance releases preserve historical entries verbatim.');
+
+	foreach (['duplicate', 'markdown-only', 'xml-only', 'malformed-heading'] as $case)
+	{
+		$xml = $xmlHistory;
+		$markdown = $markdownHistory;
+
+		if ($case !== 'markdown-only')
+		{
+			$xml = str_replace('<changelogs>', '<changelogs>' . $pending . ($case === 'duplicate' ? $pending : ''), $xml);
+		}
+
+		if ($case !== 'xml-only')
+		{
+			$markdown = ($case === 'malformed-heading' ? "[[[NEXT_VERSION]]]\n" : "## [[[NEXT_VERSION]]]\n") . $markdown;
+		}
+
+		file_put_contents($root . '/changelog.xml', $xml);
+		file_put_contents($root . '/CHANGELOG.md', $markdown);
+		$before = file_get_contents($root . '/joomengine_mcp.xml');
+		$rejected = false;
+
+		try
+		{
+			mcpRelease(['prepare', '1.4.0'], $root);
+		}
+		catch (RuntimeException)
+		{
+			$rejected = true;
+		}
+
+		$check($rejected && file_get_contents($root . '/changelog.xml') === $xml
+			&& file_get_contents($root . '/CHANGELOG.md') === $markdown
+			&& file_get_contents($root . '/joomengine_mcp.xml') === $before, 'Inconsistent pending metadata must fail without writes: ' . $case);
+	}
+
 	echo json_encode(['checks' => $checks, 'metadataTransitions' => 'passed'], JSON_THROW_ON_ERROR) . "\n";
 }
 finally

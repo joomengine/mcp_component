@@ -56,6 +56,6 @@ If a component release stops after tagging but before packaging, fix the workflo
 
 ## Changelogs and dependencies
 
-Keep `CHANGELOG.md` and `changelog.xml` consistent, with new changes under one literal `[[[NEXT_VERSION]]]` section in each file. Release replaces the marker with its version. Create another pending section when subsequent changes begin; preserve released history. Use Joomla categories `security`, `fix`, `language`, `addition`, `change`, `remove` and `note`, with `item` children and matching Markdown headings.
+Keep `CHANGELOG.md` and `changelog.xml` consistent, with new changes under one literal `[[[NEXT_VERSION]]]` section in each file. Release replaces the marker with its version. A new release can also be triggered when neither file has pending changes: the helper adds a matching maintenance Note for the selected version in both files and preserves released history. Duplicate, malformed or one-sided pending sections remain errors. Create another pending section when subsequent changes begin. Use Joomla categories `security`, `fix`, `language`, `addition`, `change`, `remove` and `note`, with `item` children and matching Markdown headings.
 
 Maintainers resolve changed dependencies with Composer and commit the lock and complete production runtime under `admin/vendor`. CI checks source installation, relocated dependencies, native metadata and separately installed plugins. No downstream Composer run is required. Source and metadata checks do not claim an actual release or prove configured publication credentials.
