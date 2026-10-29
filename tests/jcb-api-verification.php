@@ -23,6 +23,7 @@ use VDM\Component\JoomEngineMcp\Administrator\Service\ApiWriteVerification;
 use VDM\Component\JoomEngineMcp\Administrator\Service\Catalogue;
 use VDM\Component\JoomEngineMcp\Administrator\Service\HandlerRegistry;
 use VDM\Component\JoomEngineMcp\Administrator\Service\Json;
+use VDM\Component\JoomEngineMcp\Administrator\Service\JcbLanguageTranslation;
 use VDM\Component\JoomEngineMcp\Administrator\Service\Settings;
 use VDM\Component\JoomEngineMcp\Administrator\State\Audit;
 use VDM\Component\JoomEngineMcp\Administrator\State\Executions;
@@ -385,6 +386,17 @@ foreach ([['source' => 'New translation'], ['name' => 'No source']] as $data)
 $f = $fixture('integer', [], [], false, [], $translationForm + ['source_create_disabled' => false]);
 $check(isset($f['executor']->plan('generated.widgets.create', ['data' => ['source' => 'Native API enabled this field']], Json::uuid())['confirmationToken']),
 	'An observed native source-form adjustment permits creating a plan after catalogue refresh.');
+
+$configuration = $f['catalogue']->action('generated.widgets.update')['binding']['configuration'];
+foreach ([['route' => '/v1/example/language_translations/:id'], ['method' => 'PUT'], ['authentication' => 'other-token'],
+	['api_form' => array_replace_recursive($translationForm, ['provenance' => ['form' => 'other']])],
+	['api_form' => array_replace_recursive($translationForm, ['fields' => ['source' => ['disabled' => false]]])],
+	['api_form' => array_replace_recursive($translationForm, ['fields' => ['source' => ['readonly' => false]]])],
+	['route_parameters' => [['name' => 'id', 'kind' => 'unique-key']]]] as $foreign)
+{
+	$check(!JcbLanguageTranslation::preservesSource(array_replace($configuration, $foreign)),
+		'A foreign or changed native binding never inherits source preservation by its display name.');
+}
 
 // Customized verification controls cannot waive immutable source read-back.
 $f = $fixture('integer', ['id' => 87, 'source' => 'Sent to %s', 'name' => 'Translation'], ['id' => 87], false, [], $translationForm);

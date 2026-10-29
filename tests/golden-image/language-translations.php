@@ -56,9 +56,14 @@ try
 	$check($id > 0 && $stored()['source'] === $source, 'Native fixture contains the exact immutable source');
 	$provider = $store->one('provider', ['name' => 'jcb.installed']);
 	$candidates = [];
+	$creates = [];
 	foreach ($store->find('binding', ['provider_id' => (int) $provider['id'], 'track' => 'api'], 10000) as $binding)
 	{
 		$config = Json::decode($binding['configuration']);
+		if (JcbLanguageTranslation::blocksCreate($config))
+		{
+			$creates[] = $binding;
+		}
 		if (JcbLanguageTranslation::preservesSource($config))
 		{
 			$candidates[] = ['binding' => $binding, 'config' => $config];
@@ -90,6 +95,18 @@ try
 		'reason' => 'Disposable installed JCB translation preservation regression']);
 	$grant = $client->tool('joomla_permission_approve', ['requestId' => $permission['requestId'], 'acknowledgement' => $permission['acknowledgement']]);
 	$grantId = $grant['id'] ?? $grant['grantId'];
+	$check(count($creates) === 1, 'The installed legacy source-create contract is diagnosed explicitly');
+	$createAction = $store->one('action', ['id' => (int) $creates[0]['action_id']]);
+	$beforeExecutions = count($store->find('execution', [], 10000));
+	$beforeLeases = count($store->find('lease', [], 10000));
+	$rejected = $client->rpc('tools/call', ['name' => 'joomla_action_write_plan', 'arguments' => [
+		'action' => $createAction['name'], 'transport' => 'api', 'idempotencyKey' => Json::uuid(),
+		'input' => ['data' => ['source' => 'Rejected legacy creation', 'translation' => $translation]]]]);
+	$error = json_decode($rejected['result']['content'][0]['text'] ?? '{}', true);
+	$check(($rejected['result']['isError'] ?? false) && ($error['error']['code'] ?? '') === 'PREFLIGHT_FAILED',
+		'Unsupported native source creation fails during MCP planning with an actionable diagnostic');
+	$check(count($store->find('execution', [], 10000)) === $beforeExecutions && count($store->find('lease', [], 10000)) === $beforeLeases,
+		'Rejected native create acquires no execution or write lease');
 	$plan = $client->tool('joomla_action_write_plan', ['action' => $actionName, 'transport' => 'api',
 		'input' => ['id' => $id, 'data' => ['translation' => $translation]], 'idempotencyKey' => Json::uuid()]);
 	$check($plan['operation']['preservedFields'] === ['source'], 'Authenticated MCP plan discloses source preservation');
