@@ -13,6 +13,7 @@ use stdClass;
 use VDM\Component\JoomEngineMcp\Administrator\Domain\OperationException;
 use VDM\Component\JoomEngineMcp\Administrator\Native\Domain\FieldCreateDefaults;
 use VDM\Component\JoomEngineMcp\Administrator\Service\Json;
+use VDM\Component\JoomEngineMcp\Administrator\Service\JcbLanguageTranslation;
 use VDM\Component\JoomEngineMcp\Administrator\Service\LanguageAssociations;
 use VDM\Component\JoomEngineMcp\Administrator\Service\TemplateStyleInheritance;
 
@@ -252,6 +253,16 @@ final class ApiRequestBuilder
 					'/v1/fields/contacts/contact', '/v1/fields/contacts/categories', '/v1/fields/contacts/mail', '/v1/fields/users'], true))
 			{
 				$body = FieldCreateDefaults::complete($body);
+			}
+
+			if (JcbLanguageTranslation::preservesSource($configuration))
+			{
+				$body = JcbLanguageTranslation::body($body, $current);
+			}
+
+			if (JcbLanguageTranslation::blocksCreate($configuration))
+			{
+				throw new OperationException('PREFLIGHT_FAILED', 'The installed JCB API form disables the source string on create. A native JCB API-form correction is required; then synchronize the installed API catalogue before creating translations.');
 			}
 
 			Json::encode((object) $body, 1048576);

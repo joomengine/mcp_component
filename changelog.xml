@@ -3,6 +3,17 @@
   <changelog>
     <element>com_joomengine_mcp</element>
     <type>component</type>
+    <version>[[[NEXT_VERSION]]]</version>
+    <fix>
+      <item>Preserve the existing JCB language-translation source during API updates, describe disabled native fields honestly, and verify the unchanged source before releasing the write lease.</item>
+    </fix>
+    <note>
+      <item>Creating language translations through an API whose native form disables the source still requires a JCB API-form correction. Existing uncertain executions retain their reconciliation requirement.</item>
+    </note>
+  </changelog>
+  <changelog>
+    <element>com_joomengine_mcp</element>
+    <type>component</type>
     <version>1.0.11</version>
     <fix>
       <item>Stop reporting correctly saved writes as uncertain when Joomla only represents values differently. Menu item params read-back may include the link's request variables and integer-filtered values as integers on site and administrator API and console writes. A cleared media subfield inside a subform custom field may be stored as an empty array. Requested values, other extra keys and customized bindings remain strict.</item>

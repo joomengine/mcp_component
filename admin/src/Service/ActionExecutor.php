@@ -260,6 +260,11 @@ final class ActionExecutor
 			$preview['generatedFields'] = $generated;
 		}
 
+		if (JcbLanguageTranslation::preservesSource($resolved['binding']['configuration']))
+		{
+			$preview['preservedFields'] = ['source'];
+		}
+
 		if ($menu !== null)
 		{
 			$preview['menuComponent'] = MenuItemComponents::preview($menu);
@@ -1212,6 +1217,15 @@ final class ActionExecutor
 		}
 
 		$desired = $operation === 'state' ? [($rule['state_field'] ?? 'state') => $input['state']] : ($input['data'] ?? []);
+		$preservedSource = $track === 'api' && JcbLanguageTranslation::preservesSource($resolved['binding']['configuration']);
+
+		if ($preservedSource)
+		{
+			// The wire null suppresses API backfill; it is never a request to erase
+			// source. Verify the approval-bound original, including explicit null input.
+			$desired['source'] = $before['item']['source'];
+		}
+
 		$record = LanguageAssociations::observe($resolved, $read, $observed, $record);
 		$preservedAssociations = $operation === 'update' && ($resolved['action']['name'] ?? '') === 'menus.site-items.update'
 			&& LanguageAssociations::supports($resolved, $read) && !array_key_exists('associations', $desired)
@@ -1243,6 +1257,24 @@ final class ActionExecutor
 
 		foreach ($desired as $field => $value)
 		{
+			if ($preservedSource && $field === 'source')
+			{
+				if (!array_key_exists('source', $record))
+				{
+					$unobservable[] = 'source';
+				}
+				elseif ($record['source'] === $value)
+				{
+					$matched[] = 'source';
+				}
+				else
+				{
+					$different[] = 'source';
+				}
+
+				continue;
+			}
+
 			if (in_array($field, $requestOnly, true))
 			{
 				$controls[] = $field;
@@ -1285,6 +1317,17 @@ final class ActionExecutor
 			{
 				$verification['status'] = 'uncertain';
 				$verification['reason'] = 'The preserved language associations could not be read back. Reconcile the saved menu before another write.';
+			}
+		}
+
+		if ($preservedSource)
+		{
+			$verification['preservedFields'][] = 'source';
+
+			if (in_array('source', $unobservable, true))
+			{
+				$verification['status'] = 'uncertain';
+				$verification['reason'] = 'The preserved source string could not be read back. Reconcile the language translation before another write.';
 			}
 		}
 

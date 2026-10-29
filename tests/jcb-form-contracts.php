@@ -146,6 +146,7 @@ PHP);
 		<field name="reference" type="reference" required="true" />
 		<field name="modal_reference" type="ModalSelect" sql_title_table="#__fixture_record" sql_title_column="title" sql_title_key="guid" data-key-name="guid" />
 		<field name="guid" type="text" validate="guid" readonly="true" />
+		<field name="immutable" type="textarea" readonly="true" disabled="true" />
 		<field name="not_required" type="hidden" default="一_一" />
 		<field name="ignored" type="text" filter="unset" />
 		<field name="source" type="editor" filter="raw" validate="code" />
@@ -174,6 +175,12 @@ XML;
 		&& $contract['fields']['modal_reference']['field_source']['path'] === 'administrator/src/Field/ModalSelectField.php',
 		'Native modal relationship keys and case-sensitive custom field source are preserved from XML.');
 	$check($contract['fields']['guid']['identity']['server_generated'] && $contract['generation'] === [], 'Observed native GUID generation remains native.');
+	$check($contract['schema']['properties']['guid']['readOnly'] === true
+		&& $contract['schema']['properties']['immutable']['readOnly'] === true
+		&& $contract['schema']['properties']['immutable']['x-native-disabled'] === true, 'Native read-only and disabled restrictions remain visible in the schema.');
+	$nativeAdjusted = (new SchemaValidator())->input(['data' => ['immutable' => 'Native API enabled this field']],
+		Json::encode(['type' => 'object', 'properties' => ['data' => $contract['schema']]]));
+	$check($nativeAdjusted['data']['immutable'] === 'Native API enabled this field', 'Static XML metadata does not override native runtime form adjustments.');
 	$check($contract['native_required_adjustments'] && !isset($contract['schema']['required']), 'Native required adjustments prevent over-requiring a create body.');
 	$check($contract['fields']['conditional']['showon'] === 'active:1' && $contract['fields']['conditional']['required'], 'Conditional declarations remain visible without invented enforcement.');
 	$check($contract['fields']['active']['default'] === '0' && count($contract['fields']['active']['choices']) === 2, 'Literal defaults and choices retain their XML values.');
@@ -251,6 +258,19 @@ PHP);
 	$check($static['generation']['guid'] === ['kind' => 'guid', 'on' => 'create', 'format' => 'uuid-v4'], 'A required client GUID without a native default has an explicit generation contract.');
 	$check(!isset($static['generation']['relation_guid']) && !isset($static['fields']['relation_guid']['identity']), 'Required relationship GUIDs must be supplied from existing records and are never generated.');
 	$check(!isset($contracts->forRoute(['controller' => 'records.edit', 'method' => 'PATCH'])['schema']['required']), 'Partial update data does not require every create field.');
+
+	// The legacy source-create restriction is refreshed from actual model source.
+	$write('api/src/Controller/Language_translationController.php', '<?php class Language_translationController extends ApiController { public function getModel($name = "", $prefix = "", $config = []) { $name = "language_translation"; return parent::getModel($name, $prefix, $config); } }');
+	$translationModel = '<?php class Language_translationModel extends AdminModel { public function getForm($data = [], $loadData = true) { $form = $this->loadForm("com_componentbuilder.language_translation", "language_translation", []); %s return $form; } }';
+	$write('admin/src/Model/Language_translationModel.php', sprintf($translationModel, ''));
+	$write('admin/forms/language_translation.xml', '<form><field name="source" type="textarea" disabled="true" readonly="true" /></form>');
+	$translationRoute = ['controller' => 'language_translation.add', 'method' => 'POST'];
+	$legacy = $contracts->forRoute($translationRoute);
+	$check($legacy['source_create_disabled'] === true, 'The unchanged native translation model exposes its unsupported source-create contract.');
+	$write('admin/src/Model/Language_translationModel.php', sprintf($translationModel, '$form->setFieldAttribute("source", "disabled", "false");'));
+	$updated = $contracts->forRoute($translationRoute);
+	$check($updated['source_create_disabled'] === false && $updated['fingerprint'] !== $legacy['fingerprint'],
+		'A source-fingerprinted native disabled-attribute adjustment removes the legacy create guard after synchronization.');
 
 	// An optional argument inspects every controller of a real compiled package.
 	$installedRoot = $argv[1] ?? null;

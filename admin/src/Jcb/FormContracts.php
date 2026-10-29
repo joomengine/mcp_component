@@ -194,6 +194,26 @@ final class FormContracts
 			'verification' => ['fields' => $tree['verification'], 'request_only' => array_values(array_unique($requestOnly))],
 			'generation' => $generation, 'native_required_adjustments' => $dynamicRequired,
 			'provenance' => ['model' => $binding['model'], 'form' => $binding['form'], 'sources' => array_values($this->sources)]];
+
+		if ($binding['form'] === 'language_translation' && strtolower($binding['model']) === 'language_translation'
+			&& ($tree['fields']['source']['disabled'] ?? false) && ($tree['fields']['source']['readonly'] ?? false))
+		{
+			$adjusted = false;
+
+			foreach (self::callArguments(self::method($modelTokens, 'getForm'), 'setFieldAttribute') as $arguments)
+			{
+				if (self::literal($arguments[0] ?? []) === 'source' && self::literal($arguments[1] ?? []) === 'disabled')
+				{
+					$adjusted = true;
+				}
+			}
+
+			// The legacy form cannot create a source. A native model adjustment
+			// removes this diagnostic after synchronization; runtime validation then
+			// remains authoritative rather than freezing the old XML restriction.
+			$contract['source_create_disabled'] = !$adjusted;
+		}
+
 		$contract['fingerprint'] = hash('sha256', Json::canonical($contract));
 
 		return $contract;
@@ -467,6 +487,20 @@ final class FormContracts
 		}
 
 		$parts = ['Native field type: ' . $type . '.'];
+
+		if ($descriptor['readonly'] || $descriptor['disabled'])
+		{
+			$schema['readOnly'] = true;
+			$parts[] = 'The native form declares this field read-only.';
+		}
+
+		if ($descriptor['disabled'])
+		{
+			// getForm() may change XML attributes for API context or current ACL.
+			// Keep the native restriction visible without overriding runtime policy.
+			$schema['x-native-disabled'] = true;
+			$parts[] = 'The XML declares this field disabled. Native runtime form rules determine whether it is writable; do not assume this field accepts changes.';
+		}
 
 		if ($filter !== '')
 		{

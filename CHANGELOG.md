@@ -1,5 +1,15 @@
 # Changelog
 
+## [[[NEXT_VERSION]]]
+
+### Fix
+
+- Preserve the existing JCB language-translation source during API updates, describe disabled native fields honestly, and verify the unchanged source before releasing the write lease.
+
+### Note
+
+- Creating language translations through an API whose native form disables the source still requires a JCB API-form correction. Existing uncertain executions retain their reconciliation requirement.
+
 ## 1.0.11
 
 ### Fix
