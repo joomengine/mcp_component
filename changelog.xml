@@ -3,7 +3,7 @@
   <changelog>
     <element>com_joomengine_mcp</element>
     <type>component</type>
-    <version>[[[NEXT_VERSION]]]</version>
+    <version>1.0.12</version>
     <fix>
       <item>Preserve the existing JCB language-translation source during API updates, describe disabled native fields honestly, and verify the unchanged source before releasing the write lease.</item>
     </fix>
