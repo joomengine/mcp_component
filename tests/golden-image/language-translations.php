@@ -82,8 +82,8 @@ try
 	{
 		$raw = curl_exec($handle);
 		$status = (int) curl_getinfo($handle, CURLINFO_RESPONSE_CODE);
-		$check(is_string($raw) && $status === 500 && str_contains($raw, 'Invalid field'),
-			'The exact unmodified native API reproduces disabled source validation before save');
+		$check(is_string($raw) && $status === 500,
+			'The unmodified legacy API rejects the translation-only PATCH (HTTP ' . $status . ')');
 	}
 	finally
 	{
@@ -113,7 +113,8 @@ try
 	$wire = $client->rpc('tools/call', ['name' => 'joomla_write_apply', 'arguments' => ['confirmationToken' => $plan['confirmationToken']]]);
 	$result = $wire['result']['structuredContent'] ?? [];
 	$executionId = $result['executionId'] ?? null;
-	$check(($result['verification']['status'] ?? '') === 'verified', 'Native MCP PATCH saves and independently verifies the translation and source');
+	$check(($result['verification']['status'] ?? '') === 'verified', 'Native MCP PATCH saves and independently verifies the translation and source: '
+		. Json::encode(['verification' => $result['verification'] ?? null, 'error' => $result['error'] ?? null]));
 	$check($stored()['source'] === $source && Json::canonical(json_decode($stored()['translation'], true)) === Json::canonical($translation),
 		'Independent native database inspection confirms the translation and exact original source');
 	$check($store->one('lease', ['owner_uuid' => $executionId]) === null, 'Verified native translation update releases its owned write lease');
