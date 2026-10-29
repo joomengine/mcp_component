@@ -194,6 +194,26 @@ final class FormContracts
 			'verification' => ['fields' => $tree['verification'], 'request_only' => array_values(array_unique($requestOnly))],
 			'generation' => $generation, 'native_required_adjustments' => $dynamicRequired,
 			'provenance' => ['model' => $binding['model'], 'form' => $binding['form'], 'sources' => array_values($this->sources)]];
+
+		if ($binding['form'] === 'language_translation' && strtolower($binding['model']) === 'language_translation'
+			&& ($tree['fields']['source']['disabled'] ?? false) && ($tree['fields']['source']['readonly'] ?? false))
+		{
+			$adjusted = false;
+
+			foreach (self::callArguments(self::method($modelTokens, 'getForm'), 'setFieldAttribute') as $arguments)
+			{
+				if (self::literal($arguments[0] ?? []) === 'source' && self::literal($arguments[1] ?? []) === 'disabled')
+				{
+					$adjusted = true;
+				}
+			}
+
+			// The legacy form cannot create a source. A native model adjustment
+			// removes this diagnostic after synchronization; runtime validation then
+			// remains authoritative rather than freezing the old XML restriction.
+			$contract['source_create_disabled'] = !$adjusted;
+		}
+
 		$contract['fingerprint'] = hash('sha256', Json::canonical($contract));
 
 		return $contract;

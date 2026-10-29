@@ -25,6 +25,22 @@ use VDM\Component\JoomEngineMcp\Administrator\Domain\OperationException;
 final class JcbLanguageTranslation
 {
 	/**
+	 * Diagnose an installed legacy create form before claiming a write.
+	 *
+	 * @param array $configuration Source-fingerprinted native API configuration.
+	 * @return bool Whether a native source-form correction is required.
+	 * @since 1.0.11
+	 */
+	public static function blocksCreate(array $configuration): bool
+	{
+		return ($configuration['method'] ?? '') === 'POST'
+			&& ($configuration['operation'] ?? '') === 'create'
+			&& ($configuration['route'] ?? '') === '/v1/componentbuilder/language_translations'
+			&& ($configuration['authentication'] ?? '') === 'joomla-api-token'
+			&& ($configuration['api_form']['source_create_disabled'] ?? false) === true;
+	}
+
+	/**
 	 * Limit the compatibility rule to the observed native translation form.
 	 *
 	 * @param array $configuration Authorized, installed API binding configuration.

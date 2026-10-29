@@ -259,6 +259,19 @@ PHP);
 	$check(!isset($static['generation']['relation_guid']) && !isset($static['fields']['relation_guid']['identity']), 'Required relationship GUIDs must be supplied from existing records and are never generated.');
 	$check(!isset($contracts->forRoute(['controller' => 'records.edit', 'method' => 'PATCH'])['schema']['required']), 'Partial update data does not require every create field.');
 
+	// The legacy source-create restriction is refreshed from actual model source.
+	$write('api/src/Controller/Language_translationController.php', '<?php class Language_translationController extends ApiController { public function getModel($name = "", $prefix = "", $config = []) { $name = "language_translation"; return parent::getModel($name, $prefix, $config); } }');
+	$translationModel = '<?php class Language_translationModel extends AdminModel { public function getForm($data = [], $loadData = true) { $form = $this->loadForm("com_componentbuilder.language_translation", "language_translation", []); %s return $form; } }';
+	$write('admin/src/Model/Language_translationModel.php', sprintf($translationModel, ''));
+	$write('admin/forms/language_translation.xml', '<form><field name="source" type="textarea" disabled="true" readonly="true" /></form>');
+	$translationRoute = ['controller' => 'language_translation.add', 'method' => 'POST'];
+	$legacy = $contracts->forRoute($translationRoute);
+	$check($legacy['source_create_disabled'] === true, 'The unchanged native translation model exposes its unsupported source-create contract.');
+	$write('admin/src/Model/Language_translationModel.php', sprintf($translationModel, '$form->setFieldAttribute("source", "disabled", "false");'));
+	$updated = $contracts->forRoute($translationRoute);
+	$check($updated['source_create_disabled'] === false && $updated['fingerprint'] !== $legacy['fingerprint'],
+		'A source-fingerprinted native disabled-attribute adjustment removes the legacy create guard after synchronization.');
+
 	// An optional argument inspects every controller of a real compiled package.
 	$installedRoot = $argv[1] ?? null;
 

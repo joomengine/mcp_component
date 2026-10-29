@@ -149,6 +149,7 @@ fixture /tmp/mcp-component/tests/golden-image/full-api-catalogue.php prepare > "
 compose exec -T joomla php /var/www/html/cli/joomla.php joomla:mcp:jcb-sync \
   --no-interaction --no-ansi > "$out/full-api-sync.json" 2> "$out/full-api-sync-errors.log"
 fixture /tmp/mcp-component/tests/golden-image/full-api-catalogue.php verify > "$out/full-api-verify.log" 2>&1
+fixture /tmp/mcp-component/tests/golden-image/language-translations.php > "$out/language-translations.log" 2>&1
 compose exec -T joomla php /var/www/html/cli/joomla.php joomla:mcp:jcb-sync \
   --no-interaction --no-ansi > "$out/full-api-sync-rerun.json" 2> "$out/full-api-sync-rerun-errors.log"
 fixture /tmp/mcp-component/tests/golden-image/full-api-catalogue.php verify-rerun > "$out/full-api-rerun-verify.log" 2>&1

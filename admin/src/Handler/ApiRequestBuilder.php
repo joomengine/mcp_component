@@ -260,6 +260,11 @@ final class ApiRequestBuilder
 				$body = JcbLanguageTranslation::body($body, $current);
 			}
 
+			if (JcbLanguageTranslation::blocksCreate($configuration))
+			{
+				throw new OperationException('PREFLIGHT_FAILED', 'The installed JCB API form disables the source string on create. A native JCB API-form correction is required; then synchronize the installed API catalogue before creating translations.');
+			}
+
 			Json::encode((object) $body, 1048576);
 		}
 

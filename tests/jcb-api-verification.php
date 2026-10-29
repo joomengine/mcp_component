@@ -367,6 +367,38 @@ catch (OperationException $error)
 		'Missing original source fails before claim with a preservation diagnostic.');
 }
 
+// A known legacy create failure is diagnosed before claiming any write.
+foreach ([['source' => 'New translation'], ['name' => 'No source']] as $data)
+{
+	$f = $fixture('integer', [], [], false, [], $translationForm + ['source_create_disabled' => true]);
+	try
+	{
+		$f['executor']->plan('generated.widgets.create', ['data' => $data], Json::uuid());
+		throw new RuntimeException('Legacy disabled-source creation must fail before claim.');
+	}
+	catch (OperationException $error)
+	{
+		$check($error->getIdentifier() === 'PREFLIGHT_FAILED' && $f['http']->writes === 0
+			&& $f['store']->find('lease') === [] && $f['store']->find('plan') === [], 'A legacy create contract fails before mutation or lease acquisition.');
+	}
+}
+$f = $fixture('integer', [], [], false, [], $translationForm + ['source_create_disabled' => false]);
+$check(isset($f['executor']->plan('generated.widgets.create', ['data' => ['source' => 'Native API enabled this field']], Json::uuid())['confirmationToken']),
+	'An observed native source-form adjustment permits creating a plan after catalogue refresh.');
+
+// Customized verification controls cannot waive immutable source read-back.
+$f = $fixture('integer', ['id' => 87, 'source' => 'Sent to %s', 'name' => 'Translation'], ['id' => 87], false, [], $translationForm);
+$resolved = $f['catalogue']->action('generated.widgets.update');
+$config = $resolved['binding']['configuration'];
+$config['api_form']['verification']['request_only'][] = 'source';
+$f['store']->update('binding', ['configuration' => Json::encode($config)], ['id' => $resolved['binding']['id']]);
+$f['catalogue']->refresh();
+$plan = $f['executor']->plan('generated.widgets.update', ['id' => 87, 'data' => ['name' => 'Translation']], Json::uuid());
+$f['http']->afterWrite = static function () use ($f): void { $f['http']->record['source'] = 'Changed'; };
+$result = $f['executor']->apply($plan['confirmationToken']);
+$check($result['verification']['status'] === 'uncertain' && $result['verification']['differentFields'] === ['source'],
+	'Even a request-only descriptor cannot suppress preservation verification for the source.');
+
 // Primary GUID generation is part of the approved input, never an apply-time effect.
 $generation = ['guid' => ['kind' => 'guid', 'on' => 'create', 'format' => 'uuid-v4']];
 $f = $fixture('guid', [], [], false, $generation);
