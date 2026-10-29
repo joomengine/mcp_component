@@ -576,6 +576,66 @@ foreach ([
 	}
 }
 
+// Joomla stores a cleared media subfield as an empty array. Only discovered,
+// visible media subfields of that subform may accept it for an empty string.
+$text = $field('blok-text', ['only_use_in_subform' => 1]);
+$image = $field('blok-image', ['type' => 'media', 'only_use_in_subform' => 1]);
+$t = 'field' . $text['id'];
+$m = 'field' . $image['id'];
+$blocks = static fn (array $overrides = []): array => $field('blokken', ['type' => 'subform', 'fieldparams' => (object) ['repeat' => '1',
+	'options' => (object) ['option0' => (object) ['customfield' => $text['id'], 'render_values' => '1'],
+		'option1' => (object) ['customfield' => (int) $image['id'], 'render_values' => '1']]]] + $overrides);
+$s = $fixture(['/v1/fields/content/articles' => [$blocks(), $text, $image]]);
+$metadata = $s['executor']->describe('content.articles.create')['customFields'];
+$check(count($metadata['fields']) === 1 && $metadata['fields'][0]['mediaSubfields'] === [$m] && !isset($metadata['fields'][0]['subfields']),
+	'Only visible media subfields of the subform must be frozen with it.');
+$mediaCases = [
+	[[$m => '', $t => 'Tekst'], [$t => 'Tekst', $m => []], 'verified', true],
+	[[$m => '', $t => 'Tekst'], [$t => 'Tekst', $m => new stdClass()], 'verified', true],
+	[[$m => ''], [$m => []], 'verified', false],
+	[[$m => []], [$m => []], 'verified', true],
+	[[$m => ''], [$m => ''], 'verified', true],
+	[[$m => '', $t => ''], [$m => [], $t => []], 'uncertain', true],
+	[[$m => 'images/a.png'], [$m => []], 'uncertain', true],
+	[[$m => []], [$m => ''], 'uncertain', true],
+	[[$m => ''], [$m => ['imagefile' => 'images/a.png', 'alt_text' => '']], 'uncertain', true],
+	[[$m => ''], [$m => [null]], 'uncertain', true],
+	[[$m => ''], [], 'uncertain', true],
+	[['nested' => [$m => '']], ['nested' => [$m => []]], 'uncertain', true],
+];
+foreach (['create', 'update'] as $operation)
+{
+	foreach ($mediaCases as [$desiredRow, $observedRow, $status, $rows])
+	{
+		foreach (['visible' => [], 'unpublished' => ['state' => 0], 'restricted' => ['access' => 99], 'text' => ['type' => 'text']] as $variant => $overrides)
+		{
+			$subfield = $image;
+			$subfield['attributes'] = array_replace($subfield['attributes'], $overrides);
+			$s = $fixture(['/v1/fields/content/articles' => [$blocks(), $text, $subfield]]);
+			$approve($s);
+			$desired = Json::encode($rows ? ['row0' => $desiredRow] : $desiredRow);
+			$observed = Json::encode($rows ? ['row0' => $observedRow] : $observedRow);
+			$core = ['title' => 'Media article', 'catid' => 2];
+			$s['http']->items['/v1/content/articles/1'] = $core + ['blokken' => $observed];
+			$s['http']->readValues['blokken'] = $observed;
+			$input = ['data' => $core + ['blokken' => $desired]] + ($operation === 'update' ? ['id' => 1] : []);
+			$plan = $s['executor']->plan('content.articles.' . $operation, $input, Json::uuid());
+			$result = $s['executor']->apply($plan['confirmationToken']);
+			$expected = $variant === 'visible' || $desired === $observed ? $status : 'uncertain';
+			$check($result['verification']['status'] === $expected, 'Media subfield ' . $variant . ' ' . $desired . ' / ' . $observed . ' expected ' . $expected);
+		}
+	}
+}
+$resolved = $s['catalogue']->action('content.articles.create');
+$resolved['custom_fields'] = $s['executor']->describe('content.articles.create')['customFields'];
+$read = $s['catalogue']->action('content.articles.get');
+foreach (['field0', 'other', 7, ['field7']] as $invalid)
+{
+	$variant = $resolved;
+	$variant['custom_fields']['fields'][0]['mediaSubfields'] = [$invalid];
+	$check(CustomFields::compare($variant, $read, 'blokken', '{"row0":{}}', '{"row0":{}}') === false, 'Malformed frozen media subfield keys must not relax subform comparison.');
+}
+
 $s = $fixture(['/v1/fields/content/articles' => [$field('modals', ['type' => 'subform'])]]);
 $resolved = $s['catalogue']->action('content.articles.create');
 $resolved['custom_fields'] = $s['executor']->describe('content.articles.create')['customFields'];

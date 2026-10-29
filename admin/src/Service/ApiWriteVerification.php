@@ -53,11 +53,21 @@ final class ApiWriteVerification
 	 * @param mixed $desired Approved field value.
 	 * @param mixed $observed Independently read field value.
 	 * @param array $approved Full approved data for explicit native selection controls.
+	 * @param array $record Full independent read-back for native derived representations.
 	 * @return ?bool Contract comparison, or null when no exception applies.
 	 * @since 1.0.1
 	 */
-	public static function compare(array $resolved, array $read, string $field, mixed $desired, mixed $observed, array $approved = []): ?bool
+	public static function compare(array $resolved, array $read, string $field, mixed $desired, mixed $observed, array $approved = [], array $record = []): ?bool
 	{
+		if ($field === 'params')
+		{
+			$params = MenuItemParams::compare($resolved, $read, $desired, $observed, $record);
+			if ($params !== null)
+			{
+				return $params;
+			}
+		}
+
 		if ($field === 'associations')
 		{
 			$associations = LanguageAssociations::compare($resolved, $read, $desired, $observed);

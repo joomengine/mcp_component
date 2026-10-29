@@ -1,5 +1,11 @@
 # Implementation status — 2 October 2026
 
+## Representation-only read-back differences — 29 October 2026
+
+Two correctly saved writes were reported as uncertain, which blocked further writes until an administrator reconciled them. Menu item read-back includes the link request variables inside `params`, and integer-filtered params read back as integers. A cleared media subfield inside a subform is stored as `[]` instead of the approved `""`. `MenuItemParams` now accepts only link-derived extra params keys and integer/decimal-string spelling for the reviewed site and administrator menu item API and console bindings. Custom field discovery now records the visible media subfields referenced by each subform, and the subform comparison accepts only `""` against a stored empty value for those row keys. Requested keys, other values, shapes and customized bindings keep strict comparison.
+
+`tests/menu-components.php` (434 checks) and `tests/custom-fields.php` (1,562 checks) cover verified and uncertain outcomes, lease release, both menu clients and transports and binding boundaries; both suites fail without the change. The full local suite list from CI passes on PHP 8.4. Installed Joomla CI remains the live acceptance evidence. Existing uncertain executions are not rewritten and still need reconciliation.
+
 ## Manual releases without pending changes — 12 October 2026
 
 The release metadata helper now permits an unused selected version when neither changelog has pending changes. It inserts matching maintenance notes while retaining historical entries verbatim. Existing pending entries still freeze normally; duplicate, malformed and one-sided markers fail before metadata writes. Regression coverage extends `tests/release.php`. Validation and publication results are tracked in the release-fix PR; metadata checks alone do not establish package publication.

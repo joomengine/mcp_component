@@ -62,6 +62,13 @@ empty-string clear operation. A changed value retains its uncertain outcome and
 write lease. Successful matches release the lease; replay returns retained
 evidence without sending another mutation.
 
+Joomla stores a cleared media subfield as an empty array. When field discovery
+finds a published, accessible `media` field referenced by the subform's own
+options, an approved empty string for that `field<ID>` row key matches a stored
+`[]` or `{}`. This applies to a single row object or to its named rows, never to
+deeper values. Text subfields, unknown or hidden subfields, nonempty media
+values and an approved `[]` read back as `""` keep their differences.
+
 Installing this fix does not rewrite existing uncertain executions. Inspect and
 reconcile those records through the administrator Operations view. A retained
 token does not automatically rerun its mutation or clear an unresolved lease.
@@ -71,6 +78,22 @@ The TypeScript server keeps its existing raw API read response and adds scoped
 live-test runner uses the same scoped semantic comparison. This evidence covers
 subform fields only; the TypeScript server does not implement the PHP component's
 durable `WRITE_BUSY` lease or administrative reconciliation store.
+
+## Menu item params
+
+Joomla's menu item model returns the request variables of a component link,
+such as `option`, `view`, `layout` and `id`, inside `params`, although they are
+not stored in that column. For the reviewed site and administrator menu item
+API and console create/update bindings, read-back accepts an additional params
+key only when the item is of type `component` and the key and value come from
+the stored link's query. A request variable with another value, or any other
+additional key, remains a difference.
+
+Every requested param must be present. Its value must match exactly, except
+that an integer and its canonical decimal string (`0` and `"0"`) are the same
+value: the menu form filters such params to integers. `"060"`, `"60.0"`,
+`true` and `0.0` keep their differences. Customized bindings and other
+resources retain the strict comparison.
 
 ## HTTP errors after a save
 
@@ -104,7 +127,10 @@ failure; it does not reclassify an ambiguous HTTP error as an effect-free failur
 shapes, unrelated differences, binding boundaries, settled versus uncertain
 leases and immutable replay. `tests/custom-fields.php` covers frozen option
 metadata, exact choice maps, numeric keys, malformed inputs and independent
-plan/apply verification across the four supported value contexts.
+plan/apply verification across the four supported value contexts, including
+cleared media subfields. `tests/menu-components.php` covers menu params with
+link request variables and integer spelling for site and administrator items,
+create and update, both transports, binding boundaries and real differences.
 
 Installed `write-verification.php` checks all four category extensions and the
 article Registry fields against native storage and API read-back. Installed

@@ -22,6 +22,7 @@ use VDM\Component\JoomEngineMcp\Administrator\Service\ActionExecutor;
 use VDM\Component\JoomEngineMcp\Administrator\Service\Catalogue;
 use VDM\Component\JoomEngineMcp\Administrator\Service\HandlerRegistry;
 use VDM\Component\JoomEngineMcp\Administrator\Service\Json;
+use VDM\Component\JoomEngineMcp\Administrator\Service\MenuItemParams;
 use VDM\Component\JoomEngineMcp\Administrator\Service\Settings;
 use VDM\Component\JoomEngineMcp\Administrator\State\Audit;
 use VDM\Component\JoomEngineMcp\Administrator\State\Executions;
@@ -86,6 +87,12 @@ $fixture = static function () use ($seed): array
 		public ?int $readClient = null;
 		/** @var bool PostgreSQL native helper includes the source menu in its own map. */
 		public bool $includeAssociationSelf = false;
+		/** @var bool Merge component link request variables into read params, as Joomla's item model does. */
+		public bool $mergeRequest = false;
+		/** @var array<string,mixed> Read-back params changes that Joomla did not derive from the link. */
+		public array $paramsReadBack = [];
+		/** @var ?array<string,mixed> Stored params representation, such as integer-filtered values. */
+		public ?array $storedParams = null;
 		/** @var int Request-local revision used for ETag contracts. */
 		private int $revision = 1;
 
@@ -160,6 +167,22 @@ $fixture = static function () use ($seed): array
 			elseif (in_array($item['type'] ?? '', ['url', 'alias', 'separator', 'heading', 'container'], true))
 			{
 				$item['component_id'] = 0;
+			}
+
+			if ($this->storedParams !== null)
+			{
+				$item['params'] = $this->storedParams;
+			}
+
+			if ($this->mergeRequest && ($item['type'] ?? '') === 'component')
+			{
+				$item['request'] = $query;
+				$item['params'] = array_merge((array) ($item['params'] ?? []), $query);
+			}
+
+			if ($this->paramsReadBack !== [])
+			{
+				$item['params'] = array_replace((array) ($item['params'] ?? []), $this->paramsReadBack);
 			}
 
 			if ($this->readClient !== null)
@@ -242,6 +265,67 @@ foreach (['site' => 0, 'administrator' => 1] as $client => $clientId)
 		}
 		$check(($s['http']->items[1]['associations']['en-GB'] ?? null) === 1248,
 			'Title-only menu update erased the association group.');
+	}
+}
+
+// Joomla's item model merges the link request variables into the params it reads.
+// Only those derived keys may be added; every requested key must still hold.
+$params = ['layout_type' => 'blog', 'show_category_title' => '0', 'num_leading_articles' => 0, 'num_intro_articles' => 60,
+	'show_featured' => 'only', 'menu_text' => 1, 'menu_show' => 1, 'show_page_heading' => '0'];
+$paramsCase = static function (string $client, string $operation, array|stdClass $desired, array $double, string $status) use ($fixture, $data, $check): array
+{
+	$s = $fixture();
+	$s['http']->mergeRequest = true;
+	foreach ($double as $property => $value)
+	{
+		$s['http']->{$property} = $value;
+	}
+	$body = array_replace($data, ['menutype' => $client === 'site' ? 'fixture' : 'main',
+		'link' => 'index.php?option=com_content&view=category&layout=cassiopeia_custom:tips&id=89']);
+	if ($operation === 'update')
+	{
+		$s['http']->items[1] = $body + ['id' => 1, 'client_id' => $client === 'site' ? 0 : 1, 'component_id' => 41];
+		$input = ['id' => 1, 'data' => ['params' => $desired]];
+	}
+	else
+	{
+		$input = ['data' => array_replace($body, ['params' => $desired])];
+	}
+	$plan = $s['executor']->plan('menus.' . $client . '-items.' . $operation, $input, Json::uuid());
+	$result = $s['executor']->apply($plan['confirmationToken']);
+	$check($result['verification']['status'] === $status, 'Menu params ' . $client . '/' . $operation . ' expected ' . $status . ': ' . Json::encode($result['verification']));
+	$check(in_array('params', $status === 'verified' ? $result['verification']['matchedFields'] : $result['verification']['differentFields'], true),
+		'Menu params evidence must name the params field.');
+	$check(($s['store']->find('lease') === []) === ($status === 'verified'), 'Only verified menu params may release the write lease.');
+
+	return $result;
+};
+foreach (['site', 'administrator'] as $client)
+{
+	foreach (['create', 'update'] as $operation)
+	{
+		$paramsCase($client, $operation, $params, [], 'verified');
+		$paramsCase($client, $operation, $params, ['mergeRequest' => false], 'verified');
+		$paramsCase($client, $operation, new stdClass(), [], 'verified');
+		// The menu form filters these params to integers; the stored value is the same.
+		$paramsCase($client, $operation, array_replace($params, ['num_leading_articles' => '0', 'num_intro_articles' => '60']),
+			['storedParams' => $params], 'verified');
+		$paramsCase($client, $operation, $params, ['storedParams' => array_replace($params, ['num_intro_articles' => '60', 'menu_text' => '1'])], 'verified');
+		foreach ([
+			['show_featured' => 'hide'],
+			['num_intro_articles' => 61],
+			['stray' => '1'],
+			['view' => 'article'],
+			['id' => '90'],
+		] as $changed)
+		{
+			$paramsCase($client, $operation, $params, ['paramsReadBack' => $changed], 'uncertain');
+		}
+		foreach ([['num_intro_articles' => '060'], ['num_intro_articles' => '60.0'], ['menu_text' => true], ['show_category_title' => 0.0]] as $spelling)
+		{
+			$paramsCase($client, $operation, array_replace($params, $spelling), ['storedParams' => $params], 'uncertain');
+		}
+		$paramsCase($client, $operation, array_diff_key($params, ['menu_show' => true]), ['storedParams' => $params], 'uncertain');
 	}
 }
 
@@ -425,6 +509,62 @@ foreach (['managed', 'customized-binding', 'customized-schema'] as $case)
 	}
 	$check($updater->apply($newSeed)['updated'] === 0, 'Association seed upgrade must be idempotent.');
 }
+
+// The derived request exception applies to the reviewed API and core-entity pairs only.
+$component = ['type' => 'component', 'link' => 'index.php?option=com_content&view=category&id=89'];
+$derived = ['menu_text' => 1, 'option' => 'com_content', 'view' => 'category', 'id' => '89'];
+foreach (['api', 'cli'] as $track)
+{
+	$catalogue = new Catalogue(new MemoryStore($seed), new Authorizer(), new Principal('joomla:17', $track, [1]), new SchemaValidator(),
+		new Settings(['api_base' => 'https://joomla.example/api/index.php']), static fn (): bool => true, static fn (): bool => true);
+	foreach (['site', 'administrator'] as $client)
+	{
+		$read = $catalogue->action('menus.' . $client . '-items.get');
+		foreach (['create', 'update'] as $operation)
+		{
+			$write = $catalogue->action('menus.' . $client . '-items.' . $operation);
+			$check($write['binding']['track'] === $track && MenuItemParams::supports($write, $read), 'The seeded ' . $track . ' menu item pair is not recognized.');
+			$check(MenuItemParams::compare($write, $read, ['menu_text' => 1], $derived, $component) === true
+				&& MenuItemParams::compare($write, $read, ['menu_text' => '1'], $derived, $component) === true,
+				'Link request variables and integer spelling must not create a difference on ' . $track . '.');
+			foreach ([array_replace($component, ['type' => 'url']), ['link' => $component['link']],
+				array_replace($component, ['link' => 'index.php?option=com_content&view=category&id=90'])] as $record)
+			{
+				$check(MenuItemParams::compare($write, $read, ['menu_text' => 1], $derived, $record) === false,
+					'Added keys must come from the stored component link.');
+			}
+			foreach ([['menu_text' => 1, 'extra' => 1], ['menu_text' => 2], ['menu_text' => 1.0], 'menu_text=1', [1]] as $desired)
+			{
+				$check(MenuItemParams::compare($write, $read, $desired, $derived, $component) !== true,
+					'A changed, missing or differently shaped requested value must remain different.');
+			}
+			$check(MenuItemParams::compare($write, $read, ['menu_text' => 1], ['menu_text'], $component) === false
+				&& MenuItemParams::compare($write, $read, ['menu_text' => 1], null, $component) === false,
+				'A malformed params read-back must remain different.');
+			$variants = $track === 'api'
+				? [[0, ['handler'], 'fixture.handler'], [0, ['configuration', 'route'], '/v1/other'], [0, ['configuration', 'body_defaults', 'client_id'], 5],
+					[1, ['handler'], 'fixture.handler'], [1, ['configuration', 'route'], '/v1/other/:id'], [1, ['configuration', 'select_fields'], ['params']]]
+				: [[0, ['handler'], 'fixture.handler'], [0, ['configuration', 'entity', 'component'], 'com_other'], [0, ['configuration', 'entity', 'defaults', 'client_id'], 5],
+					[1, ['handler'], 'fixture.handler'], [1, ['configuration', 'entity', 'itemModel'], 'Other'], [1, ['configuration', 'entity', 'readFields'], ['params']]];
+			foreach ($variants as [$side, $path, $value])
+			{
+				$pair = [$write, $read];
+				$cursor = &$pair[$side]['binding'];
+				foreach ($path as $key)
+				{
+					$cursor = &$cursor[$key];
+				}
+				$cursor = $value;
+				unset($cursor);
+				$check(MenuItemParams::compare($pair[0], $pair[1], ['menu_text' => 1], $derived, $component) === null,
+					'A customized ' . $track . ' menu binding must not inherit the derived request exception.');
+			}
+		}
+	}
+}
+$articles = $catalogue->action('content.articles.update');
+$check(MenuItemParams::compare($articles, $catalogue->action('content.articles.get'), ['menu_text' => 1], $derived, $component) === null,
+	'Unrelated resources must keep strict params comparison.');
 
 echo Json::encode(['checks' => $checks, 'menuComponentContracts' => 'passed with recording API and transactional memory doubles',
 	'trashVerification' => 'upstream visibility remains unresolved; uncertain execution and replay safety tested', 'liveJoomla' => 'not run by this unit suite']) . PHP_EOL;
