@@ -130,7 +130,7 @@ finally
 	if ($id > 0)
 	{
 		$ids = [$id];
-		$check($model->delete($ids), 'Remove the owned translation through the native administrator model');
+		$check($model->publish($ids, -2) && $model->delete($ids), 'Trash and remove the owned translation through the native administrator model');
 		$check($stored() === [], 'No translation fixture remains');
 	}
 	if ($executionId !== null)
