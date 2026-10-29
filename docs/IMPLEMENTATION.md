@@ -1,5 +1,13 @@
 # Implementation status — 2 October 2026
 
+## JCB language translation source — issue #46
+
+Existing language translations can be updated while retaining their disabled, read-only source. The API request explicitly supplies `source: null` only for the observed JCB translation update binding: Joomla skips backfilling that field, native Registry/Form filtering omits the null, and the model binds the remaining validated fields onto the existing table row. Planning requires a source snapshot and discloses preservation; independent read-back must show the original source. A changed or unobservable source keeps the execution uncertain. Explicit source edits fail before an execution is claimed. No HTTP failure is reclassified based solely on its message.
+
+Native disabled and read-only form flags are exposed in the input schema. Refresh installed JCB API definitions through Operations or `joomla:mcp:jcb-sync` after updating. Creating a language translation with a disabled source remains an upstream API-form limitation; this compatibility path does not create empty sources or modify installed JCB code. Previously uncertain executions are not rewritten.
+
+Local recording contracts cover source-preserving PATCH bodies, plan disclosure, schema rejection, independent source verification, missing snapshots and idempotent replay. Installed Joomla/JCB acceptance is being added to the existing golden-image workflow; recording contracts alone do not establish live persistence.
+
 ## Representation-only read-back differences — 29 October 2026
 
 Two correctly saved writes were reported as uncertain, which blocked further writes until an administrator reconciled them. Menu item read-back includes the link request variables inside `params`, and integer-filtered params read back as integers. A cleared media subfield inside a subform is stored as `[]` instead of the approved `""`. `MenuItemParams` now accepts only link-derived extra params keys and integer/decimal-string spelling for the reviewed site and administrator menu item API and console bindings. Custom field discovery now records the visible media subfields referenced by each subform, and the subform comparison accepts only `""` against a stored empty value for those row keys. Requested keys, other values, shapes and customized bindings keep strict comparison.

@@ -146,6 +146,7 @@ PHP);
 		<field name="reference" type="reference" required="true" />
 		<field name="modal_reference" type="ModalSelect" sql_title_table="#__fixture_record" sql_title_column="title" sql_title_key="guid" data-key-name="guid" />
 		<field name="guid" type="text" validate="guid" readonly="true" />
+		<field name="immutable" type="textarea" readonly="true" disabled="true" />
 		<field name="not_required" type="hidden" default="一_一" />
 		<field name="ignored" type="text" filter="unset" />
 		<field name="source" type="editor" filter="raw" validate="code" />
@@ -174,6 +175,12 @@ XML;
 		&& $contract['fields']['modal_reference']['field_source']['path'] === 'administrator/src/Field/ModalSelectField.php',
 		'Native modal relationship keys and case-sensitive custom field source are preserved from XML.');
 	$check($contract['fields']['guid']['identity']['server_generated'] && $contract['generation'] === [], 'Observed native GUID generation remains native.');
+	$check($contract['schema']['properties']['guid']['readOnly'] === true
+		&& $contract['schema']['properties']['immutable']['readOnly'] === true
+		&& $contract['schema']['properties']['immutable']['x-native-disabled'] === true, 'Native read-only and disabled restrictions remain visible in the schema.');
+	$nativeAdjusted = (new SchemaValidator())->input(['data' => ['immutable' => 'Native API enabled this field']],
+		Json::encode(['type' => 'object', 'properties' => ['data' => $contract['schema']]]));
+	$check($nativeAdjusted['data']['immutable'] === 'Native API enabled this field', 'Static XML metadata does not override native runtime form adjustments.');
 	$check($contract['native_required_adjustments'] && !isset($contract['schema']['required']), 'Native required adjustments prevent over-requiring a create body.');
 	$check($contract['fields']['conditional']['showon'] === 'active:1' && $contract['fields']['conditional']['required'], 'Conditional declarations remain visible without invented enforcement.');
 	$check($contract['fields']['active']['default'] === '0' && count($contract['fields']['active']['choices']) === 2, 'Literal defaults and choices retain their XML values.');

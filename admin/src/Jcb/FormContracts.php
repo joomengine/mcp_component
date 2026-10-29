@@ -468,6 +468,20 @@ final class FormContracts
 
 		$parts = ['Native field type: ' . $type . '.'];
 
+		if ($descriptor['readonly'] || $descriptor['disabled'])
+		{
+			$schema['readOnly'] = true;
+			$parts[] = 'The native form declares this field read-only.';
+		}
+
+		if ($descriptor['disabled'])
+		{
+			// getForm() may change XML attributes for API context or current ACL.
+			// Keep the native restriction visible without overriding runtime policy.
+			$schema['x-native-disabled'] = true;
+			$parts[] = 'The XML declares this field disabled. Native runtime form rules determine whether it is writable; do not assume this field accepts changes.';
+		}
+
 		if ($filter !== '')
 		{
 			$parts[] = 'Native filter: ' . (string) $xml['filter'] . '.';

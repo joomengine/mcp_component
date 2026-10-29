@@ -57,7 +57,7 @@ $contracts = ['fields' => [
 ], 'request_only' => ['add_php']];
 
 /** Independent responses exercise the complete approval, claim and settlement path. */
-$fixture = static function (string $identity, array $record, array $mutation, bool $deleted = false, array $generation = []) use ($seed, $contracts): array
+$fixture = static function (string $identity, array $record, array $mutation, bool $deleted = false, array $generation = [], array $form = []) use ($seed, $contracts): array
 {
 	$rows = $seed;
 	$key = $identity === 'integer' ? 'id' : ($identity === 'guid' ? 'guid' : 'key');
@@ -117,7 +117,14 @@ $fixture = static function (string $identity, array $record, array $mutation, bo
 			$config['query_defaults'] = (object) [];
 			$config['preserve_fields'] = [];
 			$config['read_action'] = 'generated.widgets.get';
-			$config['api_form'] = ['verification' => $contracts, 'generation' => $generation];
+			$config['api_form'] = ['verification' => $contracts, 'generation' => $generation] + $form;
+
+			if ($form !== [])
+			{
+				$config['response_shape'] = 'jsonapi';
+				$config['route'] = '/v1/componentbuilder/language_translations' . ($operation === 'create' ? '' : '/:id');
+			}
+
 			$binding['configuration'] = Json::encode($config);
 			$binding['params'] = Json::encode(['verification' => ['operation' => $operation, 'read_action' => 'generated.widgets.get',
 				'primary_key' => $key, 'input_key' => $key, 'read_input_key' => $key, 'identity_type' => $identity]]);
@@ -149,7 +156,7 @@ $fixture = static function (string $identity, array $record, array $mutation, bo
 		public function sendRequest(RequestInterface $request): ResponseInterface
 		{
 			$method = $request->getMethod();
-			$this->requests[] = ['method' => $method, 'path' => $request->getUri()->getPath()];
+			$this->requests[] = ['method' => $method, 'path' => $request->getUri()->getPath(), 'body' => (string) $request->getBody()];
 
 			if ($method === 'GET' && $this->deleted && $this->writes > 0)
 			{
@@ -302,6 +309,63 @@ $f['http']->afterWrite = static function () use ($f): void
 };
 $run($f, 'create', ['data' => ['name' => 'Example']], 'uncertain');
 $check(count($f['http']->requests) === 1, 'A changed verification definition after mutation is retained as uncertain without using the changed route.');
+
+// A disabled native translation source is omitted during Joomla filtering, not erased.
+$translationForm = ['provenance' => ['model' => 'language_translation', 'form' => 'language_translation'],
+	'fields' => ['source' => ['disabled' => true, 'readonly' => true]]];
+foreach ([[], ['source' => null]] as $omittedSource)
+{
+	$f = $fixture('integer', ['id' => 87, 'source' => 'Sent to %s', 'name' => 'Translation'], ['id' => 87], false, [], $translationForm);
+	$plan = $f['executor']->plan('generated.widgets.update', ['id' => 87, 'data' => ['name' => 'Translation'] + $omittedSource], Json::uuid());
+	$check($plan['operation']['preservedFields'] === ['source'], 'The plan discloses preservation of the existing source.');
+	$result = $f['executor']->apply($plan['confirmationToken']);
+	$writes = array_values(array_filter($f['http']->requests, static fn (array $request): bool => $request['method'] === 'PATCH'));
+	$body = Json::decode($writes[0]['body']);
+	$check(array_key_exists('source', $body) && $body['source'] === null, 'The native PATCH explicitly suppresses disabled source backfill.');
+	$check($result['verification']['status'] === 'verified' && $result['verification']['preservedFields'] === ['source']
+		&& in_array('source', $result['verification']['matchedFields'], true) && $f['store']->find('lease') === [],
+		'The original source is independently verified and successful writes release their lease.');
+	$count = count($f['http']->requests);
+	$check($f['executor']->apply($plan['confirmationToken'])['idempotentReplay'] && count($f['http']->requests) === $count,
+		'Replaying an approved translation update never submits it again.');
+}
+$f = $fixture('integer', ['id' => 87, 'source' => 'Sent to %s', 'name' => 'Translation'], ['id' => 87], false, [], $translationForm);
+foreach (['New source', ''] as $source)
+{
+	try
+	{
+		$f['executor']->plan('generated.widgets.update', ['id' => 87, 'data' => ['source' => $source]], Json::uuid());
+		throw new RuntimeException('A disabled source change must not be planned.');
+	}
+	catch (OperationException $error)
+	{
+		$check($error->getIdentifier() === 'INVALID_INPUT' && $f['http']->writes === 0
+			&& $f['store']->find('plan') === [] && $f['store']->find('lease') === [], 'Disabled source changes fail before any claim or mutation.');
+	}
+}
+foreach ([['source' => 'Changed'], []] as $observedSource)
+{
+	$f = $fixture('integer', ['id' => 87, 'source' => 'Sent to %s', 'name' => 'Translation'], ['id' => 87], false, [], $translationForm);
+	$plan = $f['executor']->plan('generated.widgets.update', ['id' => 87, 'data' => ['name' => 'Translation']], Json::uuid());
+	$f['http']->afterWrite = static function () use ($f, $observedSource): void
+	{
+		$f['http']->record = ['id' => 87, 'name' => 'Translation'] + $observedSource;
+	};
+	$result = $f['executor']->apply($plan['confirmationToken']);
+	$check($result['verification']['status'] === 'uncertain' && count($f['store']->find('lease')) === 1,
+		'Changed or unobservable source preservation retains uncertainty and the lease.');
+}
+$f = $fixture('integer', ['id' => 87, 'name' => 'Translation'], ['id' => 87], false, [], $translationForm);
+try
+{
+	$f['executor']->plan('generated.widgets.update', ['id' => 87, 'data' => ['name' => 'Translation']], Json::uuid());
+	throw new RuntimeException('A missing original source must not be planned.');
+}
+catch (OperationException $error)
+{
+	$check($error->getIdentifier() === 'PREFLIGHT_FAILED' && $f['http']->writes === 0 && $f['store']->find('lease') === [],
+		'Missing original source fails before claim with a preservation diagnostic.');
+}
 
 // Primary GUID generation is part of the approved input, never an apply-time effect.
 $generation = ['guid' => ['kind' => 'guid', 'on' => 'create', 'format' => 'uuid-v4']];
