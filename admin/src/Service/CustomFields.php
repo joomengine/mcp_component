@@ -87,6 +87,7 @@ final class CustomFields
 		$offset = 0;
 		$fields = [];
 		$identities = [];
+		$media = [];
 		$core = $schema['properties']['data']['properties'] ?? [];
 
 		for ($page = 0; $page < 100; $page++)
@@ -128,11 +129,18 @@ final class CustomFields
 					throw new OperationException('CUSTOM_FIELDS_UNAVAILABLE', 'Custom field discovery returned an invalid field group identity.');
 				}
 
-				if (($attributes['context'] ?? null) !== $context['context'] || !in_array($attributes['state'] ?? null, [1, '1'], true)
-					|| in_array($attributes['only_use_in_subform'] ?? null, [true, 1, '1'], true)
-					|| (isset($attributes['access']) && !in_array((int) $attributes['access'], $viewLevels, true))
-					|| ((int) $group !== 0 && (!in_array($attributes['group_state'] ?? null, [1, '1'], true)
-						|| (isset($attributes['group_access']) && !in_array((int) $attributes['group_access'], $viewLevels, true)))))
+				$visible = ($attributes['context'] ?? null) === $context['context'] && in_array($attributes['state'] ?? null, [1, '1'], true)
+					&& (!isset($attributes['access']) || in_array((int) $attributes['access'], $viewLevels, true))
+					&& ((int) $group === 0 || (in_array($attributes['group_state'] ?? null, [1, '1'], true)
+						&& (!isset($attributes['group_access']) || in_array((int) $attributes['group_access'], $viewLevels, true))));
+
+				if ($visible && $type === 'media')
+				{
+					// Subform rows name their subfields by native field ID.
+					$media['field' . $id] = true;
+				}
+
+				if (!$visible || in_array($attributes['only_use_in_subform'] ?? null, [true, 1, '1'], true))
 				{
 					continue;
 				}
@@ -161,6 +169,13 @@ final class CustomFields
 
 				$fields[$name] = ['id' => (string) $id, 'name' => $name, 'type' => $type, 'context' => $context['context']];
 
+				if ($type === 'subform')
+				{
+					$params = $attributes['fieldparams'] ?? null;
+					$options = is_array($params) || $params instanceof stdClass ? ((array) $params)['options'] ?? null : null;
+					$fields[$name]['subfields'] = self::subfields($options);
+				}
+
 				if (in_array($type, ['list', 'checkboxes'], true))
 				{
 					$params = $attributes['fieldparams'] ?? null;
@@ -188,6 +203,20 @@ final class CustomFields
 			if ((count($items) < $limit || $total !== null) && !$hasNext && ($total === null || $page + 1 >= $total))
 			{
 				ksort($fields, SORT_STRING);
+
+				foreach ($fields as $name => $definition)
+				{
+					if (array_key_exists('subfields', $definition))
+					{
+						$subfields = array_values(array_filter($definition['subfields'], static fn (string $key): bool => isset($media[$key])));
+						unset($fields[$name]['subfields']);
+
+						if ($subfields !== [])
+						{
+							$fields[$name]['mediaSubfields'] = $subfields;
+						}
+					}
+				}
 
 				return $context + ['status' => 'resolved', 'transport' => 'api', 'fields' => array_values($fields)];
 			}
@@ -320,7 +349,15 @@ final class CustomFields
 
 		if (($definition['type'] ?? '') === 'subform')
 		{
-			return self::subform($desired, $observed);
+			$media = $definition['mediaSubfields'] ?? [];
+
+			if (!is_array($media) || !array_is_list($media) || count($media) > 1000
+				|| array_filter($media, static fn (mixed $key): bool => !is_string($key) || preg_match('/\Afield[1-9][0-9]*\z/D', $key) !== 1) !== [])
+			{
+				return false;
+			}
+
+			return self::subform($desired, $observed, $media);
 		}
 
 		if (!in_array($definition['type'] ?? '', ['list', 'checkboxes'], true) || !array_key_exists('choices', $definition))
@@ -376,10 +413,11 @@ final class CustomFields
 	 *
 	 * @param mixed $desired Approved subform value.
 	 * @param mixed $observed Independently read subform value.
+	 * @param string[] $media Row keys of discovered media subfields.
 	 * @return bool Exact bounded JSON structure comparison.
 	 * @since [[[NEXT_VERSION]]]
 	 */
-	private static function subform(mixed $desired, mixed $observed): bool
+	private static function subform(mixed $desired, mixed $observed, array $media = []): bool
 	{
 		// The explicit empty string remains Joomla's supported clear operation.
 		if ($desired === '' || $observed === '')
@@ -409,7 +447,55 @@ final class CustomFields
 
 		return (is_array($desired) || $desired instanceof stdClass)
 			&& (is_array($observed) || $observed instanceof stdClass)
-			&& self::jsonValue($desired, $observed);
+			&& self::jsonValue($desired, $media === [] ? $observed : self::emptyMedia($desired, $observed, $media));
+	}
+
+	/**
+	 * Treat a cleared media subfield as cleared in its native stored form.
+	 *
+	 * Joomla stores an empty media subfield value as an empty array. Only an
+	 * approved empty string of a discovered media subfield may match it; the
+	 * subform itself (depth 0) or its rows (depth 1) hold those subfields.
+	 *
+	 * @param mixed $desired Decoded approved subform value or row.
+	 * @param mixed $observed Decoded stored subform value or row.
+	 * @param string[] $media Row keys of discovered media subfields.
+	 * @param int $depth Subform (0) or row (1) level.
+	 * @return mixed Observed value with only matching cleared media subfields replaced.
+	 * @since [[[NEXT_VERSION]]]
+	 */
+	private static function emptyMedia(mixed $desired, mixed $observed, array $media, int $depth = 0): mixed
+	{
+		if ($depth > 1 || (!is_array($desired) && !$desired instanceof stdClass)
+			|| (!is_array($observed) && !$observed instanceof stdClass))
+		{
+			return $observed;
+		}
+
+		$expected = (array) $desired;
+		$actual = (array) $observed;
+
+		foreach ($actual as $key => $value)
+		{
+			if (!array_key_exists($key, $expected))
+			{
+				continue;
+			}
+
+			if (in_array((string) $key, $media, true))
+			{
+				if ($expected[$key] === '' && ($value === [] || ($value instanceof stdClass && (array) $value === [])))
+				{
+					$actual[$key] = '';
+				}
+			}
+			elseif ($depth === 0)
+			{
+				$actual[$key] = self::emptyMedia($expected[$key], $value, $media, 1);
+			}
+		}
+
+		return $observed instanceof stdClass ? (object) $actual : $actual;
 	}
 
 	/** @param string $value Raw JSON. @return bool Numeric tokens survive native decode/encode. @since [[[NEXT_VERSION]]] */
@@ -528,6 +614,30 @@ final class CustomFields
 		}
 
 		return true;
+	}
+
+	/** @param mixed $options Native subform field parameter options. @return string[] Row keys of the referenced subfields. @since [[[NEXT_VERSION]]] */
+	private static function subfields(mixed $options): array
+	{
+		$keys = [];
+
+		if (!is_array($options) && !$options instanceof stdClass)
+		{
+			return $keys;
+		}
+
+		foreach ((array) $options as $option)
+		{
+			$option = $option instanceof stdClass ? get_object_vars($option) : $option;
+			$id = is_array($option) ? ($option['customfield'] ?? null) : null;
+
+			if ((is_int($id) || is_string($id)) && preg_match('/\A[1-9][0-9]{0,9}\z/D', (string) $id) === 1)
+			{
+				$keys['field' . $id] = 'field' . $id;
+			}
+		}
+
+		return array_values($keys);
 	}
 
 	/** @param mixed $options Native subform option rows. @return ?array Unique option value/name pairs, or null for an unsupported definition. @since 1.0.5 */

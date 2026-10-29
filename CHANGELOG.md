@@ -1,5 +1,11 @@
 # Changelog
 
+## [[[NEXT_VERSION]]]
+
+### Fix
+
+- Stop reporting correctly saved writes as uncertain when Joomla only represents values differently. Menu item params read-back may include the link's request variables and integer-filtered values as integers on site and administrator API and console writes. A cleared media subfield inside a subform custom field may be stored as an empty array. Requested values, other extra keys and customized bindings remain strict.
+
 ## 1.0.10
 
 ### Fix
