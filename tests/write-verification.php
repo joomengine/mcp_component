@@ -205,6 +205,88 @@ foreach (['create', 'update'] as $operation)
 	$run('content.articles.' . $operation, $data, array_replace($record, ['title' => 'Changed article']), 'uncertain');
 }
 
+// Native media read-back expands local URLs without changing the saved media selection.
+$mediaPath = 'images/nieuws/file.jpg#joomlaImage://local-images/nieuws/file.jpg?width=1601&height=701';
+foreach (['create', 'update'] as $operation)
+{
+	$images = ['image_intro' => $mediaPath, 'image_fulltext' => 'images/full.jpg?revision=2#original',
+		'image_intro_alt' => 'Original caption', 'image_fulltext_caption' => 'Full caption'];
+	$expanded = array_replace($images, ['image_intro' => 'https://joomla.example/' . $mediaPath,
+		'image_fulltext' => 'https://joomla.example/images/full.jpg?revision=2#original']);
+	$f = $run('content.articles.' . $operation, ['title' => 'Article', 'images' => (object) $images],
+		['title' => 'Article', 'images' => $expanded], 'verified');
+	$check(in_array('images', $f['result']['verification']['matchedFields'], true), 'Expanded local article media settles and releases the write lease.');
+	$check((array) $f['state']->resolve($f['plan']['confirmationToken'])['payload']['input']['data']['images'] === $images,
+		'Media verification preserves the exact approved relative image values.');
+	$mutationRequests = array_values(array_filter($f['http']->requests, static fn (array $request): bool => $request['method'] !== 'GET'));
+	$check(Json::decode($mutationRequests[0]['body'])['images'] === $images,
+		'The native mutation receives the approved relative media values unchanged.');
+	foreach ([
+		['image_intro' => 'https://elsewhere.example/' . $mediaPath],
+		['image_intro' => 'https://joomla.example.evil.invalid/' . $mediaPath],
+		['image_intro' => 'http://joomla.example/' . $mediaPath],
+		['image_intro' => 'https://joomla.example:8443/' . $mediaPath],
+		['image_intro' => 'https://joomla.example/images/changed.jpg'],
+		['image_intro' => 'https://joomla.example/' . str_replace('width=1601', 'width=1600', $mediaPath)],
+		['image_fulltext' => 'https://joomla.example/images/full.jpg?revision=3#original'],
+		['image_intro_alt' => 'Changed caption'],
+		['unexpected' => true],
+	] as $change)
+	{
+		$f = $run('content.articles.' . $operation, ['title' => 'Article', 'images' => $images],
+			['title' => 'Article', 'images' => array_replace($expanded, $change)], 'uncertain');
+		$check($f['result']['verification']['differentFields'] === ['images'], 'Changed media origins, paths, metadata and captions remain uncertain.');
+	}
+	$run('content.articles.' . $operation, ['title' => 'Article', 'images' => $images],
+		['title' => 'Article', 'images' => array_diff_key($expanded, ['image_intro_alt' => true])], 'uncertain');
+	$run('content.articles.' . $operation, ['title' => 'Article', 'images' => ['image_intro' => 'images/with space.jpg']],
+		['title' => 'Article', 'images' => ['image_intro' => 'https://joomla.example/images/with space.jpg']], 'verified');
+	$run('content.articles.' . $operation, ['title' => 'Article', 'images' => ['image_intro' => 'images/with space.jpg']],
+		['title' => 'Article', 'images' => ['image_intro' => 'https://joomla.example/images/with%20space.jpg']], 'uncertain');
+	foreach (['content.categories', 'banners.categories', 'contacts.categories', 'newsfeeds.categories'] as $resource)
+	{
+		$run($resource . '.' . $operation, ['title' => 'Category', 'params' => ['image' => $mediaPath, 'image_alt' => 'Caption']],
+			['title' => 'Category', 'params' => ['image' => 'https://joomla.example/' . $mediaPath, 'image_alt' => 'Caption']], 'verified');
+	}
+}
+
+$f = $fixture(['title' => 'Fixture']);
+$article = $f['catalogue']->action('content.articles.update');
+$articleRead = $f['catalogue']->action('content.articles.get');
+$compareImage = static function (mixed $desired, mixed $observed, string $base = 'https://joomla.example/subsite/api/index.php') use ($article, $articleRead): ?bool
+{
+	return ApiWriteVerification::compare($article, $articleRead, 'images', ['image_intro' => $desired], ['image_intro' => $observed], [], [], $base);
+};
+$check($compareImage($mediaPath, 'https://joomla.example/subsite/' . $mediaPath) === true, 'Subdirectory installations use the configured installation root.');
+$check($compareImage('images/with space.jpg', 'https://joomla.example/subsite/images/with space.jpg') === true,
+	'Native media filenames containing spaces retain the same local image identity.');
+$check($compareImage('https://joomla.example/subsite/' . $mediaPath, $mediaPath) === true, 'Either local representation compares without rewriting stored evidence.');
+$check($compareImage($mediaPath, 'https://joomla.example/' . $mediaPath) === false, 'Another root on the same origin is not the configured installation.');
+$check($compareImage($mediaPath, 'https://joomla.example/subsite-other/' . $mediaPath) === false, 'A shared path prefix is not the installation root.');
+$check($compareImage($mediaPath, 'https://joomla.example/subsite/' . $mediaPath, '') === null, 'Absent trusted origin cannot enable URL normalization.');
+foreach (['', '/images/a.jpg', '//other.example/a.jpg', '../images/a.jpg', 'images/../a.jpg', 'images/./a.jpg',
+	'ftp://example.invalid/a.jpg', 'images\\a.jpg', "images/\na.jpg"] as $path)
+{
+	$check($compareImage($path, 'https://joomla.example/subsite/' . $path) === false, 'Malformed or nonlocal URL tails do not acquire local media equivalence.');
+}
+foreach ([null, false, 0, [], new stdClass()] as $value)
+{
+	$check($compareImage($value, 'https://joomla.example/subsite/images/a.jpg') === false, 'Media value types are not coerced.');
+}
+$external = 'https://cdn.example/images/a.jpg#size=large';
+$check($compareImage($external, $external) === true, 'Unchanged external media remains equal as an exact value.');
+$check($compareImage($external, 'images/a.jpg#size=large') === false, 'External origins cannot be removed.');
+$changed = $articleRead;
+$changed['binding']['configuration']['route'] = '/v1/custom/articles/:id';
+$check(ApiWriteVerification::compare($article, $changed, 'images', ['image_intro' => $mediaPath],
+	['image_intro' => 'https://joomla.example/' . $mediaPath], [], [], 'https://joomla.example/api/index.php') === null,
+	'Custom read routes cannot inherit native media semantics.');
+$changed = $article;
+$changed['binding']['configuration']['route'] = '/v1/custom/articles/:id';
+$check(ApiWriteVerification::compare($changed, $articleRead, 'images', ['image_intro' => $mediaPath],
+	['image_intro' => 'https://joomla.example/' . $mediaPath], [], [], 'https://joomla.example/api/index.php') === null,
+	'Custom write routes cannot inherit native media semantics.');
+
 // Memberships are an exact set of positive IDs, not arbitrary array/object equivalence.
 foreach ([
 	[[2], (object) ['2' => 2]],

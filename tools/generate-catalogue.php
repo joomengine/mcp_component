@@ -34,6 +34,7 @@ $runtimeRevision = hash_file('sha256', $runtimeFile);
 if (($runtime['version'] ?? null) !== 1 || !is_array($runtime['tools'] ?? null)
 	|| (isset($runtime['fieldCategoryAssignments']) && !is_bool($runtime['fieldCategoryAssignments']))
 	|| (isset($runtime['languageAssociations']) && !is_bool($runtime['languageAssociations']))
+	|| (isset($runtime['publishingFields']) && !is_bool($runtime['publishingFields']))
 	|| !is_array($runtime['inputSchemaOverrides'] ?? [])
 	|| !is_array($runtime['bindingInputSchemaOverrides'] ?? [])
 	|| !is_array($runtime['actionMetadataOverrides'] ?? [])
@@ -483,6 +484,77 @@ foreach ($runtime['bindingConfigurationOverrides'] ?? [] as $override)
 		}
 	}
 
+	unset($row);
+}
+
+// Joomla's native article/module forms own author and publishing validation.
+// Extend their shipped bindings while leaving the pinned migration snapshot and
+// any administrator-owned binding/schema untouched during upgrades.
+if (($runtime['publishingFields'] ?? false) === true)
+{
+	$date = ['type' => ['string', 'null'], 'maxLength' => 64,
+		'description' => 'API: use the native calendar format (Y-m-d H:i:s in the default locale), in the authenticated user timezone; read-back is UTC. ISO offsets are not accepted by that native form. CLI: native model writes bypass this filter; supply UTC SQL dates.'];
+	$publishing = [
+		'content.articles' => ['component' => 'com_content', 'model' => 'Article', 'route' => '/v1/content/articles',
+			'fields' => ['created' => array_replace($date, ['type' => 'string']),
+				'created_by' => ['type' => 'integer', 'minimum' => 1, 'description' => 'Existing Joomla author user ID, subject to the native article form and ACL.']]],
+		'modules.site' => ['component' => 'com_modules', 'model' => 'Module', 'route' => '/v1/modules/site',
+			'fields' => ['publish_up' => $date, 'publish_down' => $date]],
+		'modules.administrator' => ['component' => 'com_modules', 'model' => 'Module', 'route' => '/v1/modules/administrator',
+			'fields' => ['publish_up' => $date, 'publish_down' => $date]],
+	];
+	foreach ($rows['binding'] as &$row)
+	{
+		if (preg_match('/\A(.+)\.(list|get|create|update)\.(api|cli)\z/D', $row['name'], $parts) !== 1
+			|| !isset($publishing[$parts[1]]))
+		{
+			continue;
+		}
+		$contract = $publishing[$parts[1]];
+		$configuration = json_decode($row['configuration'], false, 128, JSON_THROW_ON_ERROR);
+		$write = in_array($parts[2], ['create', 'update'], true);
+		if ($parts[3] === 'cli')
+		{
+			if ($row['handler'] !== 'native.core-entity' || ($configuration->entity->component ?? '') !== $contract['component']
+				|| ($configuration->entity->itemModel ?? '') !== $contract['model'])
+			{
+				// Article get/list have dedicated native read handlers, which
+				// already expose created/created_by and need no new contract.
+				if ($parts[1] === 'content.articles' && !$write)
+				{
+					continue;
+				}
+				throw new RuntimeException('Publishing fields require the reviewed native article or module model.');
+			}
+			foreach (['readFields', 'writeFields'] as $fields)
+			{
+				$configuration->entity->{$fields} = array_values(array_unique([
+					...$configuration->entity->{$fields}, ...array_keys($contract['fields']),
+				]));
+			}
+		}
+		elseif (!$write)
+		{
+			// Native Web Services responses already include these fields.
+			continue;
+		}
+		elseif ($row['handler'] !== 'api.request'
+			|| ($configuration->route ?? '') !== $contract['route'] . ($parts[2] === 'update' ? '/:id' : ''))
+		{
+			throw new RuntimeException('Publishing fields require the reviewed native article or module API route.');
+		}
+		if ($write)
+		{
+			$document = json_decode($rows['schema'][$row['input_schema_id'] - 1]['document'], false, 128, JSON_THROW_ON_ERROR);
+			foreach ($contract['fields'] as $field => $schema)
+			{
+				$document->properties->data->properties->{$field} = (object) $schema;
+			}
+			$row['input_schema_id'] = $addSchema($document);
+		}
+		$row['configuration'] = $json($configuration);
+		$row['seed_revision'] = $runtimeRevision;
+	}
 	unset($row);
 }
 

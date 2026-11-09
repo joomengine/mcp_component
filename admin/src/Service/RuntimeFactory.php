@@ -147,6 +147,8 @@ final class RuntimeFactory
 		$requestBuilder = new ApiRequestBuilder();
 		$handlers = [];
 		$messageSnapshots = null;
+		$userTimezone = null;
+		$nativeCreateAccess = false;
 
 		if ($application instanceof ConsoleApplication && $principal->isLocal())
 		{
@@ -163,6 +165,8 @@ final class RuntimeFactory
 			if (JoomlaMessageSnapshot::sameInstallation($settings->get('api_base'), $application->getInput()->server->getArray(), JPATH_ROOT . '/api/index.php'))
 			{
 				$messageSnapshots = new MessageSnapshot(new JoomlaMessageSnapshot($application));
+				$userTimezone = (string) $application->getIdentity()->getParam('timezone', $application->get('offset'));
+				$nativeCreateAccess = true;
 			}
 			$handlers['api.request'] = new ApiHandler(
 				new CurlClient($settings->get('timeout'), $settings->get('max_result_bytes'), $settings->get('allow_loopback_http')),
@@ -248,7 +252,7 @@ final class RuntimeFactory
 				$catalogue->requireExecution($resolved['binding'] + ['effect' => $resolved['action']['effect']]);
 			});
 		$actions = new ActionExecutor($catalogue, $schemas, $principal, $registry, $permissions, $executions, $audit, $settings, $requestBuilder,
-			$jobs, $launcher === null ? null : [$launcher, 'ready'], $messageSnapshots);
+			$jobs, $launcher === null ? null : [$launcher, 'ready'], $messageSnapshots, $nativeCreateAccess, $userTimezone);
 		$tools = new ToolDispatcher($catalogue, $actions, $permissions, $schemas, $principal, $settings, $console, $jobs);
 		$definitions = new DatabaseRegistry($catalogue, $tools, $actions, $schemas);
 		$sessions = new SessionStore($store, $envelope, $principal, $settings->get('session_ttl'), $clock);

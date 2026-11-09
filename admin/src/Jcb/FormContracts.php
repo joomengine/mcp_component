@@ -202,7 +202,8 @@ final class FormContracts
 
 			foreach (self::callArguments(self::method($modelTokens, 'getForm'), 'setFieldAttribute') as $arguments)
 			{
-				if (self::literal($arguments[0] ?? []) === 'source' && self::literal($arguments[1] ?? []) === 'disabled')
+				if (self::literal($arguments[0] ?? []) === 'source' && self::literal($arguments[1] ?? []) === 'disabled'
+					&& in_array(strtolower(self::literal($arguments[2] ?? []) ?? 'unknown'), ['false', '0', ''], true))
 				{
 					$adjusted = true;
 				}

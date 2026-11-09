@@ -54,10 +54,12 @@ final class ApiWriteVerification
 	 * @param mixed $observed Independently read field value.
 	 * @param array $approved Full approved data for explicit native selection controls.
 	 * @param array $record Full independent read-back for native derived representations.
+	 * @param string $apiBase Operator-configured canonical API base, never a response URL or request Host.
+	 * @param ?string $userTimezone Authenticated same-installation API user's native timezone.
 	 * @return ?bool Contract comparison, or null when no exception applies.
 	 * @since 1.0.1
 	 */
-	public static function compare(array $resolved, array $read, string $field, mixed $desired, mixed $observed, array $approved = [], array $record = []): ?bool
+	public static function compare(array $resolved, array $read, string $field, mixed $desired, mixed $observed, array $approved = [], array $record = [], string $apiBase = '', ?string $userTimezone = null): ?bool
 	{
 		if ($field === 'params')
 		{
@@ -107,11 +109,32 @@ final class ApiWriteVerification
 			return null;
 		}
 
+		$calendar = NativeDateValues::compare($base, $field, $desired, $observed, $userTimezone);
+
+		if ($calendar !== null)
+		{
+			return $calendar;
+		}
+
 		if (in_array($field, self::EMPTY_REGISTRIES[$base] ?? [], true)
 			&& $desired instanceof stdClass && (array) $desired === [])
 		{
 			// Joomla's empty Registry is exposed as [] by these native API fields.
 			return $observed === [] || ($observed instanceof stdClass && (array) $observed === []);
+		}
+
+		$media = $base === 'content.articles' && $field === 'images' ? ['image_intro', 'image_fulltext']
+			: ($field === 'params' && str_ends_with($base, '.categories') ? ['image'] : []);
+
+		if ($media !== [] && str_ends_with($apiBase, '/api/index.php'))
+		{
+			// Joomla's article API prepends Uri::root() to local image values.
+			// Use the configured installation root, including its subdirectory,
+			// and preserve every other Registry value and the complete URL suffix.
+			$root = substr($apiBase, 0, -strlen('/api/index.php')) . '/';
+
+			return Json::canonical(self::mediaBag($desired, $media, $root))
+				=== Json::canonical(self::mediaBag($observed, $media, $root));
 		}
 
 		if ($base === 'users.users' && $field === 'groups')
@@ -133,6 +156,64 @@ final class ApiWriteVerification
 		}
 
 		return null;
+	}
+
+	/** @param array $resolved Exact authorized write binding. @param array $input Approved input. @return string[] Supplied native date controls. @since 1.0.12 */
+	public static function dateFields(array $resolved, array $input): array
+	{
+		$resource = self::resource($resolved);
+
+		return $resource === null ? [] : array_values(array_intersect(NativeDateValues::fields($resource), array_keys($input['data'] ?? [])));
+	}
+
+	/**
+	 * Remove only the trusted site's exact prefix from reviewed media map keys.
+	 *
+	 * @param mixed $value Original Registry representation.
+	 * @param string[] $fields Native media keys, excluding captions and other settings.
+	 * @param string $root Trusted canonical installation root with a trailing slash.
+	 * @return mixed A comparison copy; approved input and API evidence remain untouched.
+	 * @since 1.0.12
+	 */
+	private static function mediaBag(mixed $value, array $fields, string $root): mixed
+	{
+		if (!$value instanceof stdClass && (!is_array($value) || array_is_list($value)))
+		{
+			return $value;
+		}
+
+		$copy = $value instanceof stdClass ? clone $value : $value;
+
+		foreach ($fields as $field)
+		{
+			$uri = ((array) $value)[$field] ?? null;
+
+			if (!is_string($uri) || !str_starts_with($uri, $root))
+			{
+				continue;
+			}
+
+			$relative = substr($uri, strlen($root));
+
+			// Do not turn network paths, another scheme or traversal into local
+			// image evidence. Query strings and Joomla media fragments stay exact.
+			$path = preg_split('/[?#]/', $relative, 2)[0];
+			if ($path === '' || str_starts_with($path, '/') || preg_match('/\A[^\/]*:|[\\\\\x00-\x1f\x7f]|(?:\A|\/)\.\.?(?:\/|\z)/', $path) === 1)
+			{
+				continue;
+			}
+
+			if ($copy instanceof stdClass)
+			{
+				$copy->{$field} = $relative;
+			}
+			else
+			{
+				$copy[$field] = $relative;
+			}
+		}
+
+		return $copy;
 	}
 
 	/**

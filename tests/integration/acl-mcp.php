@@ -17,8 +17,6 @@ use Joomla\CMS\User\UserFactoryInterface;
 use Joomla\Database\DatabaseInterface;
 use Joomla\Registry\Registry;
 use VDM\Component\JoomEngineMcp\Administrator\Database\JoomlaStore;
-use VDM\Component\JoomEngineMcp\Administrator\Administration\Operations;
-use VDM\Component\JoomEngineMcp\Administrator\Security\Envelope;
 use VDM\Component\JoomEngineMcp\Administrator\Service\Json;
 
 require __DIR__ . '/bootstrap.php';
@@ -49,6 +47,8 @@ $clients = [];
 $originalRules = [];
 $levelId = null;
 $toolId = null;
+$created = [];
+$bannerCategory = null;
 $plugin = new Extension($db);
 $check($plugin->load(['type' => 'plugin', 'folder' => 'user', 'element' => 'token']), 'Native token configuration exists');
 $originalTokenParams = $plugin->params;
@@ -145,17 +145,66 @@ try
 	$grantId = $grant['id'] ?? $grant['grantId'];
 	$category = (int) $db->setQuery('SELECT id FROM ' . $db->quoteName('#__categories') . ' WHERE extension = ' . $db->quote('com_content') . ' AND published = 1 ORDER BY id', 0, 1)->loadResult();
 	$title = 'MCP denied create ' . $suffix;
-	$plan = $clients['a']->tool('joomla_content_article_create_plan', ['idempotencyKey' => Json::uuid(), 'data' => ['title' => $title, 'catid' => $category, 'articletext' => '<p>Must not persist</p>', 'language' => '*']]);
-	$check($denied($clients['b']->rpc('tools/call', ['name' => 'joomla_write_apply', 'arguments' => ['confirmationToken' => $plan['confirmationToken']]])), 'Another authenticated user cannot apply this confirmation token');
-	$applied = $clients['a']->rpc('tools/call', ['name' => 'joomla_write_apply', 'arguments' => ['confirmationToken' => $plan['confirmationToken']]]);
-	$check($denied($applied), 'Denied native mutation is an MCP error, never success');
-	$result = $applied['result']['structuredContent'];
-	$check(isset($result['error']) && ($result['verification']['status'] ?? '') === 'uncertain', 'MCP grant cannot override native Joomla create denial');
+	$input = ['idempotencyKey' => Json::uuid(), 'data' => ['title' => $title, 'catid' => $category, 'articletext' => '<p>Least privilege</p>', 'language' => '*']];
+	$executionCount = count($store->find('execution'));
+	$planCount = count($store->find('plan'));
+	$rejected = $clients['a']->rpc('tools/call', ['name' => 'joomla_content_article_create_plan', 'arguments' => $input]);
+	$diagnostic = json_decode($rejected['result']['content'][0]['text'] ?? '{}', true);
+	$check($denied($rejected) && ($diagnostic['error']['code'] ?? '') === 'NATIVE_CREATE_DENIED'
+		&& ($diagnostic['error']['details']['action'] ?? '') === 'core.create', 'Native create denial identifies the missing permission during planning');
+	$check(count($store->find('execution')) === $executionCount && count($store->find('plan')) === $planCount, 'Denied native creation creates no execution or confirmation plan');
 	$check(!(bool) $db->setQuery('SELECT id FROM ' . $db->quoteName('#__content') . ' WHERE title = ' . $db->quote($title))->loadResult(), 'Target ACL denial proved by absence of persisted Joomla content');
-	$execution = $store->one('execution', ['uuid' => $result['executionId']]);
-	(new Operations($store, new Envelope((string) $app->get('secret'))))->reconcile($admin, (int) $execution['id'], (int) $execution['version'], 'verified_no_effect', 'Native API returned 403 and the test verified that no requested article exists.', true);
-	$check($store->one('execution', ['id' => (int) $execution['id']])['status'] === 'reconciled'
-		&& $store->one('lease', ['owner_uuid' => $execution['uuid']]) === null, 'Administrator reconciliation records inspected effects and releases only that execution lease');
+
+	$rules('com_content', ['core.create' => [(string) $ids['a'] => true]]);
+	$restricted = $container->get(UserFactoryInterface::class)->loadUserById((int) $users['a']->id);
+	$check(!$restricted->authorise('core.admin') && !$restricted->authorise('core.admin', 'com_content'), 'Create fixture has neither Super User nor content administration authority');
+	$plan = $clients['a']->tool('joomla_content_article_create_plan', $input);
+	$check($denied($clients['b']->rpc('tools/call', ['name' => 'joomla_write_apply', 'arguments' => ['confirmationToken' => $plan['confirmationToken']]])), 'Another authenticated user cannot apply this confirmation token');
+	$created[] = ['com_content', 'Article', 'content', 'title', $title];
+	$result = $clients['a']->tool('joomla_write_apply', ['confirmationToken' => $plan['confirmationToken']]);
+	$check(($result['verification']['status'] ?? '') === 'verified', 'Restricted API user creates and verifies an article without Super Users');
+	$row = $db->setQuery('SELECT id, created_by FROM ' . $db->quoteName('#__content') . ' WHERE title = ' . $db->quote($title))->loadAssoc();
+	$check((int) ($row['created_by'] ?? 0) === (int) $users['a']->id, 'Article is owned by the authenticated restricted user');
+	$check($store->one('lease', ['owner_uuid' => $result['executionId']]) === null, 'Verified restricted creation releases its lease');
+	$replayed = $clients['a']->tool('joomla_write_apply', ['confirmationToken' => $plan['confirmationToken']]);
+	$check($replayed['idempotentReplay'] === true && (int) $db->setQuery('SELECT COUNT(*) FROM ' . $db->quoteName('#__content') . ' WHERE title = ' . $db->quote($title))->loadResult() === 1, 'Restricted create replay does not create another article');
+
+	$rules('com_content', ['core.manage' => [(string) $ids['a'] => false]]);
+	$rejected = $clients['a']->rpc('tools/call', ['name' => 'joomla_content_article_create_plan', 'arguments' => $input + ['dryRun' => true]]);
+	$diagnostic = json_decode($rejected['result']['content'][0]['text'] ?? '{}', true);
+	$check($denied($rejected) && ($diagnostic['error']['details']['action'] ?? '') === 'core.manage', 'Create permission alone cannot replace Access Administration Interface');
+	$rules('com_content', ['core.manage' => [(string) $ids['a'] => true]]);
+	$rules('com_content.category.' . $category, ['core.create' => [(string) $ids['a'] => false]]);
+	$rejected = $clients['a']->rpc('tools/call', ['name' => 'joomla_content_article_create_plan', 'arguments' => $input + ['dryRun' => true]]);
+	$diagnostic = json_decode($rejected['result']['content'][0]['text'] ?? '{}', true);
+	$check($denied($rejected) && ($diagnostic['error']['details']['asset'] ?? '') === 'com_content.category.' . $category, 'Component create permission cannot bypass the selected category deny');
+	$rules('com_content.category.' . $category, ['core.create' => [(string) $ids['a'] => true]]);
+	$revokedTitle = 'MCP revoked create ' . $suffix;
+	$revoked = $clients['a']->tool('joomla_content_article_create_plan', ['idempotencyKey' => Json::uuid(), 'data' => ['title' => $revokedTitle, 'catid' => $category]]);
+	$executionCount = count($store->find('execution'));
+	$rules('com_content', ['core.create' => [(string) $ids['a'] => false]]);
+	$rejected = $clients['a']->rpc('tools/call', ['name' => 'joomla_write_apply', 'arguments' => ['confirmationToken' => $revoked['confirmationToken']]]);
+	$check($denied($rejected) && count($store->find('execution')) === $executionCount, 'Apply rechecks native ACL before claiming an approved operation');
+	$check(!(bool) $db->setQuery('SELECT id FROM ' . $db->quoteName('#__content') . ' WHERE title = ' . $db->quote($revokedTitle))->loadResult(), 'Revoked create never reaches the native mutation');
+	$rules('com_content', ['core.create' => [(string) $ids['a'] => true]]);
+
+	$app->getInput()->set('extension', 'com_banners');
+	$categoryModel = $app->bootComponent('com_categories')->getMVCFactory()->createModel('Category', 'Administrator', ['ignore_request' => true]);
+	$categoryModel->setCurrentUser($admin);
+	$categoryModel->setState('category.extension', 'com_banners');
+	$categoryModel->setState('category.component', 'com_banners');
+	$check($categoryModel->save(['title' => 'MCP banner ACL ' . $suffix, 'alias' => 'mcp-banner-acl-' . $suffix,
+		'extension' => 'com_banners', 'parent_id' => 1, 'published' => 1, 'access' => 1, 'language' => '*']), 'Create disposable native banner category');
+	$bannerCategory = (int) $categoryModel->getState('category.id');
+	$rules('com_banners', ['core.manage' => [(string) $ids['a'] => true], 'core.create' => [(string) $ids['a'] => true]]);
+	$bannerTitle = 'MCP restricted banner ' . $suffix;
+	$created[] = ['com_banners', 'Banner', 'banners', 'name', $bannerTitle];
+	$plan = $clients['a']->tool('joomla_action_write_plan', ['action' => 'banners.banners.create', 'idempotencyKey' => Json::uuid(),
+		'input' => ['data' => ['name' => $bannerTitle, 'catid' => $bannerCategory, 'language' => '*', 'type' => 1, 'custombannercode' => 'Least privilege']]]);
+	$result = $clients['a']->tool('joomla_write_apply', ['confirmationToken' => $plan['confirmationToken']]);
+	$check(($result['verification']['status'] ?? '') === 'verified', 'Restricted API user creates and verifies a banner without Super Users');
+	$row = $db->setQuery('SELECT id, created_by FROM ' . $db->quoteName('#__banners') . ' WHERE name = ' . $db->quote($bannerTitle))->loadAssoc();
+	$check((int) ($row['created_by'] ?? 0) === (int) $users['a']->id, 'Banner is owned by the authenticated restricted user');
 	$clients['a']->tool('joomla_permission_revoke', ['grantId' => $grantId]);
 
 	$bearer = (new HttpFixture($base, ''))->exchange('{"jsonrpc":"2.0","id":91,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"bearer-fixture","version":"1"}}}', ['Authorization' => 'Bearer ' . $tokens['a']]);
@@ -171,6 +220,21 @@ try
 }
 finally
 {
+	foreach (array_reverse($created) as [$component, $modelName, $table, $field, $value])
+	{
+		$pks = array_map('intval', $db->setQuery('SELECT id FROM ' . $db->quoteName('#__' . $table) . ' WHERE ' . $db->quoteName($field) . ' = ' . $db->quote($value))->loadColumn());
+		if ($pks !== [])
+		{
+			$model = $app->bootComponent($component)->getMVCFactory()->createModel($modelName, 'Administrator', ['ignore_request' => true]);
+			$model->setCurrentUser($admin);
+			$check($model->publish($pks, -2) && $model->delete($pks), 'Remove restricted create fixture through native ' . $modelName);
+		}
+	}
+	if ($bannerCategory !== null)
+	{
+		$pks = [$bannerCategory];
+		$check($categoryModel->publish($pks, -2) && $categoryModel->delete($pks), 'Remove native banner category fixture');
+	}
 	foreach ($originalRules as $name => $value)
 	{
 		$asset = new Asset($db);
