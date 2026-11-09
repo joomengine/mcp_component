@@ -9,6 +9,7 @@
 
 use Joomla\CMS\User\UserFactoryInterface;
 use Joomla\Database\DatabaseInterface;
+use VDM\Component\JoomEngineMcp\Administrator\Database\JoomlaStore;
 use VDM\Component\JoomEngineMcp\Administrator\Handler\NativeFactory;
 use VDM\Component\JoomEngineMcp\Administrator\Native\Joomla\JoomlaModelProvider;
 use VDM\Component\JoomEngineMcp\Administrator\Native\Joomla\JoomlaNativeOperations;
@@ -21,12 +22,7 @@ $app->loadIdentity($admin);
 $app->bootComponent('com_joomengine_mcp');
 $models = new JoomlaModelProvider($app);
 $factory = new NativeFactory($models, new JoomlaNativeOperations($app), $app);
-$definitions = json_decode(file_get_contents(dirname(__DIR__, 2) . '/data/upstream-native.json'), true, 128, JSON_THROW_ON_ERROR)['actions'];
-$bindings = [];
-foreach ($definitions as $definition)
-{
-	$bindings[$definition['descriptor']['name']] = $definition;
-}
+$store = new JoomlaStore($db);
 $checks = 0;
 $check = static function (bool $condition, string $message) use (&$checks): void
 {
@@ -56,9 +52,25 @@ try
 	$client = new StdioFixture();
 	foreach ($actions as $name)
 	{
-		$action = $factory->create($bindings[$name]);
+		// Compare both paths under the installed contract, including reviewed
+		// runtime additions. The immutable migration snapshot intentionally
+		// predates those fields and is not the installed action definition.
+		$binding = $store->one('binding', ['name' => $name . '.cli']);
+		$check($binding !== null && $binding['track'] === 'cli' && (int) $binding['published'] === 1,
+			$name . ' has an enabled installed native binding');
+		$binding['configuration'] = json_decode($binding['configuration'], true, 128, JSON_THROW_ON_ERROR);
+		$action = $factory->create($binding);
 		$initial = $action->execute(['offset' => 0, 'limit' => 5]);
 		$verifyPage($initial, 0, 5, $name . ' native initial');
+		if (in_array($name, ['modules.site.list', 'modules.administrator.list'], true))
+		{
+			$check($initial['items'] !== [], $name . ' has native module fixtures to verify');
+			foreach ($initial['items'] as $item)
+			{
+				$check(array_key_exists('publish_up', $item) && array_key_exists('publish_down', $item),
+					$name . ' exposes both native publishing dates');
+			}
+		}
 		$total = $initial['page']['total'];
 		foreach ([[0, 1], [1, 1], [max(0, $total - 1), 3], [$total, 1], [$total + 3, 2], [0, 5]] as [$offset, $limit])
 		{
