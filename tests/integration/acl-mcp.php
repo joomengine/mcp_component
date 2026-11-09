@@ -152,9 +152,8 @@ try
 	$grantId = $grant['id'] ?? $grant['grantId'];
 	$category = (int) $db->setQuery('SELECT id FROM ' . $db->quoteName('#__categories') . ' WHERE extension = ' . $db->quote('com_content') . ' AND published = 1 ORDER BY id', 0, 1)->loadResult();
 	$title = 'MCP denied create ' . $suffix;
-	// Use the API's observable fields and plain text: articletext is an editor
-	// input alias, and this Public-child group intentionally has no HTML exemption.
-	$input = ['idempotencyKey' => Json::uuid(), 'data' => ['title' => $title, 'catid' => $category, 'introtext' => 'Least privilege', 'fulltext' => '', 'language' => '*']];
+	// Plain text isolates ACL from the Public-child group's native HTML filtering.
+	$input = ['idempotencyKey' => Json::uuid(), 'data' => ['title' => $title, 'catid' => $category, 'articletext' => 'Least privilege', 'language' => '*']];
 	$executionCount = count($store->find('execution'));
 	$planCount = count($store->find('plan'));
 	$rejected = $clients['a']->rpc('tools/call', ['name' => 'joomla_content_article_create_plan', 'arguments' => $input]);
@@ -171,10 +170,23 @@ try
 	$check($denied($clients['b']->rpc('tools/call', ['name' => 'joomla_write_apply', 'arguments' => ['confirmationToken' => $plan['confirmationToken']]])), 'Another authenticated user cannot apply this confirmation token');
 	$created[] = ['com_content', 'Article', 'content', 'title', $title];
 	$result = $clients['a']->tool('joomla_write_apply', ['confirmationToken' => $plan['confirmationToken']]);
-	$check(($result['verification']['status'] ?? '') === 'verified', 'Restricted API user creates and verifies an article without Super Users: ' . $verificationDetails($result));
-	$row = $db->setQuery('SELECT id, created_by FROM ' . $db->quoteName('#__content') . ' WHERE title = ' . $db->quote($title))->loadAssoc();
-	$check((int) ($row['created_by'] ?? 0) === (int) $users['a']->id, 'Article is owned by the authenticated restricted user');
-	$check($store->one('lease', ['owner_uuid' => $result['executionId']]) === null, 'Verified restricted creation releases its lease');
+	// Joomla 6.1.3 and 6.2 both expose category as a relationship and omit the
+	// articletext editor alias. Require those exact unobservable fields; inspect
+	// the actual stored category and split body below instead of pretending full API verification.
+	$unobservable = $result['verification']['unobservableFields'] ?? [];
+	sort($unobservable, SORT_STRING);
+	$check(($result['verification']['status'] ?? '') === 'partial'
+		&& $unobservable === ['articletext', 'catid']
+		&& ($result['verification']['differentFields'] ?? []) === []
+		&& array_diff(['title', 'language'], $result['verification']['matchedFields'] ?? []) === [],
+		'Restricted API user creates an article with every observable field verified: ' . $verificationDetails($result));
+	$row = $db->setQuery('SELECT id, created_by, catid, introtext, ' . $db->quoteName('fulltext') . ' FROM ' . $db->quoteName('#__content') . ' WHERE title = ' . $db->quote($title))->loadAssoc();
+	$check((int) ($row['created_by'] ?? 0) === (int) $users['a']->id && (int) ($row['catid'] ?? 0) === $category
+		&& ($row['introtext'] ?? null) === 'Least privilege' && ($row['fulltext'] ?? null) === '',
+		'Native database confirms restricted article ownership, category and exact body');
+	$execution = $store->one('execution', ['uuid' => $result['executionId']]);
+	$check(($execution['status'] ?? '') === 'completed' && $store->one('lease', ['owner_uuid' => $result['executionId']]) === null,
+		'Settled restricted creation completes its execution and releases its lease');
 	$replayed = $clients['a']->tool('joomla_write_apply', ['confirmationToken' => $plan['confirmationToken']]);
 	$check($replayed['idempotentReplay'] === true && (int) $db->setQuery('SELECT COUNT(*) FROM ' . $db->quoteName('#__content') . ' WHERE title = ' . $db->quote($title))->loadResult() === 1, 'Restricted create replay does not create another article');
 
