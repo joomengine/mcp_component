@@ -220,8 +220,13 @@ try
 	$rules('com_banners', ['core.manage' => [(string) $ids['a'] => true], 'core.create' => [(string) $ids['a'] => true]]);
 	$bannerTitle = 'MCP restricted banner ' . $suffix;
 	$created[] = ['com_banners', 'Banner', 'banners', 'name', $bannerTitle];
+	// Native MySQL/PostgreSQL banner schemas require description, custom code
+	// and params without SQL defaults. Include the complete empty image settings:
+	// BannerTable::bind normalizes zero/missing width and height to empty strings.
+	$bannerParams = ['imageurl' => '', 'width' => '', 'height' => '', 'alt' => ''];
 	$plan = $clients['a']->tool('joomla_action_write_plan', ['action' => 'banners.banners.create', 'idempotencyKey' => Json::uuid(),
-		'input' => ['data' => ['name' => $bannerTitle, 'catid' => $bannerCategory, 'language' => '*', 'type' => 1, 'custombannercode' => 'Least privilege']]]);
+		'input' => ['data' => ['name' => $bannerTitle, 'catid' => $bannerCategory, 'language' => '*', 'type' => 1,
+			'description' => '', 'custombannercode' => 'Least privilege', 'params' => $bannerParams]]]);
 	$result = $clients['a']->tool('joomla_write_apply', ['confirmationToken' => $plan['confirmationToken']]);
 	$check(($result['verification']['status'] ?? '') === 'verified', 'Restricted API user creates and verifies a banner without Super Users: ' . $verificationDetails($result));
 	$row = $db->setQuery('SELECT id, created_by FROM ' . $db->quoteName('#__banners') . ' WHERE name = ' . $db->quote($bannerTitle))->loadAssoc();
