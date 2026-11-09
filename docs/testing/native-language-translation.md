@@ -16,29 +16,27 @@ Joomla's native form rejects a present value for a disabled field. Omitting or n
 
 Apply the policy through JCB's authoritative field/admin-view customization definitions and regenerate the component. Generated administrator models and API controllers are outputs, not the maintenance source. No generic compiler rule should make every readonly or disabled field writable. This component change does not edit or publish upstream JCB code.
 
-The following 17-line addition is the reviewed target output inside `Language_translationModel::getForm()`, after record identity resolution and immediately after `$user = Factory::getApplication()->getIdentity();`:
+The maintained change belongs in the Language Translation admin-view definition's `add_php_getform` / `php_getform` customization. Preserve any existing hook and the source field's administrator protections. The [compiler's GetForm builder](https://github.com/extension-builder/joomla/blob/24c4671dfb03f8e75c64e8b3888f68b39df3f273/libraries/vendor_jcb/VDM.Joomla/src/Componentbuilder/Compiler/Architecture/Model/GetForm.php#L405) emits this hook after native field/ACL setup and before API PATCH field protection. The authoritative admin-view GUID and existing hook were not available in the inspected repositories; do not infer them or replace unknown customization.
 
-```diff
- 		$user = Factory::getApplication()->getIdentity();
- 
-+		// Source text is supplied once when the API creates a translation.
-+		// Existing sources remain immutable and must not be backfilled into
-+		// Joomla's validation of a disabled administrator-only form control.
-+		if ($app->isClient('api'))
-+		{
-+			if ($id === 0 && $jinput->getMethod() === 'POST')
-+			{
-+				$form->setFieldAttribute('source', 'disabled', 'false');
-+				$form->setFieldAttribute('source', 'readonly', 'false');
-+				$form->setFieldAttribute('source', 'required', 'true');
-+			}
-+			else
-+			{
-+				$form->removeField('source');
-+			}
-+		}
-+
- 		// Check for existing item.
+The following is the reviewed policy inside `Language_translationModel::getForm()`, after record identity resolution. The isolated test inserted it immediately after `$user = Factory::getApplication()->getIdentity();`; regeneration through the maintained hook must also pass installed acceptance:
+
+```php
+// Source text is supplied once when the API creates a translation.
+// Existing sources remain immutable and must not be backfilled into
+// Joomla's validation of a disabled administrator-only form control.
+if ($app->isClient('api'))
+{
+	if ($id === 0 && $jinput->getMethod() === 'POST')
+	{
+		$form->setFieldAttribute('source', 'disabled', 'false');
+		$form->setFieldAttribute('source', 'readonly', 'false');
+		$form->setFieldAttribute('source', 'required', 'true');
+	}
+	else
+	{
+		$form->removeField('source');
+	}
+}
 ```
 
 This enables a nonempty source only for a new API POST. Existing API updates omit the immutable source from validation and binding, including Joomla's backfilled value. Administrator and site forms retain their disabled/readonly controls. Native controller ACL, model saving, filtering and all unrelated field permissions remain in place. The existing MCP update adapter remains compatible: its explicit `source: null` is omitted by the adjusted native form and the original source is independently verified.
