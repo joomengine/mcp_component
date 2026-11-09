@@ -1,5 +1,18 @@
 # Changelog
 
+## [[[NEXT_VERSION]]]
+
+### Fix
+
+- Verify native article and category media read-back against the configured site root, accepting relative-to-absolute URL representation while retaining exact comparisons for other values.
+- Accept module publication schedules and article creation date/author fields, preserve customized catalogue definitions during upgrades, and verify native date storage using the authenticated API user's timezone when the installation identity is established.
+- Diagnose missing native article/banner create permissions before claiming a write, and document the restricted-user permissions needed without Super Users membership.
+- Keep JCB translation creation unavailable when a native model still enables the source field's disabled attribute or supplies an unknown value.
+
+### Note
+
+- Previously uncertain executions still require explicit reconciliation. Native JCB source-string creation remains dependent on its administrator model enabling the source field for API creation.
+
 ## 1.0.12
 
 ### Fix

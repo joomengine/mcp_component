@@ -75,6 +75,10 @@ Joomla only displays your own token. An administrator editing another account ca
 
 For confirmed writes, the identity also needs **Request confirmed mutations** (`mcp.write`), the target resource's create/edit/delete permission, and **Approve requested MCP write grants** (`mcp.approve`) to approve its own permission requests. Administrator catalogue editing additionally requires native administration permissions. A grant cannot extend any Joomla permission.
 
+For article or banner creation, open the relevant component's **Options → Permissions** for the dedicated group and allow **Access Administration Interface** (`core.manage`) and **Create** (`core.create`). Check the effective Create permission on the selected category as well; an inherited Denied rule cannot be repaired with an MCP grant. Read access does not prove that these native create checks pass. **Configure ACL & Options** (`core.admin`) and membership in Super Users are not required. Grant **Edit State** only if the agent must publish or change publication state; grant edit/delete permissions only for the operations it needs.
+
+The component checks these article/banner permissions during planning and again immediately before applying when the configured API origin and mount identify the current installation. `NATIVE_CREATE_DENIED` includes the missing `action` and `asset`, and occurs before a mutation, execution record or write lock is created. Alias/proxy configurations whose installation cannot be proven retain the native HTTP authorization check. A 403 received after submission can also come from a follow-up read, so an already uncertain execution still requires inspection in Operations before reconciliation.
+
 ## Connect and make a first read
 
 Follow [client connections](CLIENT-CONNECTIONS.md) to install `mcp_client` on the workstation or bridge host and provide the **site base URL** and **API token**. The client discovers the server's tools, resources and prompts. Its configuration nickname is local to the client; an optional tool `site` argument must use the component's **Site alias**, not a different client nickname.

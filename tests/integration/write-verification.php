@@ -28,6 +28,7 @@ $grantId = null;
 $executions = [];
 $callSequence = 1000;
 $owned = ['categories' => [], 'content' => [], 'users' => [], 'modules' => []];
+$originalUserParams = null;
 $check = static function (bool $condition, string $label) use (&$checks): void
 {
 	if (!$condition)
@@ -167,6 +168,42 @@ try
 		$inspectArticle, 'Article empty bags create');
 	$apply('content.articles.update', ['id' => (int) $created['result']['verification']['id'], 'data' => $bags], $inspectArticle, 'Article empty bags update');
 
+	$articleId = (int) $created['result']['verification']['id'];
+	$mediaPath = 'images/joomla_black.png#joomlaImage://local-images/joomla_black.png?width=225&height=50';
+	$media = ['image_intro' => $mediaPath, 'image_intro_alt' => 'Intro fixture',
+		'image_fulltext' => 'images/joomla_black.png', 'image_fulltext_caption' => 'Full fixture'];
+	$inspectMedia = static function (array $result) use ($rows, $alias, $articleId, $media, $call, $check): void
+	{
+		$found = $rows('content', 'alias', $alias);
+		$check(count($found) === 1 && (int) $found[0]['id'] === $articleId
+			&& Json::canonical(Json::decode($found[0]['images'])) === Json::canonical($media),
+			'Article image write stores the exact relative paths and caption values');
+		$api = $call('joomla_action_read', ['action' => 'content.articles.get', 'transport' => 'api', 'input' => ['id' => $articleId]])['response']['data']['data']['attributes'];
+		$root = rtrim((string) getenv('MCP_TEST_BASE_URL'), '/') . '/';
+		$check(($api['images']['image_intro'] ?? null) === $root . $media['image_intro']
+			&& ($api['images']['image_fulltext'] ?? null) === $root . $media['image_fulltext'],
+			'Native article API expands both image paths while preserving Joomla media fragments');
+		$check(in_array('images', $result['verification']['matchedFields'] ?? [], true),
+			'Relative storage and absolute native media read-back verify the approved image selection');
+	};
+	$apply('content.articles.update', ['id' => $articleId, 'data' => ['images' => $media]], $inspectMedia, 'Article local media update');
+	$apply('content.articles.update', ['id' => $articleId, 'data' => ['images' => $media]], $inspectMedia,
+		'Subsequent article image write proceeds without a retained uncertain lease');
+
+	$categoryAlias = $prefix . '-content-params';
+	$category = $rows('categories', 'alias', $categoryAlias);
+	$check(count($category) === 1, 'Resolve the owned category media fixture');
+	$mediaCategoryId = (int) $category[0]['id'];
+	$params = ['image' => $mediaPath, 'image_alt' => 'Category fixture'];
+	$apply('content.categories.update', ['id' => $mediaCategoryId, 'data' => ['params' => $params]],
+		static function (array $result) use ($rows, $categoryAlias, $params, $check): void
+		{
+			$found = $rows('categories', 'alias', $categoryAlias);
+			$check(count($found) === 1 && Json::canonical(Json::decode($found[0]['params'])) === Json::canonical($params)
+				&& in_array('params', $result['verification']['matchedFields'] ?? [], true),
+				'Category media parameters retain their exact native saved representation');
+		}, 'Category local media update');
+
 	$groups = $db->setQuery($db->createQuery()->select($db->quoteName(['id', 'title']))->from($db->quoteName('#__usergroups'))
 		->where($db->quoteName('title') . ' IN (' . $db->quote('Registered') . ', ' . $db->quote('Author') . ')'))->loadAssocList();
 	$groupIds = array_column($groups, 'id', 'title');
@@ -228,9 +265,69 @@ try
 				: ($operation['plan']['operation']['nativeOrdering']['mode'] ?? '') === 'automatic', 'Module plan discloses automatic assignment before mutation');
 		}
 	}
+
+	// The API token owner controls user_utc. Exercise winter and summer offsets
+	// against independent SQL storage using the native full calendar format.
+	$originalUserParams = (string) $db->setQuery($db->createQuery()->select($db->quoteName('params'))
+		->from($db->quoteName('#__users'))->where($db->quoteName('id') . ' = ' . (int) $admin->id))->loadResult();
+	$admin->setParam('timezone', 'Europe/Amsterdam');
+	$check($admin->save(true), 'Set the disposable API token owner timezone through Joomla');
+	$dateInspect = static function (string $table, string $marker, string $label, array $expected) use ($rows, &$owned, $check): callable
+	{
+		return static function (array $result) use ($table, $marker, $label, $expected, $rows, &$owned, $check): void
+		{
+			$found = $rows($table, $table === 'content' ? 'alias' : 'title', $marker);
+			$check(count($found) === 1, $label . ' identifies one native row');
+			$owned[$table][(int) $found[0]['id']] = $marker;
+			foreach ($expected as $field => $value)
+			{
+				$check((string) $found[0][$field] === (string) $value
+					&& in_array($field, $result['verification']['matchedFields'] ?? [], true), $label . ' independently stores and verifies ' . $field);
+			}
+		};
+	};
+	$dateAlias = $prefix . '-article-dates';
+	$dateData = ['created' => '2026-01-09 12:30:45', 'publish_up' => '2026-07-09 12:30:45',
+		'publish_down' => '2026-11-09 12:30:45', 'created_by' => (int) $admin->id];
+	$expectedDates = ['created' => '2026-01-09 11:30:45', 'publish_up' => '2026-07-09 10:30:45',
+		'publish_down' => '2026-11-09 11:30:45', 'created_by' => (int) $admin->id];
+	$dateArticle = $apply('content.articles.create', ['data' => ['title' => $dateAlias, 'alias' => $dateAlias,
+		'catid' => $categoryId, 'introtext' => '<p>Disposable calendar fixture.</p>', 'fulltext' => '',
+		'metadesc' => '', 'metakey' => '', 'state' => 0, 'access' => 1, 'language' => '*'] + $dateData],
+		$dateInspect('content', $dateAlias, 'Article native dates create', $expectedDates), 'Article native dates create');
+	$check(($dateArticle['plan']['operation']['nativeDates']['timezone'] ?? null) === 'Europe/Amsterdam',
+		'Installed API plan discloses its authenticated user timezone');
+	$articleId = (int) $dateArticle['result']['verification']['id'];
+	$apply('content.articles.update', ['id' => $articleId, 'data' => ['created' => '2026-02-09 12:30:45']],
+		$dateInspect('content', $dateAlias, 'Article native date update', ['created' => '2026-02-09 11:30:45']),
+		'Article native date update');
+	foreach (['site', 'administrator'] as $client)
+	{
+		$title = $prefix . '-' . $client . '-dates';
+		$scheduled = $apply('modules.' . $client . '.create', ['data' => ['title' => $title, 'module' => 'mod_custom',
+			'content' => 'Disposable scheduled module', 'position' => $prefix . '-dates', 'published' => 0,
+			'access' => 1, 'showtitle' => 0, 'language' => '*', 'assigned' => [], 'ordering' => 1,
+			'params' => ['layout' => '_:default', 'prepare_content' => 0, 'cache' => 0, 'cache_time' => 900],
+			'publish_up' => $dateData['publish_up'], 'publish_down' => $dateData['publish_down']]],
+			$dateInspect('modules', $title, 'Module ' . $client . ' schedule create',
+				['publish_up' => $expectedDates['publish_up'], 'publish_down' => $expectedDates['publish_down']]),
+			'Module ' . $client . ' schedule create');
+		$apply('modules.' . $client . '.update', ['id' => (int) $scheduled['result']['verification']['id'],
+			'data' => ['publish_up' => '2026-07-10 12:30:45', 'publish_down' => '2026-11-10 12:30:45']],
+			$dateInspect('modules', $title, 'Module ' . $client . ' native schedule update',
+				['publish_up' => '2026-07-10 10:30:45', 'publish_down' => '2026-11-10 11:30:45']),
+			'Module ' . $client . ' native schedule update');
+	}
 }
 finally
 {
+	if ($originalUserParams !== null)
+	{
+		$db->setQuery($db->createQuery()->update($db->quoteName('#__users'))
+			->set($db->quoteName('params') . ' = ' . $db->quote($originalUserParams))
+			->where($db->quoteName('id') . ' = ' . (int) $admin->id))->execute();
+	}
+
 	// Locate only this run's exact markers, including a save that threw before
 	// its result was returned. Never infer fixture ownership from a numeric ID.
 	foreach (['content' => 'alias', 'categories' => 'alias', 'users' => 'username', 'modules' => 'title'] as $table => $field)
@@ -315,4 +412,4 @@ finally
 	$http->disconnect();
 }
 echo Json::encode(['checks' => $checks, 'liveJoomla' => JVERSION, 'database' => $db->getServerType(),
-	'verification' => 'four category contexts and article empty bags, group membership and module ordering; native storage, lease release and immutable replay']) . PHP_EOL;
+	'verification' => 'four category contexts, article empty bags and local media URLs, group membership and module ordering; native storage, lease release and immutable replay']) . PHP_EOL;

@@ -127,8 +127,24 @@ $permissions = new Permissions($store, $principal, $catalogue, $settings, $audit
 $state = new Executions($store, $principal, new Envelope(str_repeat('s', 32)), $permissions, $settings, $audit, $clock);
 $builder = new ApiRequestBuilder();
 $handler = new ApiHandler($http, $builder, $settings, 'test-token', static fn (): string => 'unused');
-$executor = new ActionExecutor($catalogue, $schemas, $principal, new HandlerRegistry(['api.request' => $handler]), $permissions, $state, $audit, $settings, $builder);
+$executor = new ActionExecutor($catalogue, $schemas, $principal, new HandlerRegistry(['api.request' => $handler]), $permissions, $state, $audit, $settings, $builder, nativeCreateAccess: true);
 $input = ['data' => ['title' => 'Created through the API double', 'catid' => 2]];
+foreach ([['core.manage', 'com_content'], ['core.create', 'com_content.category.2']] as [$deniedAction, $deniedAsset])
+{
+	$restricted = new Principal('joomla:17', 'api', [1]);
+	$restricted->deny($deniedAction, $deniedAsset);
+	$restrictedCatalogue = new Catalogue($store, new Authorizer(), $restricted, $schemas, $settings, static fn (string $name): bool => true, static fn (string $entity, string $key): bool => true);
+	$guarded = new ActionExecutor($restrictedCatalogue, $schemas, $restricted, new HandlerRegistry(['api.request' => $handler]), $permissions, $state, $audit, $settings, $builder, nativeCreateAccess: true);
+	$reject(static fn () => $guarded->plan('content.articles.create', $input, Json::uuid(), true), 'NATIVE_CREATE_DENIED');
+	$check($http->writes === 0 && $store->find('plan') === [] && $store->find('execution') === [] && $store->find('lease') === [], 'Native create denial must precede confirmation, mutation and durable claim.');
+	$remote = new ActionExecutor($restrictedCatalogue, $schemas, $restricted, new HandlerRegistry(['api.request' => $handler]), $permissions, $state, $audit, $settings, $builder);
+	$check($remote->plan('content.articles.create', $input, Json::uuid(), true)['dryRun'], 'An unproven remote installation must not use local Joomla ACL as its authority.');
+}
+$categoryCreator = new Principal('joomla:17', 'api', [1]);
+$categoryCreator->deny('core.create', 'com_content');
+$categoryCatalogue = new Catalogue($store, new Authorizer(), $categoryCreator, $schemas, $settings, static fn (string $name): bool => true, static fn (string $entity, string $key): bool => true);
+$categoryExecutor = new ActionExecutor($categoryCatalogue, $schemas, $categoryCreator, new HandlerRegistry(['api.request' => $handler]), $permissions, $state, $audit, $settings, $builder, nativeCreateAccess: true);
+$check($categoryExecutor->plan('content.articles.create', $input, Json::uuid(), true)['dryRun'], 'Category-scoped creation must not require component-wide create permission.');
 $dry = $executor->plan('content.articles.create', $input, Json::uuid(), true);
 $check($dry['dryRun'] && $http->writes === 0 && $store->find('plan') === [], 'Dry-run mutated or persisted an executable plan.');
 $reject(static fn () => $executor->plan('content.articles.create', $input, Json::uuid()), 'PERMISSION_REQUIRED');

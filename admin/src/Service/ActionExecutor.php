@@ -62,6 +62,10 @@ final class ActionExecutor
 	private ?Closure $workerReady;
 	/** @var ?MessageSnapshot Explicit native API precondition reader. @since 1.0.1 */
 	private ?MessageSnapshot $messageSnapshots;
+	/** @var bool Outbound API origin and mount are proven to be this installation. @since 1.0.12 */
+	private bool $nativeCreateAccess;
+	/** @var ?string Native same-installation API user's timezone, never input data. @since 1.0.12 */
+	private ?string $userTimezone;
 
 	/**
 	 * Compose authorization, validation, execution and durable state boundaries.
@@ -77,7 +81,7 @@ final class ActionExecutor
 	 * @param ApiRequestBuilder $requests Safe API request construction.
 	 * @since 0.1.0
 	 */
-	public function __construct(Catalogue $catalogue, SchemaValidator $schemas, PrincipalInterface $principal, HandlerRegistry $handlers, Permissions $permissions, Executions $executions, Audit $audit, Settings $settings, ApiRequestBuilder $requests, ?Jobs $jobs = null, ?callable $workerReady = null, ?MessageSnapshot $messageSnapshots = null)
+	public function __construct(Catalogue $catalogue, SchemaValidator $schemas, PrincipalInterface $principal, HandlerRegistry $handlers, Permissions $permissions, Executions $executions, Audit $audit, Settings $settings, ApiRequestBuilder $requests, ?Jobs $jobs = null, ?callable $workerReady = null, ?MessageSnapshot $messageSnapshots = null, bool $nativeCreateAccess = false, ?string $userTimezone = null)
 	{
 		$this->catalogue = $catalogue;
 		$this->schemas = $schemas;
@@ -91,6 +95,8 @@ final class ActionExecutor
 		$this->jobs = $jobs;
 		$this->workerReady = $workerReady === null ? null : Closure::fromCallable($workerReady);
 		$this->messageSnapshots = $messageSnapshots;
+		$this->nativeCreateAccess = $nativeCreateAccess;
+		$this->userTimezone = $userTimezone;
 	}
 
 	/**
@@ -275,6 +281,14 @@ final class ActionExecutor
 			$preview['nativeOrdering'] = $ordering;
 		}
 
+		$dateFields = ApiWriteVerification::dateFields($resolved, $input);
+
+		if ($dateFields !== [])
+		{
+			$preview['nativeDates'] = ['fields' => $dateFields, 'timezone' => $this->userTimezone,
+				'storage' => 'UTC', 'input' => 'Use the native calendar format (Y-m-d H:i:s in the default locale), interpreted in the API user timezone.'];
+		}
+
 		if ($handler instanceof PlanPreviewInterface)
 		{
 			$preview['details'] = $handler->preview($preflight);
@@ -294,6 +308,7 @@ final class ActionExecutor
 			'api_verification' => $verification,
 			'menu_component' => $resolved['menu_component'] ?? null,
 			'delete_verification' => $delete,
+			'api_timezone' => $dateFields === [] ? null : $this->userTimezone,
 			'prepared' => $handler instanceof PlannedHandlerInterface ? $preflight : null,
 			'preflight_hash' => hash('sha256', Json::canonical($preflight)),
 		], $preview, $idempotencyKey, $grant);
@@ -361,6 +376,13 @@ final class ActionExecutor
 		$handler = $this->handlers->get($resolved['binding']['handler']);
 		$this->requireWorker($handler);
 		$input = $this->validate($resolved, $plan['payload']['input']);
+
+		if (ApiWriteVerification::dateFields($resolved, $input) !== []
+			&& ($plan['payload']['api_timezone'] ?? null) !== $this->userTimezone)
+		{
+			throw new OperationException('PRECONDITION_CHANGED', 'The native API user timezone changed after planning. Create a new plan for the current timezone.');
+		}
+
 		$before = $handler instanceof PlannedHandlerInterface ? null : $this->snapshot($resolved, $input, $plan['payload']['before']);
 
 		if (!hash_equals(hash('sha256', Json::canonical($plan['payload']['before'])), hash('sha256', Json::canonical($before))))
@@ -773,10 +795,17 @@ final class ActionExecutor
 			return $handler->prepare($input, $resolved['binding'], $this->principal);
 		}
 
-		return $resolved['binding']['track'] === 'cli'
+		$request = $resolved['binding']['track'] === 'cli'
 			? $this->invoke($resolved, $input)
 			: $this->requests->build(isset($resolved['custom_fields']) ? CustomFields::wire($input, $resolved['custom_fields']) : $input,
 				$resolved['binding']['configuration'], $before['item'] ?? []);
+
+		if ($this->nativeCreateAccess)
+		{
+			NativeCreateAccess::requireAllowed($resolved['binding'], $request, $this->principal);
+		}
+
+		return $request;
 	}
 
 	/** @param array<string,mixed> $resolved Resolution. @param array<string,mixed> $input Arguments. @param ?string $key Idempotency key. @param array<string,mixed> $current Existing form fields. @param bool $missing Expected 404. @return array<string,mixed> Handler result. @since 0.1.0 */
@@ -1291,7 +1320,7 @@ final class ActionExecutor
 			{
 				$unobservable[] = $field;
 			}
-			elseif (ApiWriteVerification::compare($resolved, $read, $field, $value, $record[$field], $desired, $record)
+			elseif (ApiWriteVerification::compare($resolved, $read, $field, $value, $record[$field], $desired, $record, $this->settings->get('api_base'), $this->userTimezone)
 				?? CustomFields::compare($resolved, $read, $field, $value, $record[$field])
 				?? (Json::canonical($record[$field]) === Json::canonical($value)
 					|| ((is_int($value) || is_bool($value)) && is_numeric($record[$field]) && (string) (int) $value === (string) $record[$field])))

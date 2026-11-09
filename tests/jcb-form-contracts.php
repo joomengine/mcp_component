@@ -267,6 +267,14 @@ PHP);
 	$translationRoute = ['controller' => 'language_translation.add', 'method' => 'POST'];
 	$legacy = $contracts->forRoute($translationRoute);
 	$check($legacy['source_create_disabled'] === true, 'The unchanged native translation model exposes its unsupported source-create contract.');
+	foreach (['"true"', '"1"', '$disabled'] as $disabled)
+	{
+		$write('admin/src/Model/Language_translationModel.php', sprintf($translationModel,
+			'$form->setFieldAttribute("source", "disabled", ' . $disabled . ');'));
+		$restricted = $contracts->forRoute($translationRoute);
+		$check($restricted['source_create_disabled'] === true,
+			'A disabling or unknown native attribute assignment does not advertise source creation.');
+	}
 	$write('admin/src/Model/Language_translationModel.php', sprintf($translationModel, '$form->setFieldAttribute("source", "disabled", "false");'));
 	$updated = $contracts->forRoute($translationRoute);
 	$check($updated['source_create_disabled'] === false && $updated['fingerprint'] !== $legacy['fingerprint'],

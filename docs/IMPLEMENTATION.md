@@ -1,5 +1,42 @@
 # Implementation status — 2 October 2026
 
+## Open-issue stabilization — 9 November 2026
+
+Native article image and category media comparisons now remove only the exact
+configured installation-root prefix from reviewed media keys. Other values, external
+origins, captions, queries and fragments remain exact. Module create/update accepts
+`publish_up` and `publish_down`, and article writes accept `created` and `created_by`.
+Native module reads include scheduling fields. Runtime-owned seed extensions update
+managed definitions while retaining administrator-owned bindings and schemas.
+
+Native API calendar verification uses the authenticated Joomla user's timezone only
+when the configured API origin and mount establish this installation. The plan
+records that timezone; a change before apply invalidates the plan before a write.
+API input must use the native calendar format (`Y-m-d H:i:s` in the default
+locale); the native form rejects ISO offsets, date-only and minute-only values.
+Unproven proxy/alias installations retain strict comparison. Native console model
+saves retain their existing UTC input semantics; this change does not add API form
+filtering to CLI.
+
+Article/banner create preflight identifies missing `core.manage` or target-category
+`core.create` before planning or claiming a write. Successful reads do not establish
+these permissions, and Super Users membership is unnecessary. The reporter's
+configuration has not been independently inspected. Submitted HTTP failures keep
+their existing uncertainty rules; previously uncertain executions need reconciliation.
+
+Local checks include the complete existing PHP CI suites, 79 publishing-field
+checks, 229 date checks, 1,926 write-verification checks, package relocation, and
+changelog metadata validation. Installed regressions exercise local media URLs,
+non-UTC schedules, independent SQL persistence, subsequent writes, replay, cleanup
+and restricted-user article/banner creation. Their live results are tracked in
+the linked stabilization PR; recording tests alone are not installed acceptance.
+TypeScript parity is tracked in [joomla-mcp PR #77](https://github.com/joomengine/joomla-mcp/pull/77).
+
+Existing JCB translation updates remain fixed. The remaining native source-create
+requirement and a tested upstream proposal are documented in
+[native language translation source](testing/native-language-translation.md).
+Creation is not marked resolved while the installed JCB form still disables source.
+
 ## JCB language translation source — issue #46
 
 Existing language translations can be updated while retaining their disabled, read-only source. The API request explicitly supplies `source: null` only for the observed JCB translation update binding: Joomla skips backfilling that field, native Registry/Form filtering omits the null, and the model binds the remaining validated fields onto the existing table row. Planning requires a source snapshot and discloses preservation; independent read-back must show the original source. A changed or unobservable source keeps the execution uncertain. Explicit source edits fail before an execution is claimed. No HTTP failure is reclassified based solely on its message.

@@ -430,6 +430,22 @@
               },
               "assigned": {
                 "description": "Reviewed Joomla site module form field."
+              },
+              "publish_up": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 64,
+                "description": "API: use the native calendar format (Y-m-d H:i:s in the default locale), in the authenticated user timezone; read-back is UTC. ISO offsets are not accepted by that native form. CLI: native model writes bypass this filter; supply UTC SQL dates."
+              },
+              "publish_down": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 64,
+                "description": "API: use the native calendar format (Y-m-d H:i:s in the default locale), in the authenticated user timezone; read-back is UTC. ISO offsets are not accepted by that native form. CLI: native model writes bypass this filter; supply UTC SQL dates."
               }
             },
             "additionalProperties": false,
@@ -489,6 +505,22 @@
               },
               "assigned": {
                 "description": "Reviewed Joomla administrator module form field."
+              },
+              "publish_up": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 64,
+                "description": "API: use the native calendar format (Y-m-d H:i:s in the default locale), in the authenticated user timezone; read-back is UTC. ISO offsets are not accepted by that native form. CLI: native model writes bypass this filter; supply UTC SQL dates."
+              },
+              "publish_down": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 64,
+                "description": "API: use the native calendar format (Y-m-d H:i:s in the default locale), in the authenticated user timezone; read-back is UTC. ISO offsets are not accepted by that native form. CLI: native model writes bypass this filter; supply UTC SQL dates."
               }
             },
             "additionalProperties": false,
@@ -534,5 +566,6 @@
         "snapshot_contract": "joomla.message-owned-record.v1"
       }
     }
-  ]
+  ],
+  "publishingFields": true
 }
