@@ -40,6 +40,13 @@ $check = static function (bool $ok, string $label) use (&$checks): void
 };
 /** Observe protocol errors without accepting a false success result. */
 $denied = static fn (array $result): bool => isset($result['error']) || ($result['result']['isError'] ?? false) === true;
+/** Report only bounded field names/statuses, never submitted content or credentials. */
+$verificationDetails = static function (array $result): string
+{
+	$verification = $result['verification'] ?? [];
+
+	return json_encode(array_intersect_key($verification, array_flip(['status', 'differentFields', 'unobservableFields'])), JSON_THROW_ON_ERROR);
+};
 $groups = [];
 $users = [];
 $tokens = [];
@@ -145,7 +152,9 @@ try
 	$grantId = $grant['id'] ?? $grant['grantId'];
 	$category = (int) $db->setQuery('SELECT id FROM ' . $db->quoteName('#__categories') . ' WHERE extension = ' . $db->quote('com_content') . ' AND published = 1 ORDER BY id', 0, 1)->loadResult();
 	$title = 'MCP denied create ' . $suffix;
-	$input = ['idempotencyKey' => Json::uuid(), 'data' => ['title' => $title, 'catid' => $category, 'articletext' => '<p>Least privilege</p>', 'language' => '*']];
+	// Use the API's observable fields and plain text: articletext is an editor
+	// input alias, and this Public-child group intentionally has no HTML exemption.
+	$input = ['idempotencyKey' => Json::uuid(), 'data' => ['title' => $title, 'catid' => $category, 'introtext' => 'Least privilege', 'fulltext' => '', 'language' => '*']];
 	$executionCount = count($store->find('execution'));
 	$planCount = count($store->find('plan'));
 	$rejected = $clients['a']->rpc('tools/call', ['name' => 'joomla_content_article_create_plan', 'arguments' => $input]);
@@ -162,7 +171,7 @@ try
 	$check($denied($clients['b']->rpc('tools/call', ['name' => 'joomla_write_apply', 'arguments' => ['confirmationToken' => $plan['confirmationToken']]])), 'Another authenticated user cannot apply this confirmation token');
 	$created[] = ['com_content', 'Article', 'content', 'title', $title];
 	$result = $clients['a']->tool('joomla_write_apply', ['confirmationToken' => $plan['confirmationToken']]);
-	$check(($result['verification']['status'] ?? '') === 'verified', 'Restricted API user creates and verifies an article without Super Users');
+	$check(($result['verification']['status'] ?? '') === 'verified', 'Restricted API user creates and verifies an article without Super Users: ' . $verificationDetails($result));
 	$row = $db->setQuery('SELECT id, created_by FROM ' . $db->quoteName('#__content') . ' WHERE title = ' . $db->quote($title))->loadAssoc();
 	$check((int) ($row['created_by'] ?? 0) === (int) $users['a']->id, 'Article is owned by the authenticated restricted user');
 	$check($store->one('lease', ['owner_uuid' => $result['executionId']]) === null, 'Verified restricted creation releases its lease');
@@ -202,7 +211,7 @@ try
 	$plan = $clients['a']->tool('joomla_action_write_plan', ['action' => 'banners.banners.create', 'idempotencyKey' => Json::uuid(),
 		'input' => ['data' => ['name' => $bannerTitle, 'catid' => $bannerCategory, 'language' => '*', 'type' => 1, 'custombannercode' => 'Least privilege']]]);
 	$result = $clients['a']->tool('joomla_write_apply', ['confirmationToken' => $plan['confirmationToken']]);
-	$check(($result['verification']['status'] ?? '') === 'verified', 'Restricted API user creates and verifies a banner without Super Users');
+	$check(($result['verification']['status'] ?? '') === 'verified', 'Restricted API user creates and verifies a banner without Super Users: ' . $verificationDetails($result));
 	$row = $db->setQuery('SELECT id, created_by FROM ' . $db->quoteName('#__banners') . ' WHERE name = ' . $db->quote($bannerTitle))->loadAssoc();
 	$check((int) ($row['created_by'] ?? 0) === (int) $users['a']->id, 'Banner is owned by the authenticated restricted user');
 	$clients['a']->tool('joomla_permission_revoke', ['grantId' => $grantId]);
